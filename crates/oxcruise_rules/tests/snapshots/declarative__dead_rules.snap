@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: "r.warnings.join(\"\\n\")"
+---
+rule `typo-path`: its `from` conditions matched no module
+rule `never-targets`: its `to.path` matched no dependency of the modules matching `from`

@@ -194,6 +194,11 @@ impl<'a> RuleCtx<'a> {
         });
     }
 
+    /// Push a fully built violation (for module-level findings that carry a target and path).
+    pub fn push(&self, v: Violation) {
+        self.out.borrow_mut().push(v);
+    }
+
     pub fn into_violations(self) -> Vec<Violation> {
         self.out.into_inner()
     }

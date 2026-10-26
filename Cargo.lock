@@ -908,6 +908,7 @@ dependencies = [
  "oxcruise_graph",
  "oxcruise_macros",
  "oxcruise_resolve",
+ "oxcruise_rules",
  "rayon",
  "regex",
  "rustc-hash",

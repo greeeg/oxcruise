@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"a.ts -> a.ts\"])"
+---
+error no-circular a.ts:1:1 -> a.ts: circular dependency: a.ts → a.ts

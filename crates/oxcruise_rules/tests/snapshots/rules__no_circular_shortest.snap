@@ -1,0 +1,9 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"a.ts -> b.ts\", \"b.ts -> c.ts\", \"c.ts -> d.ts\", \"d.ts -> a.ts\",\n\"b.ts -> a.ts\"])"
+---
+error no-circular a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → a.ts
+error no-circular b.ts:2:1 -> c.ts: circular dependency: b.ts → c.ts → d.ts → a.ts → b.ts
+error no-circular b.ts:5:1 -> a.ts: circular dependency: b.ts → a.ts → b.ts
+error no-circular c.ts:3:1 -> d.ts: circular dependency: c.ts → d.ts → a.ts → b.ts → c.ts
+error no-circular d.ts:4:1 -> a.ts: circular dependency: d.ts → a.ts → b.ts → c.ts → d.ts

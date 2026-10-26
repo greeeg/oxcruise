@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/a.ts -> vitest [npm-dev]\",\n\"packages/x/src/b.ts -> vite [npm-dev]\"])"
+---
+error no-dev-deps-in-prod packages/x/src/b.ts:2:1 -> vite: production code imports dev dependency `vite`
+error no-dev-deps-in-prod src/a.ts:1:1 -> vitest: production code imports dev dependency `vitest`

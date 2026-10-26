@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "Tester::rule(\"no-deprecated-npm\",\nnone()).fail(&[\"a.ts -> left-pad [npm deprecated]\"])"
+---
+error no-deprecated-npm a.ts:1:1 -> left-pad: `left-pad` is deprecated by its maintainers

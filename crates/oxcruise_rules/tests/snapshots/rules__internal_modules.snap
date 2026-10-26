@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/b/x.ts -> src/a/internal/y.ts\",\n\"src/a2/x.ts -> src/a/internal/deep/y.ts\"])"
+---
+error internal-modules src/a2/x.ts:2:1 -> src/a/internal/deep/y.ts: `src/a/internal/deep/y.ts` is internal to `src/a` and cannot be imported from `src/a2/x.ts`
+error internal-modules src/b/x.ts:1:1 -> src/a/internal/y.ts: `src/a/internal/y.ts` is internal to `src/a` and cannot be imported from `src/b/x.ts`

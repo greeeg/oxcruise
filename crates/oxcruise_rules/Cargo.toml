@@ -6,6 +6,8 @@ license.workspace = true
 description = "Rule engine for oxcruise: built-in rules, declarative rules, suppression"
 
 [features]
+# Expose the `Tester` graph-fixture harness to other crates' tests.
+testing = []
 # Generate JSON schemas for rule options (website / `--rules`).
 ruledocs = []
 
@@ -29,3 +31,4 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
+oxcruise_rules = { path = ".", features = ["testing"] }

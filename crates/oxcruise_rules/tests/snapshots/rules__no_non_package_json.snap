@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "Tester::rule(\"no-non-package-json\", none()).fail(&[\"a.ts -> x [npm-no-pkg]\"])"
+---
+error no-non-package-json a.ts:1:1 -> x: `x` is not declared in package.json

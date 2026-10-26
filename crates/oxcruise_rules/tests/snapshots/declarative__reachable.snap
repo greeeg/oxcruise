@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: "tester.fail(&[\"src/ui/a.ts -> src/domain/b.ts\",\n\"src/domain/b.ts -> src/db/q.ts\", \"src/db/q.ts -> src/db/conn.ts\"])"
+---
+error ui-must-not-reach-db src/ui/a.ts -> src/db/conn.ts: `src/db/conn.ts` is reachable from here
+error ui-must-not-reach-db src/ui/a.ts -> src/db/q.ts: `src/db/q.ts` is reachable from here

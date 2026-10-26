@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "Tester::rule(\"peer-deps-used\", none()).fail(&[\"a.ts -> x [npm-peer]\"])"
+---
+error peer-deps-used a.ts:1:1 -> x: `x` is a peer dependency

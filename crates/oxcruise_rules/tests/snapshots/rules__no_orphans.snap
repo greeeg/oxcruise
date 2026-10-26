@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"a.ts -> b.ts\", \"lonely.ts\", \"dir/other.ts\"])"
+---
+error no-orphans dir/other.ts: this module is not imported by any module and imports nothing
+error no-orphans lonely.ts: this module is not imported by any module and imports nothing

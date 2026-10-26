@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: "tester.fail(&[\"a.ts -> hub.ts\", \"b.ts -> hub.ts\", \"c.ts -> hub.ts\",\n\"lonely.ts\", \"types.d.ts\"])"
+---
+warn orphans lonely.ts: module is forbidden by this rule
+info popular hub.ts: module is forbidden by this rule

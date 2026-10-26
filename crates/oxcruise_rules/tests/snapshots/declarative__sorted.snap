@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: out
+---
+error no-unresolvable z.ts:1:1 -> ./nope: cannot resolve `./nope`
+warn no-orphans a.ts: this module is not imported by any module and imports nothing

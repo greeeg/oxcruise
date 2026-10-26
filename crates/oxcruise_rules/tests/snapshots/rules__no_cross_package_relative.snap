@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"packages/a/x.ts -> packages/b/src/y.ts as ../b/src/y\"])"
+---
+error no-cross-package-relative packages/a/x.ts:1:1 -> packages/b/src/y.ts: relative import crosses from package `pkg0` into `pkg1`; import it by package name

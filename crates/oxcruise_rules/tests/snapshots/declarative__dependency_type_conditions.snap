@@ -1,0 +1,7 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: "tester.fail(&[\"a.ts -> x [npm-dev]\", \"a.ts -> b.ts [dynamic-import]\",\n\"a.ts -> ./nope [unknown]\"])"
+---
+error no-dev a.ts:1:1 -> x: forbidden dependency
+error no-dynamic a.ts:2:1 -> b.ts: forbidden dependency
+error no-unresolved a.ts:3:1 -> ./nope: forbidden dependency

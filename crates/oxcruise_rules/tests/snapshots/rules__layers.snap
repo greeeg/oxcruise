@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/domain/b.ts -> src/infra/db.ts\",\n\"src/ui/a.ts -> src/infra/db.ts\", \"src/ui/a.ts -> src/domain/b.ts\"])"
+---
+error layers src/domain/b.ts:1:1 -> src/infra/db.ts: layer `domain` must not import layer `infra` (`src/infra/db.ts`)
+error layers src/ui/a.ts:2:1 -> src/infra/db.ts: layer `ui` must not import layer `infra` (`src/infra/db.ts`)
