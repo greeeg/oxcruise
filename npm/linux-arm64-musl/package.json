@@ -1,0 +1,22 @@
+{
+  "name": "@oxcruise/binding-linux-arm64-musl",
+  "version": "0.1.0",
+  "cpu": [
+    "arm64"
+  ],
+  "main": "oxcruise.linux-arm64-musl.node",
+  "files": [
+    "oxcruise.linux-arm64-musl.node"
+  ],
+  "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "musl"
+  ]
+}

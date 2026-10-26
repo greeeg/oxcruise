@@ -1,0 +1,22 @@
+{
+  "name": "@oxcruise/binding-linux-x64-gnu",
+  "version": "0.1.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "oxcruise.linux-x64-gnu.node",
+  "files": [
+    "oxcruise.linux-x64-gnu.node"
+  ],
+  "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

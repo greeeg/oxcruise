@@ -1,0 +1,29 @@
+{
+  "name": "oxcruise",
+  "version": "0.1.0",
+  "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "oxcruise": "bin/oxcruise" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./plugin": { "types": "./dist/plugin.d.ts", "default": "./dist/plugin.js" },
+    "./configuration_schema.json": "./configuration_schema.json"
+  },
+  "files": ["dist", "bin", "configuration_schema.json"],
+  "engines": { "node": ">=22.18" },
+  "napi": {
+    "binaryName": "oxcruise",
+    "packageName": "@oxcruise/binding",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-musl",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
+    ]
+  }
+}

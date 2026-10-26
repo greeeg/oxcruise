@@ -1,0 +1,19 @@
+{
+  "name": "@oxcruise/binding-darwin-x64",
+  "version": "0.1.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "oxcruise.darwin-x64.node",
+  "files": [
+    "oxcruise.darwin-x64.node"
+  ],
+  "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "os": [
+    "darwin"
+  ]
+}

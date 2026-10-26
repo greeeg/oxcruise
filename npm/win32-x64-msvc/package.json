@@ -1,0 +1,19 @@
+{
+  "name": "@oxcruise/binding-win32-x64-msvc",
+  "version": "0.1.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "oxcruise.win32-x64-msvc.node",
+  "files": [
+    "oxcruise.win32-x64-msvc.node"
+  ],
+  "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "os": [
+    "win32"
+  ]
+}
