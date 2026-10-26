@@ -80,7 +80,7 @@
       "type": "array",
       "default": [],
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/JsPlugin"
       }
     },
     "options": {
@@ -131,6 +131,23 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "AliasedPlugin": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Rules are named `<name>/<rule>`, instead of using the plugin's own `meta.name`.",
+          "type": "string"
+        },
+        "specifier": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "specifier"
+      ]
+    },
     "CycleOptions": {
       "type": "object",
       "properties": {
@@ -314,6 +331,18 @@
         },
         {
           "$ref": "#/$defs/FromCondition"
+        }
+      ]
+    },
+    "JsPlugin": {
+      "description": "A JS/TS plugin: a path or package name, or the same with the name its rules are registered under.",
+      "anyOf": [
+        {
+          "description": "`\"./tools/acme.ts\"` or `\"acme\"` (resolved as `oxcruise-plugin-acme`, then `acme`).",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/AliasedPlugin"
         }
       ]
     },

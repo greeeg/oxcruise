@@ -50,6 +50,8 @@ pub struct RunResult {
     /// Violations silenced by `oxcruise-ignore-*` comments.
     pub suppressed: usize,
     pub warnings: Vec<String>,
+    /// Problems that make the result untrustworthy (a plugin crashed). The run must fail.
+    pub fatal: Vec<String>,
 }
 
 impl RunResult {
@@ -259,6 +261,7 @@ impl Engine {
 
     pub fn run(&self, graph: &Graph, root: &Path, workspace: &[WorkspacePackage]) -> RunResult {
         let mut warnings = vec![];
+        let mut fatal = vec![];
         let mut resolved: Vec<Resolved> = vec![];
         let mut externals: Vec<ExternalRuleSpec> = vec![];
 
@@ -328,7 +331,7 @@ impl Engine {
                             violations.push(v);
                         }
                     }
-                    Err(e) => warnings.push(format!("plugin rules failed: {e}")),
+                    Err(e) => fatal.push(format!("plugin rules failed: {e}")),
                 },
                 None => warnings
                     .push("plugin rules are configured but no plugin host is available".into()),
@@ -377,6 +380,7 @@ impl Engine {
             violations,
             suppressed,
             warnings,
+            fatal,
         }
     }
 

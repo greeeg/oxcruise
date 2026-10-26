@@ -12,7 +12,7 @@ pub mod testing;
 
 pub use engine::{Engine, RunResult};
 pub use external::{
-    ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget, ExternalViolation,
+    ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget, ExternalViolation, PluginRef,
 };
 pub use meta::{Analyses, Category, Rule, RuleCtx, RuleMeta};
 pub use registry::{RuleEnum, RuleInfo, builtin_rules};

@@ -6,6 +6,6 @@ mod loc;
 mod violation;
 
 pub use graph::{Edge, EdgeId, Graph, Module, ModuleId, ModuleKind};
-pub use kinds::{DepKinds, ModuleSystem};
+pub use kinds::{DepKinds, ModuleSystem, kinds_typescript};
 pub use loc::{LineIndex, Loc, Span};
 pub use violation::{CycleStep, Severity, Violation};

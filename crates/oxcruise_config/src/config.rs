@@ -305,6 +305,38 @@ pub struct Override {
     pub rules: BTreeMap<String, RuleEntry>,
 }
 
+/// A JS/TS plugin: a path or package name, or the same with the name its rules are registered under.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum JsPlugin {
+    /// `"./tools/acme.ts"` or `"acme"` (resolved as `oxcruise-plugin-acme`, then `acme`).
+    Path(String),
+    Aliased(AliasedPlugin),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AliasedPlugin {
+    /// Rules are named `<name>/<rule>`, instead of using the plugin's own `meta.name`.
+    pub name: String,
+    pub specifier: String,
+}
+
+impl JsPlugin {
+    pub fn specifier(&self) -> &str {
+        match self {
+            JsPlugin::Path(p) => p,
+            JsPlugin::Aliased(a) => &a.specifier,
+        }
+    }
+    pub fn alias(&self) -> Option<&str> {
+        match self {
+            JsPlugin::Path(_) => None,
+            JsPlugin::Aliased(a) => Some(&a.name),
+        }
+    }
+}
+
 /// The oxcruise configuration file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
@@ -330,7 +362,7 @@ pub struct OxcruiseConfig {
     pub require: Vec<RequireRule>,
     pub overrides: Vec<Override>,
     /// JS/TS plugin modules (paths or package names).
-    pub js_plugins: Vec<String>,
+    pub js_plugins: Vec<JsPlugin>,
     pub options: Options,
 }
 

@@ -29,7 +29,21 @@ pub struct ExternalViolation {
     pub message: String,
 }
 
+/// One entry of `jsPlugins`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginRef {
+    /// A path (relative to the cwd) or a package name.
+    pub specifier: String,
+    /// Register the plugin's rules under this name instead of its own.
+    pub alias: Option<String>,
+}
+
 pub trait ExternalRules: Send + Sync {
+    /// Load the plugins named in `jsPlugins`. Called once, before any rule is looked up.
+    fn load_plugins(&self, _plugins: &[PluginRef], _cwd: &std::path::Path) -> Result<(), String> {
+        Ok(())
+    }
+
     /// Is there a plugin rule with this fully qualified name (`acme/max-fan-out`)?
     fn rule_exists(&self, name: &str) -> bool;
 
