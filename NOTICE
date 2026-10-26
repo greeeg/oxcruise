@@ -1,0 +1,10 @@
+oxcruise includes or derives from the following third-party works.
+
+* oxc (https://github.com/oxc-project/oxc) — MIT License
+  The SFC partial loader in `crates/oxcruise_extract/src/sfc.rs` is a port of
+  `oxc_linter/src/loader/partial_loader`. The architecture (bin + cdylib split,
+  external-linter callbacks, config schema pipeline) follows `apps/oxlint`.
+
+* dependency-cruiser (https://github.com/sverweij/dependency-cruiser) — MIT License
+  Dependency type names, rule semantics, the `recommended` preset and the
+  `cruise-result.schema.json` output shape are derived from dependency-cruiser.

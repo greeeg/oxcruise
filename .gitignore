@@ -1,0 +1,8 @@
+/target
+node_modules
+dist
+*.node
+.DS_Store
+*.log
+/tmp
+.oxcruise-cache
