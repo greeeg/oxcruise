@@ -1,0 +1,947 @@
+---
+source: crates/oxcruise_report/tests/reporters.rs
+expression: "rendered(\"json\", &plain())"
+---
+{
+  "version": 1,
+  "modules": [
+    {
+      "path": "fs",
+      "kind": "core",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "node_modules/fsevents/index.js",
+      "kind": "stub",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "node_modules/left-pad/index.js",
+      "kind": "stub",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "node_modules/lodash/index.js",
+      "kind": "stub",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "node_modules/react/index.js",
+      "kind": "stub",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "node_modules/vitest/index.js",
+      "kind": "stub",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/cjs-thing.js",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/cycle-a.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "packages/app/src/cycle-b.ts",
+          "to_kind": "source",
+          "specifier": "./cycle-b",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 19,
+          "circular": true,
+          "cycle": [
+            {
+              "module": "packages/app/src/cycle-a.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "module": "packages/app/src/cycle-b.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            }
+          ],
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/cycle-b.ts",
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/cycle-b.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "packages/app/src/cycle-a.ts",
+          "to_kind": "source",
+          "specifier": "./cycle-a",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 19,
+          "circular": true,
+          "cycle": [
+            {
+              "module": "packages/app/src/cycle-b.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "module": "packages/app/src/cycle-a.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            }
+          ],
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/cycle-a.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/helpers.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "packages/app/src/util.ts",
+          "to_kind": "source",
+          "specifier": "./util",
+          "kinds": [
+            "local",
+            "type-only",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 27,
+          "circular": true,
+          "cycle": [
+            {
+              "module": "packages/app/src/helpers.ts",
+              "kinds": [
+                "local",
+                "type-only",
+                "import"
+              ]
+            },
+            {
+              "module": "packages/app/src/util.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            }
+          ],
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/index.ts",
+        "packages/app/src/util.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/index.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "./missing",
+          "to_kind": "unresolved",
+          "specifier": "./missing",
+          "kinds": [
+            "unknown",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 11,
+          "col": 22,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "to": "fs",
+          "to_kind": "core",
+          "specifier": "node:fs",
+          "kinds": [
+            "core",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 9,
+          "col": 16,
+          "circular": false
+        },
+        {
+          "to": "node_modules/fsevents/index.js",
+          "to_kind": "stub",
+          "specifier": "fsevents",
+          "kinds": [
+            "npm-optional",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 7,
+          "col": 22,
+          "circular": false,
+          "rules": [
+            {
+              "name": "optional-deps-used",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "to": "node_modules/left-pad/index.js",
+          "to_kind": "stub",
+          "specifier": "left-pad",
+          "kinds": [
+            "npm-no-pkg",
+            "deprecated",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 8,
+          "col": 21,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-non-package-json",
+              "severity": "error"
+            },
+            {
+              "name": "no-deprecated-npm",
+              "severity": "warn"
+            }
+          ]
+        },
+        {
+          "to": "node_modules/lodash/index.js",
+          "to_kind": "stub",
+          "specifier": "lodash",
+          "kinds": [
+            "npm",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 4,
+          "col": 15,
+          "circular": false
+        },
+        {
+          "to": "node_modules/react/index.js",
+          "to_kind": "stub",
+          "specifier": "react",
+          "kinds": [
+            "npm-peer",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 6,
+          "col": 19,
+          "circular": false,
+          "rules": [
+            {
+              "name": "peer-deps-used",
+              "severity": "warn"
+            }
+          ]
+        },
+        {
+          "to": "node_modules/vitest/index.js",
+          "to_kind": "stub",
+          "specifier": "vitest",
+          "kinds": [
+            "npm-dev",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 5,
+          "col": 22,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-dev-deps-in-prod",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "to": "packages/app/src/cjs-thing.js",
+          "to_kind": "source",
+          "specifier": "./cjs-thing",
+          "kinds": [
+            "local",
+            "require"
+          ],
+          "module_system": "cjs",
+          "line": 14,
+          "col": 21,
+          "circular": false
+        },
+        {
+          "to": "packages/app/src/cycle-a.ts",
+          "to_kind": "source",
+          "specifier": "./cycle-a",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 13,
+          "col": 19,
+          "circular": false
+        },
+        {
+          "to": "packages/app/src/helpers.ts",
+          "to_kind": "source",
+          "specifier": "@app/helpers",
+          "kinds": [
+            "local",
+            "aliased",
+            "aliased-tsconfig",
+            "aliased-tsconfig-paths",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 2,
+          "col": 24,
+          "circular": false
+        },
+        {
+          "to": "packages/app/src/internal/secret.ts",
+          "to_kind": "source",
+          "specifier": "#internal/secret",
+          "kinds": [
+            "local",
+            "aliased",
+            "aliased-subpath-import",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 3,
+          "col": 24,
+          "circular": false
+        },
+        {
+          "to": "packages/app/src/lazy.ts",
+          "to_kind": "source",
+          "specifier": "./lazy",
+          "kinds": [
+            "local",
+            "dynamic-import"
+          ],
+          "module_system": "es6",
+          "line": 15,
+          "col": 8,
+          "circular": false
+        },
+        {
+          "to": "packages/app/src/util.ts",
+          "to_kind": "source",
+          "specifier": "./util",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 22,
+          "circular": false
+        },
+        {
+          "to": "packages/lib/src/index.ts",
+          "to_kind": "source",
+          "specifier": "@acme/lib",
+          "kinds": [
+            "local",
+            "aliased",
+            "aliased-workspace",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 12,
+          "col": 24,
+          "circular": false
+        },
+        {
+          "to": "sys",
+          "to_kind": "core",
+          "specifier": "sys",
+          "kinds": [
+            "core",
+            "deprecated",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 10,
+          "col": 17,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-deprecated-core",
+              "severity": "warn"
+            }
+          ]
+        }
+      ],
+      "dependents": []
+    },
+    {
+      "path": "packages/app/src/internal/secret.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/lazy.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/orphan.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "packages/app/src/suppressed.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "./also-nope",
+          "to_kind": "unresolved",
+          "specifier": "./also-nope",
+          "kinds": [
+            "unknown",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 3,
+          "col": 8,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "to": "./nope",
+          "to_kind": "unresolved",
+          "specifier": "./nope",
+          "kinds": [
+            "unknown",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 2,
+          "col": 8,
+          "circular": false
+        }
+      ],
+      "dependents": []
+    },
+    {
+      "path": "packages/app/src/thing.test.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/uses-test.ts"
+      ]
+    },
+    {
+      "path": "packages/app/src/uses-test.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "packages/app/src/thing.test.ts",
+          "to_kind": "source",
+          "specifier": "./thing.test",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 19,
+          "circular": false,
+          "rules": [
+            {
+              "name": "not-to-test",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": []
+    },
+    {
+      "path": "packages/app/src/util.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "packages/app/src/helpers.ts",
+          "to_kind": "source",
+          "specifier": "./helpers",
+          "kinds": [
+            "local",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 24,
+          "circular": true,
+          "cycle": [
+            {
+              "module": "packages/app/src/util.ts",
+              "kinds": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "module": "packages/app/src/helpers.ts",
+              "kinds": [
+                "local",
+                "type-only",
+                "import"
+              ]
+            }
+          ],
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/helpers.ts",
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/lib/src/index.ts",
+      "kind": "source",
+      "package": "@acme/lib",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [
+        {
+          "to": "@app/helpers",
+          "to_kind": "unresolved",
+          "specifier": "@app/helpers",
+          "kinds": [
+            "unknown",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 2,
+          "col": 24,
+          "circular": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "to": "packages/lib/src/inner.ts",
+          "to_kind": "source",
+          "specifier": "@lib/inner",
+          "kinds": [
+            "local",
+            "aliased",
+            "aliased-tsconfig",
+            "aliased-tsconfig-paths",
+            "import"
+          ],
+          "module_system": "es6",
+          "line": 1,
+          "col": 23,
+          "circular": false
+        }
+      ],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    },
+    {
+      "path": "packages/lib/src/inner.ts",
+      "kind": "source",
+      "package": "@acme/lib",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/lib/src/index.ts"
+      ]
+    },
+    {
+      "path": "sys",
+      "kind": "core",
+      "not_followed": false,
+      "orphan": false,
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ]
+    }
+  ],
+  "violations": [
+    {
+      "rule": "no-circular",
+      "severity": "error",
+      "kind": "cycle",
+      "from": "packages/app/src/cycle-a.ts",
+      "to": "packages/app/src/cycle-b.ts",
+      "line": 1,
+      "col": 19,
+      "message": "circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts",
+      "cycle": [
+        {
+          "module": "packages/app/src/cycle-a.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        },
+        {
+          "module": "packages/app/src/cycle-b.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        }
+      ],
+      "specifier_len": 11
+    },
+    {
+      "rule": "no-circular",
+      "severity": "error",
+      "kind": "cycle",
+      "from": "packages/app/src/cycle-b.ts",
+      "to": "packages/app/src/cycle-a.ts",
+      "line": 1,
+      "col": 19,
+      "message": "circular dependency: packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts",
+      "cycle": [
+        {
+          "module": "packages/app/src/cycle-b.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        },
+        {
+          "module": "packages/app/src/cycle-a.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        }
+      ],
+      "specifier_len": 11
+    },
+    {
+      "rule": "no-circular",
+      "severity": "error",
+      "kind": "cycle",
+      "from": "packages/app/src/helpers.ts",
+      "to": "packages/app/src/util.ts",
+      "line": 1,
+      "col": 27,
+      "message": "circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts",
+      "cycle": [
+        {
+          "module": "packages/app/src/helpers.ts",
+          "kinds": [
+            "local",
+            "type-only",
+            "import"
+          ]
+        },
+        {
+          "module": "packages/app/src/util.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        }
+      ],
+      "specifier_len": 8
+    },
+    {
+      "rule": "no-dev-deps-in-prod",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/vitest/index.js",
+      "line": 5,
+      "col": 22,
+      "message": "production code imports dev dependency `vitest`",
+      "specifier_len": 8
+    },
+    {
+      "rule": "no-non-package-json",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/left-pad/index.js",
+      "line": 8,
+      "col": 21,
+      "message": "`left-pad` is not declared in package.json",
+      "specifier_len": 10
+    },
+    {
+      "rule": "no-unresolvable",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "./missing",
+      "line": 11,
+      "col": 22,
+      "message": "cannot resolve `./missing`",
+      "specifier_len": 11
+    },
+    {
+      "rule": "no-unresolvable",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/app/src/suppressed.ts",
+      "to": "./also-nope",
+      "line": 3,
+      "col": 8,
+      "message": "cannot resolve `./also-nope`",
+      "specifier_len": 13
+    },
+    {
+      "rule": "not-to-test",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/app/src/uses-test.ts",
+      "to": "packages/app/src/thing.test.ts",
+      "line": 1,
+      "col": 19,
+      "message": "production code imports test code `packages/app/src/thing.test.ts`",
+      "specifier_len": 14
+    },
+    {
+      "rule": "no-circular",
+      "severity": "error",
+      "kind": "cycle",
+      "from": "packages/app/src/util.ts",
+      "to": "packages/app/src/helpers.ts",
+      "line": 1,
+      "col": 24,
+      "message": "circular dependency: packages/app/src/util.ts → packages/app/src/helpers.ts → packages/app/src/util.ts",
+      "cycle": [
+        {
+          "module": "packages/app/src/util.ts",
+          "kinds": [
+            "local",
+            "import"
+          ]
+        },
+        {
+          "module": "packages/app/src/helpers.ts",
+          "kinds": [
+            "local",
+            "type-only",
+            "import"
+          ]
+        }
+      ],
+      "specifier_len": 11
+    },
+    {
+      "rule": "no-unresolvable",
+      "severity": "error",
+      "kind": "dependency",
+      "from": "packages/lib/src/index.ts",
+      "to": "@app/helpers",
+      "line": 2,
+      "col": 24,
+      "message": "cannot resolve `@app/helpers`",
+      "specifier_len": 14
+    },
+    {
+      "rule": "peer-deps-used",
+      "severity": "warn",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/react/index.js",
+      "line": 6,
+      "col": 19,
+      "message": "`react` is a peer dependency",
+      "specifier_len": 7
+    },
+    {
+      "rule": "no-deprecated-npm",
+      "severity": "warn",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/left-pad/index.js",
+      "line": 8,
+      "col": 21,
+      "message": "`left-pad` is deprecated by its maintainers",
+      "specifier_len": 10
+    },
+    {
+      "rule": "no-deprecated-core",
+      "severity": "warn",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "sys",
+      "line": 10,
+      "col": 17,
+      "message": "`sys` is a deprecated Node.js module",
+      "specifier_len": 5
+    },
+    {
+      "rule": "no-orphans",
+      "severity": "warn",
+      "kind": "module",
+      "from": "packages/app/src/orphan.ts",
+      "message": "this module is not imported by any module and imports nothing"
+    },
+    {
+      "rule": "optional-deps-used",
+      "severity": "info",
+      "kind": "dependency",
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/fsevents/index.js",
+      "line": 7,
+      "col": 22,
+      "message": "`fsevents` is an optional dependency and may not be installed",
+      "specifier_len": 10
+    }
+  ],
+  "summary": {
+    "error": 10,
+    "warn": 4,
+    "info": 1,
+    "suppressed": 1,
+    "total_modules": 25,
+    "total_dependencies": 24
+  },
+  "warnings": []
+}

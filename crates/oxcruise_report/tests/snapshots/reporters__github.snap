@@ -1,0 +1,19 @@
+---
+source: crates/oxcruise_report/tests/reporters.rs
+expression: "rendered(\"github\", &plain())"
+---
+::error file=packages/app/src/cycle-a.ts,line=1,col=19,title=no-circular::circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts
+::error file=packages/app/src/cycle-b.ts,line=1,col=19,title=no-circular::circular dependency: packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts
+::error file=packages/app/src/helpers.ts,line=1,col=27,title=no-circular::circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts
+::error file=packages/app/src/index.ts,line=5,col=22,title=no-dev-deps-in-prod::production code imports dev dependency `vitest`
+::error file=packages/app/src/index.ts,line=8,col=21,title=no-non-package-json::`left-pad` is not declared in package.json
+::error file=packages/app/src/index.ts,line=11,col=22,title=no-unresolvable::cannot resolve `./missing`
+::error file=packages/app/src/suppressed.ts,line=3,col=8,title=no-unresolvable::cannot resolve `./also-nope`
+::error file=packages/app/src/uses-test.ts,line=1,col=19,title=not-to-test::production code imports test code `packages/app/src/thing.test.ts`
+::error file=packages/app/src/util.ts,line=1,col=24,title=no-circular::circular dependency: packages/app/src/util.ts → packages/app/src/helpers.ts → packages/app/src/util.ts
+::error file=packages/lib/src/index.ts,line=2,col=24,title=no-unresolvable::cannot resolve `@app/helpers`
+::warning file=packages/app/src/index.ts,line=6,col=19,title=peer-deps-used::`react` is a peer dependency
+::warning file=packages/app/src/index.ts,line=8,col=21,title=no-deprecated-npm::`left-pad` is deprecated by its maintainers
+::warning file=packages/app/src/index.ts,line=10,col=17,title=no-deprecated-core::`sys` is a deprecated Node.js module
+::warning file=packages/app/src/orphan.ts,title=no-orphans::this module is not imported by any module and imports nothing
+::notice file=packages/app/src/index.ts,line=7,col=22,title=optional-deps-used::`fsevents` is an optional dependency and may not be installed

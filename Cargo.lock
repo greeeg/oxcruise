@@ -883,6 +883,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxcruise_report"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "oxcruise_config",
+ "oxcruise_core",
+ "oxcruise_graph",
+ "oxcruise_resolve",
+ "oxcruise_rules",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "oxcruise_resolve"
 version = "0.1.0"
 dependencies = [

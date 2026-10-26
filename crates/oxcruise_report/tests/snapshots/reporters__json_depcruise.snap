@@ -1,0 +1,962 @@
+---
+source: crates/oxcruise_report/tests/reporters.rs
+expression: "rendered(\"json-depcruise\", &plain())"
+---
+{
+  "modules": [
+    {
+      "source": "fs",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "coreModule": true,
+      "followable": false
+    },
+    {
+      "source": "node_modules/fsevents/index.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false
+    },
+    {
+      "source": "node_modules/left-pad/index.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false
+    },
+    {
+      "source": "node_modules/lodash/index.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false
+    },
+    {
+      "source": "node_modules/react/index.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false
+    },
+    {
+      "source": "node_modules/vitest/index.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false
+    },
+    {
+      "source": "packages/app/src/cjs-thing.js",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "packages/app/src/cycle-a.ts",
+      "dependencies": [
+        {
+          "resolved": "packages/app/src/cycle-b.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./cycle-b",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ],
+          "circular": true,
+          "cycle": [
+            {
+              "name": "packages/app/src/cycle-b.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "name": "packages/app/src/cycle-a.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/cycle-b.ts",
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/cycle-b.ts",
+      "dependencies": [
+        {
+          "resolved": "packages/app/src/cycle-a.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./cycle-a",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ],
+          "circular": true,
+          "cycle": [
+            {
+              "name": "packages/app/src/cycle-a.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "name": "packages/app/src/cycle-b.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/cycle-a.ts"
+      ],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/helpers.ts",
+      "dependencies": [
+        {
+          "resolved": "packages/app/src/util.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./util",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "type-only",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ],
+          "circular": true,
+          "cycle": [
+            {
+              "name": "packages/app/src/util.ts",
+              "dependencyTypes": [
+                "local",
+                "type-only",
+                "import"
+              ]
+            },
+            {
+              "name": "packages/app/src/helpers.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/index.ts",
+        "packages/app/src/util.ts"
+      ],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/index.ts",
+      "dependencies": [
+        {
+          "resolved": "./missing",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "dynamic": false,
+          "module": "./missing",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "resolved": "fs",
+          "coreModule": true,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "node:fs",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "core",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "node_modules/fsevents/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "fsevents",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm-optional",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "optional-deps-used",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "resolved": "node_modules/left-pad/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "left-pad",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm-no-pkg",
+            "deprecated",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-non-package-json",
+              "severity": "error"
+            },
+            {
+              "name": "no-deprecated-npm",
+              "severity": "warn"
+            }
+          ]
+        },
+        {
+          "resolved": "node_modules/lodash/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "lodash",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "node_modules/react/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "react",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm-peer",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "peer-deps-used",
+              "severity": "warn"
+            }
+          ]
+        },
+        {
+          "resolved": "node_modules/vitest/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "vitest",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm-dev",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-dev-deps-in-prod",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "resolved": "packages/app/src/cjs-thing.js",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./cjs-thing",
+          "moduleSystem": "cjs",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "require"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/app/src/cycle-a.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./cycle-a",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/app/src/helpers.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "@app/helpers",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "aliased",
+            "aliased-tsconfig",
+            "aliased-tsconfig-paths",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/app/src/internal/secret.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "#internal/secret",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "aliased",
+            "aliased-subpath-import",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/app/src/lazy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": true,
+          "module": "./lazy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "dynamic-import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/app/src/util.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./util",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "packages/lib/src/index.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "@acme/lib",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "aliased",
+            "aliased-workspace",
+            "import"
+          ],
+          "valid": true
+        },
+        {
+          "resolved": "sys",
+          "coreModule": true,
+          "followable": false,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "sys",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "core",
+            "deprecated",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-deprecated-core",
+              "severity": "warn"
+            }
+          ]
+        }
+      ],
+      "dependents": [],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/internal/secret.ts",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "packages/app/src/lazy.ts",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "packages/app/src/orphan.ts",
+      "dependencies": [],
+      "dependents": [],
+      "orphan": true,
+      "valid": false,
+      "rules": [
+        {
+          "name": "no-orphans",
+          "severity": "warn"
+        }
+      ]
+    },
+    {
+      "source": "packages/app/src/suppressed.ts",
+      "dependencies": [
+        {
+          "resolved": "./also-nope",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "dynamic": false,
+          "module": "./also-nope",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "resolved": "./nope",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "dynamic": false,
+          "module": "./nope",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown",
+            "import"
+          ],
+          "valid": true
+        }
+      ],
+      "dependents": [],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/thing.test.ts",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/uses-test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "packages/app/src/uses-test.ts",
+      "dependencies": [
+        {
+          "resolved": "packages/app/src/thing.test.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./thing.test",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "not-to-test",
+              "severity": "error"
+            }
+          ]
+        }
+      ],
+      "dependents": [],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/app/src/util.ts",
+      "dependencies": [
+        {
+          "resolved": "packages/app/src/helpers.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "./helpers",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-circular",
+              "severity": "error"
+            }
+          ],
+          "circular": true,
+          "cycle": [
+            {
+              "name": "packages/app/src/helpers.ts",
+              "dependencyTypes": [
+                "local",
+                "import"
+              ]
+            },
+            {
+              "name": "packages/app/src/util.ts",
+              "dependencyTypes": [
+                "local",
+                "type-only",
+                "import"
+              ]
+            }
+          ]
+        }
+      ],
+      "dependents": [
+        "packages/app/src/helpers.ts",
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/lib/src/index.ts",
+      "dependencies": [
+        {
+          "resolved": "@app/helpers",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "dynamic": false,
+          "module": "@app/helpers",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown",
+            "import"
+          ],
+          "valid": false,
+          "rules": [
+            {
+              "name": "no-unresolvable",
+              "severity": "error"
+            }
+          ]
+        },
+        {
+          "resolved": "packages/lib/src/inner.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "dynamic": false,
+          "module": "@lib/inner",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "aliased",
+            "aliased-tsconfig",
+            "aliased-tsconfig-paths",
+            "import"
+          ],
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": false
+    },
+    {
+      "source": "packages/lib/src/inner.ts",
+      "dependencies": [],
+      "dependents": [
+        "packages/lib/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "sys",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "coreModule": true,
+      "followable": false
+    }
+  ],
+  "summary": {
+    "violations": [
+      {
+        "type": "cycle",
+        "from": "packages/app/src/cycle-a.ts",
+        "to": "packages/app/src/cycle-b.ts",
+        "rule": {
+          "name": "no-circular",
+          "severity": "error"
+        },
+        "cycle": [
+          {
+            "name": "packages/app/src/cycle-b.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          },
+          {
+            "name": "packages/app/src/cycle-a.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "cycle",
+        "from": "packages/app/src/cycle-b.ts",
+        "to": "packages/app/src/cycle-a.ts",
+        "rule": {
+          "name": "no-circular",
+          "severity": "error"
+        },
+        "cycle": [
+          {
+            "name": "packages/app/src/cycle-a.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          },
+          {
+            "name": "packages/app/src/cycle-b.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "cycle",
+        "from": "packages/app/src/helpers.ts",
+        "to": "packages/app/src/util.ts",
+        "rule": {
+          "name": "no-circular",
+          "severity": "error"
+        },
+        "cycle": [
+          {
+            "name": "packages/app/src/util.ts",
+            "dependencyTypes": [
+              "local",
+              "type-only",
+              "import"
+            ]
+          },
+          {
+            "name": "packages/app/src/helpers.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "node_modules/vitest/index.js",
+        "rule": {
+          "name": "no-dev-deps-in-prod",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "node_modules/left-pad/index.js",
+        "rule": {
+          "name": "no-non-package-json",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "./missing",
+        "rule": {
+          "name": "no-unresolvable",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/suppressed.ts",
+        "to": "./also-nope",
+        "rule": {
+          "name": "no-unresolvable",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/uses-test.ts",
+        "to": "packages/app/src/thing.test.ts",
+        "rule": {
+          "name": "not-to-test",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "cycle",
+        "from": "packages/app/src/util.ts",
+        "to": "packages/app/src/helpers.ts",
+        "rule": {
+          "name": "no-circular",
+          "severity": "error"
+        },
+        "cycle": [
+          {
+            "name": "packages/app/src/helpers.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          },
+          {
+            "name": "packages/app/src/util.ts",
+            "dependencyTypes": [
+              "local",
+              "type-only",
+              "import"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "dependency",
+        "from": "packages/lib/src/index.ts",
+        "to": "@app/helpers",
+        "rule": {
+          "name": "no-unresolvable",
+          "severity": "error"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "node_modules/react/index.js",
+        "rule": {
+          "name": "peer-deps-used",
+          "severity": "warn"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "node_modules/left-pad/index.js",
+        "rule": {
+          "name": "no-deprecated-npm",
+          "severity": "warn"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "sys",
+        "rule": {
+          "name": "no-deprecated-core",
+          "severity": "warn"
+        }
+      },
+      {
+        "type": "module",
+        "from": "packages/app/src/orphan.ts",
+        "to": "packages/app/src/orphan.ts",
+        "rule": {
+          "name": "no-orphans",
+          "severity": "warn"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "packages/app/src/index.ts",
+        "to": "node_modules/fsevents/index.js",
+        "rule": {
+          "name": "optional-deps-used",
+          "severity": "info"
+        }
+      }
+    ],
+    "error": 10,
+    "warn": 4,
+    "info": 1,
+    "ignore": 1,
+    "totalCruised": 25,
+    "totalDependenciesCruised": 24,
+    "optionsUsed": {}
+  }
+}

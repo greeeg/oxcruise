@@ -1,0 +1,21 @@
+[package]
+name = "oxcruise_report"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Output formats for oxcruise results"
+
+[lints]
+workspace = true
+
+[dependencies]
+oxcruise_core = { workspace = true }
+oxcruise_resolve = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+oxcruise_graph = { workspace = true }
+oxcruise_rules = { workspace = true }
+oxcruise_config = { workspace = true }
