@@ -55,7 +55,7 @@ expression: "run(\"amd.js\")"
     {
       "specifier": "./dep-c",
       "kinds": [
-        "amd-require"
+        "amd-define"
       ],
       "module_system": "amd",
       "span": {

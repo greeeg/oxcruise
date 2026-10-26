@@ -68,6 +68,7 @@ impl OxcruiseConfig {
                 jsdoc: child.extract.jsdoc || self.extract.jsdoc,
                 skip_triple_slash: child.extract.skip_triple_slash
                     || self.extract.skip_triple_slash,
+                skip_urls: child.extract.skip_urls || self.extract.skip_urls,
             },
             rules,
             forbid: concat(&self.forbid, &child.forbid),

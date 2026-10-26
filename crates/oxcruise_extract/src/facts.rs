@@ -13,6 +13,8 @@ pub struct ExtractOptions {
     pub jsdoc: bool,
     /// Skip triple-slash directives.
     pub skip_triple_slash: bool,
+    /// Do not treat `new URL("./x", import.meta.url)` and `new Worker(new URL(..))` as dependencies.
+    pub skip_urls: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

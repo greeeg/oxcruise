@@ -7,7 +7,6 @@ expression: "run(\"exotic.js\")"
     {
       "specifier": "./exotic",
       "kinds": [
-        "require",
         "exotic-require"
       ],
       "module_system": "cjs",
@@ -24,7 +23,6 @@ expression: "run(\"exotic.js\")"
     {
       "specifier": "./member-exotic",
       "kinds": [
-        "require",
         "exotic-require"
       ],
       "module_system": "cjs",

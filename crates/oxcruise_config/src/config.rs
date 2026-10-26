@@ -150,6 +150,8 @@ pub struct ExtractSection {
     pub jsdoc: bool,
     /// Skip `/// <reference ... />` directives.
     pub skip_triple_slash: bool,
+    /// Do not treat `new URL("./x", import.meta.url)` and workers as dependencies.
+    pub skip_urls: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]

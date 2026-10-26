@@ -48,7 +48,8 @@
         "calls": [],
         "exoticRequireStrings": [],
         "jsdoc": false,
-        "skipTripleSlash": false
+        "skipTripleSlash": false,
+        "skipUrls": false
       }
     },
     "follow": {
@@ -210,6 +211,11 @@
         },
         "skipTripleSlash": {
           "description": "Skip `/// <reference ... />` directives.",
+          "type": "boolean",
+          "default": false
+        },
+        "skipUrls": {
+          "description": "Do not treat `new URL(\"./x\", import.meta.url)` and workers as dependencies.",
           "type": "boolean",
           "default": false
         }
@@ -725,7 +731,7 @@
           "default": null
         },
         "via": {
-          "description": "The cycle goes through a module/edge matching this.",
+          "description": "The cycle goes through a module (other than the importer) or an edge matching this.",
           "anyOf": [
             {
               "$ref": "#/$defs/ViaCondition"
@@ -737,7 +743,7 @@
           "default": null
         },
         "viaOnly": {
-          "description": "Every intermediate step of the cycle matches this.",
+          "description": "Every module (importer included) and every edge of the cycle matches this.",
           "anyOf": [
             {
               "$ref": "#/$defs/ViaCondition"

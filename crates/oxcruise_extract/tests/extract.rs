@@ -9,6 +9,7 @@ fn opts() -> ExtractOptions {
         calls: vec!["jest.mock".into(), "require.resolve".into()],
         jsdoc: true,
         skip_triple_slash: false,
+        skip_urls: false,
     }
 }
 

@@ -172,7 +172,7 @@ fn is_import_meta_url(e: &Expression<'_>) -> bool {
     }
 }
 
-/// `new URL("./x", import.meta.url)` -> `"./x"`
+/// `new URL("./x", import.meta.url)` -> `"./x"`. Directories (`"."`, `"../"`) are not modules.
 fn url_target<'a>(ne: &'a NewExpression<'_>) -> Option<&'a str> {
     if !matches!(&ne.callee, Expression::Identifier(i) if i.name == "URL")
         || ne.arguments.len() != 2
@@ -184,7 +184,7 @@ fn url_target<'a>(ne: &'a NewExpression<'_>) -> Option<&'a str> {
     if !is_import_meta_url(second) {
         return None;
     }
-    static_string(first)
+    static_string(first).filter(|s| !matches!(*s, "." | ".." | "") && !s.ends_with('/'))
 }
 
 fn relative(spec: &str) -> String {
@@ -226,12 +226,7 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
                 let span = first.map_or(it.span, |e| e.span());
                 let opts = self.b.opts;
                 if opts.exotic_require_strings.contains(&name) {
-                    self.push(
-                        spec,
-                        DepKinds::EXOTIC_REQUIRE | DepKinds::REQUIRE,
-                        ModuleSystem::Cjs,
-                        span,
-                    );
+                    self.push(spec, DepKinds::EXOTIC_REQUIRE, ModuleSystem::Cjs, span);
                 } else if opts.calls.contains(&name) {
                     let ms = if name.starts_with("require") {
                         ModuleSystem::Cjs
@@ -250,11 +245,9 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
                     }
                 });
                 if let Some(arr) = arr {
-                    let kind = if name == "define" {
-                        DepKinds::AMD_DEFINE
-                    } else {
-                        DepKinds::AMD_REQUIRE
-                    };
+                    // dependency-cruiser calls both array forms `amd-define`; `amd-require`
+                    // is reserved for CJS-style requires inside AMD modules.
+                    let kind = DepKinds::AMD_DEFINE;
                     for el in &arr.elements {
                         if let Some(e) = el.as_expression()
                             && let Some(s) = static_string(e)
@@ -272,6 +265,9 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
     }
 
     fn visit_new_expression(&mut self, it: &NewExpression<'a>) {
+        if self.b.opts.skip_urls {
+            return walk::walk_new_expression(self, it);
+        }
         if let Some(t) = url_target(it) {
             let span = it.arguments[0].span();
             self.push(&relative(t), DepKinds::URL, ModuleSystem::Es6, span);

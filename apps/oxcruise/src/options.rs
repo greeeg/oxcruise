@@ -45,6 +45,7 @@ pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &CheckArgs) -> Result<Crui
     o.extract.calls = e.calls.clone();
     o.extract.jsdoc = e.jsdoc;
     o.extract.skip_triple_slash = e.skip_triple_slash;
+    o.extract.skip_urls = e.skip_urls;
 
     let r = &cfg.resolve;
     o.resolve.conditions = r.conditions.clone();

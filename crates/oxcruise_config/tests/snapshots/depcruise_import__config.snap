@@ -50,7 +50,8 @@ expression: cfg
     ],
     "calls": [],
     "jsdoc": true,
-    "skipTripleSlash": false
+    "skipTripleSlash": false,
+    "skipUrls": false
   },
   "rules": {},
   "forbid": [
