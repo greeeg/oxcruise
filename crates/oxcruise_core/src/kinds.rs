@@ -1,0 +1,237 @@
+use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
+
+bitflags! {
+    /// Dependency types. The string names match dependency-cruiser's
+    /// `dependencyTypes` so rules and JSON output stay compatible.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+    pub struct DepKinds: u64 {
+        const CORE                       = 1 << 0;
+        const LOCAL                      = 1 << 1;
+        const LOCALMODULE                = 1 << 2;
+        const NPM                        = 1 << 3;
+        const NPM_DEV                    = 1 << 4;
+        const NPM_OPTIONAL               = 1 << 5;
+        const NPM_PEER                   = 1 << 6;
+        const NPM_BUNDLED                = 1 << 7;
+        const NPM_NO_PKG                 = 1 << 8;
+        const NPM_UNKNOWN                = 1 << 9;
+        const DEPRECATED                 = 1 << 10;
+        const UNKNOWN                    = 1 << 11;
+        const UNDETERMINED               = 1 << 12;
+        const ALIASED                    = 1 << 13;
+        const ALIASED_SUBPATH_IMPORT     = 1 << 14;
+        const ALIASED_TSCONFIG           = 1 << 15;
+        const ALIASED_TSCONFIG_BASE_URL  = 1 << 16;
+        const ALIASED_TSCONFIG_PATHS     = 1 << 17;
+        const ALIASED_WEBPACK            = 1 << 18;
+        const ALIASED_WORKSPACE          = 1 << 19;
+        const TYPE_ONLY                  = 1 << 20;
+        const PRE_COMPILATION_ONLY       = 1 << 21;
+        const IMPORT                     = 1 << 22;
+        const EXPORT                     = 1 << 23;
+        const REQUIRE                    = 1 << 24;
+        const DYNAMIC_IMPORT             = 1 << 25;
+        const IMPORT_EQUALS              = 1 << 26;
+        const TYPE_IMPORT                = 1 << 27;
+        const TRIPLE_SLASH_DIRECTIVE     = 1 << 28;
+        const TRIPLE_SLASH_FILE_REFERENCE = 1 << 29;
+        const TRIPLE_SLASH_TYPE_REFERENCE = 1 << 30;
+        const TRIPLE_SLASH_AMD_DEPENDENCY = 1 << 31;
+        const AMD_DEFINE                 = 1 << 32;
+        const AMD_REQUIRE                = 1 << 33;
+        const EXOTIC_REQUIRE             = 1 << 34;
+        const JSDOC                      = 1 << 35;
+        const JSDOC_IMPORT_TAG           = 1 << 36;
+        const JSDOC_BRACKET_IMPORT       = 1 << 37;
+        // oxcruise additions
+        const URL                        = 1 << 38;
+        const WORKER                     = 1 << 39;
+        const CALL                       = 1 << 40;
+    }
+}
+
+/// `(flag, depcruise name)`; the single source of truth for name mapping and
+/// for the table codegen'd into the TypeScript plugin runtime.
+pub const KIND_NAMES: &[(DepKinds, &str)] = &[
+    (DepKinds::CORE, "core"),
+    (DepKinds::LOCAL, "local"),
+    (DepKinds::LOCALMODULE, "localmodule"),
+    (DepKinds::NPM, "npm"),
+    (DepKinds::NPM_DEV, "npm-dev"),
+    (DepKinds::NPM_OPTIONAL, "npm-optional"),
+    (DepKinds::NPM_PEER, "npm-peer"),
+    (DepKinds::NPM_BUNDLED, "npm-bundled"),
+    (DepKinds::NPM_NO_PKG, "npm-no-pkg"),
+    (DepKinds::NPM_UNKNOWN, "npm-unknown"),
+    (DepKinds::DEPRECATED, "deprecated"),
+    (DepKinds::UNKNOWN, "unknown"),
+    (DepKinds::UNDETERMINED, "undetermined"),
+    (DepKinds::ALIASED, "aliased"),
+    (DepKinds::ALIASED_SUBPATH_IMPORT, "aliased-subpath-import"),
+    (DepKinds::ALIASED_TSCONFIG, "aliased-tsconfig"),
+    (
+        DepKinds::ALIASED_TSCONFIG_BASE_URL,
+        "aliased-tsconfig-base-url",
+    ),
+    (DepKinds::ALIASED_TSCONFIG_PATHS, "aliased-tsconfig-paths"),
+    (DepKinds::ALIASED_WEBPACK, "aliased-webpack"),
+    (DepKinds::ALIASED_WORKSPACE, "aliased-workspace"),
+    (DepKinds::TYPE_ONLY, "type-only"),
+    (DepKinds::PRE_COMPILATION_ONLY, "pre-compilation-only"),
+    (DepKinds::IMPORT, "import"),
+    (DepKinds::EXPORT, "export"),
+    (DepKinds::REQUIRE, "require"),
+    (DepKinds::DYNAMIC_IMPORT, "dynamic-import"),
+    (DepKinds::IMPORT_EQUALS, "import-equals"),
+    (DepKinds::TYPE_IMPORT, "type-import"),
+    (DepKinds::TRIPLE_SLASH_DIRECTIVE, "triple-slash-directive"),
+    (
+        DepKinds::TRIPLE_SLASH_FILE_REFERENCE,
+        "triple-slash-file-reference",
+    ),
+    (
+        DepKinds::TRIPLE_SLASH_TYPE_REFERENCE,
+        "triple-slash-type-reference",
+    ),
+    (
+        DepKinds::TRIPLE_SLASH_AMD_DEPENDENCY,
+        "triple-slash-amd-dependency",
+    ),
+    (DepKinds::AMD_DEFINE, "amd-define"),
+    (DepKinds::AMD_REQUIRE, "amd-require"),
+    (DepKinds::EXOTIC_REQUIRE, "exotic-require"),
+    (DepKinds::JSDOC, "jsdoc"),
+    (DepKinds::JSDOC_IMPORT_TAG, "jsdoc-import-tag"),
+    (DepKinds::JSDOC_BRACKET_IMPORT, "jsdoc-bracket-import"),
+    (DepKinds::URL, "url"),
+    (DepKinds::WORKER, "worker"),
+    (DepKinds::CALL, "call"),
+];
+
+impl DepKinds {
+    pub fn from_depcruise_name(name: &str) -> Option<DepKinds> {
+        KIND_NAMES.iter().find(|(_, n)| *n == name).map(|(k, _)| *k)
+    }
+
+    /// Names of all set flags, in table order.
+    pub fn names(self) -> impl Iterator<Item = &'static str> {
+        KIND_NAMES
+            .iter()
+            .filter(move |(k, _)| self.contains(*k))
+            .map(|(_, n)| *n)
+    }
+
+    /// The depcruise `npm*` family.
+    pub const NPM_ANY: DepKinds = DepKinds::NPM
+        .union(DepKinds::NPM_DEV)
+        .union(DepKinds::NPM_OPTIONAL)
+        .union(DepKinds::NPM_PEER)
+        .union(DepKinds::NPM_BUNDLED)
+        .union(DepKinds::NPM_NO_PKG)
+        .union(DepKinds::NPM_UNKNOWN);
+
+    /// The depcruise `aliased*` family.
+    pub const ALIASED_ANY: DepKinds = DepKinds::ALIASED
+        .union(DepKinds::ALIASED_SUBPATH_IMPORT)
+        .union(DepKinds::ALIASED_TSCONFIG)
+        .union(DepKinds::ALIASED_TSCONFIG_BASE_URL)
+        .union(DepKinds::ALIASED_TSCONFIG_PATHS)
+        .union(DepKinds::ALIASED_WEBPACK)
+        .union(DepKinds::ALIASED_WORKSPACE);
+
+    /// Kinds that only describe *how* a dependency is written, as opposed
+    /// to what it points to.
+    pub const SYNTAX_ANY: DepKinds = DepKinds::IMPORT
+        .union(DepKinds::EXPORT)
+        .union(DepKinds::REQUIRE)
+        .union(DepKinds::DYNAMIC_IMPORT)
+        .union(DepKinds::IMPORT_EQUALS)
+        .union(DepKinds::TYPE_IMPORT)
+        .union(DepKinds::AMD_DEFINE)
+        .union(DepKinds::AMD_REQUIRE)
+        .union(DepKinds::EXOTIC_REQUIRE)
+        .union(DepKinds::URL)
+        .union(DepKinds::WORKER)
+        .union(DepKinds::CALL);
+}
+
+impl Serialize for DepKinds {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_seq(self.names())
+    }
+}
+
+impl<'de> Deserialize<'de> for DepKinds {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let names = Vec::<String>::deserialize(d)?;
+        let mut out = DepKinds::empty();
+        for n in names {
+            out |= DepKinds::from_depcruise_name(&n).ok_or_else(|| {
+                serde::de::Error::custom(format!("unknown dependency type `{n}`"))
+            })?;
+        }
+        Ok(out)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ModuleSystem {
+    #[default]
+    Es6,
+    Cjs,
+    Amd,
+    Tsd,
+}
+
+impl ModuleSystem {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Es6 => "es6",
+            Self::Cjs => "cjs",
+            Self::Amd => "amd",
+            Self::Tsd => "tsd",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn name_table_covers_every_flag_once() {
+        let mut all = DepKinds::empty();
+        for (k, _) in KIND_NAMES {
+            assert_eq!(k.bits().count_ones(), 1);
+            assert!(!all.intersects(*k), "duplicate flag in KIND_NAMES");
+            all |= *k;
+        }
+        assert_eq!(all, DepKinds::all());
+    }
+
+    #[test]
+    fn names_round_trip() {
+        for (k, n) in KIND_NAMES {
+            assert_eq!(DepKinds::from_depcruise_name(n), Some(*k));
+        }
+        assert_eq!(DepKinds::from_depcruise_name("nope"), None);
+    }
+
+    #[test]
+    fn serde_uses_depcruise_strings() {
+        let k = DepKinds::TYPE_ONLY | DepKinds::NPM_DEV | DepKinds::DYNAMIC_IMPORT;
+        let json = serde_json::to_string(&k).unwrap();
+        assert_eq!(json, r#"["npm-dev","type-only","dynamic-import"]"#);
+        assert_eq!(serde_json::from_str::<DepKinds>(&json).unwrap(), k);
+        assert!(serde_json::from_str::<DepKinds>(r#"["bogus"]"#).is_err());
+    }
+
+    #[test]
+    fn families() {
+        assert!(DepKinds::NPM_ANY.contains(DepKinds::NPM_PEER));
+        assert!(DepKinds::ALIASED_ANY.contains(DepKinds::ALIASED_WORKSPACE));
+        assert!(!DepKinds::NPM_ANY.intersects(DepKinds::LOCAL));
+    }
+}

@@ -1,0 +1,16 @@
+[package]
+name = "oxcruise_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Data model for oxcruise: module graph, dependency kinds, violations"
+
+[lints]
+workspace = true
+
+[dependencies]
+bitflags = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
