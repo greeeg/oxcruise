@@ -1,0 +1,510 @@
+{
+  "packages": [
+    "@acme/app",
+    "@acme/lib"
+  ],
+  "modules": [
+    {
+      "path": "./also-nope",
+      "kind": "unresolved",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "./missing",
+      "kind": "unresolved",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "./nope",
+      "kind": "unresolved",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "@app/helpers",
+      "kind": "unresolved",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "fs",
+      "kind": "core",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "node_modules/fsevents/index.js",
+      "kind": "stub",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "node_modules/left-pad/index.js",
+      "kind": "stub",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "node_modules/lodash/index.js",
+      "kind": "stub",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "node_modules/react/index.js",
+      "kind": "stub",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "node_modules/vitest/index.js",
+      "kind": "stub",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/cjs-thing.js",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/cycle-a.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 2
+    },
+    {
+      "path": "packages/app/src/cycle-b.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/helpers.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 2
+    },
+    {
+      "path": "packages/app/src/index.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 0
+    },
+    {
+      "path": "packages/app/src/internal/secret.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/lazy.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/orphan.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 0
+    },
+    {
+      "path": "packages/app/src/suppressed.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 0
+    },
+    {
+      "path": "packages/app/src/thing.test.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/app/src/uses-test.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 0
+    },
+    {
+      "path": "packages/app/src/util.ts",
+      "kind": "source",
+      "package": "@acme/app",
+      "notFollowed": false,
+      "dependents": 2
+    },
+    {
+      "path": "packages/lib/src/index.ts",
+      "kind": "source",
+      "package": "@acme/lib",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "packages/lib/src/inner.ts",
+      "kind": "source",
+      "package": "@acme/lib",
+      "notFollowed": false,
+      "dependents": 1
+    },
+    {
+      "path": "sys",
+      "kind": "core",
+      "package": null,
+      "notFollowed": false,
+      "dependents": 1
+    }
+  ],
+  "edges": [
+    {
+      "from": "packages/app/src/cycle-a.ts",
+      "to": "packages/app/src/cycle-b.ts",
+      "specifier": "./cycle-b",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 1,
+      "col": 19,
+      "typeOnly": false,
+      "circular": true
+    },
+    {
+      "from": "packages/app/src/cycle-b.ts",
+      "to": "packages/app/src/cycle-a.ts",
+      "specifier": "./cycle-a",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 1,
+      "col": 19,
+      "typeOnly": false,
+      "circular": true
+    },
+    {
+      "from": "packages/app/src/helpers.ts",
+      "to": "packages/app/src/util.ts",
+      "specifier": "./util",
+      "kinds": [
+        "local",
+        "type-only",
+        "import"
+      ],
+      "line": 1,
+      "col": 27,
+      "typeOnly": true,
+      "circular": true
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "./missing",
+      "specifier": "./missing",
+      "kinds": [
+        "unknown",
+        "import"
+      ],
+      "line": 11,
+      "col": 22,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "fs",
+      "specifier": "node:fs",
+      "kinds": [
+        "core",
+        "import"
+      ],
+      "line": 9,
+      "col": 16,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/fsevents/index.js",
+      "specifier": "fsevents",
+      "kinds": [
+        "npm-optional",
+        "import"
+      ],
+      "line": 7,
+      "col": 22,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/left-pad/index.js",
+      "specifier": "left-pad",
+      "kinds": [
+        "npm-no-pkg",
+        "deprecated",
+        "import"
+      ],
+      "line": 8,
+      "col": 21,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/lodash/index.js",
+      "specifier": "lodash",
+      "kinds": [
+        "npm",
+        "import"
+      ],
+      "line": 4,
+      "col": 15,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/react/index.js",
+      "specifier": "react",
+      "kinds": [
+        "npm-peer",
+        "import"
+      ],
+      "line": 6,
+      "col": 19,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "node_modules/vitest/index.js",
+      "specifier": "vitest",
+      "kinds": [
+        "npm-dev",
+        "import"
+      ],
+      "line": 5,
+      "col": 22,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/cjs-thing.js",
+      "specifier": "./cjs-thing",
+      "kinds": [
+        "local",
+        "require"
+      ],
+      "line": 14,
+      "col": 21,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/cycle-a.ts",
+      "specifier": "./cycle-a",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 13,
+      "col": 19,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/helpers.ts",
+      "specifier": "@app/helpers",
+      "kinds": [
+        "local",
+        "aliased",
+        "aliased-tsconfig",
+        "aliased-tsconfig-paths",
+        "import"
+      ],
+      "line": 2,
+      "col": 24,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/internal/secret.ts",
+      "specifier": "#internal/secret",
+      "kinds": [
+        "local",
+        "aliased",
+        "aliased-subpath-import",
+        "import"
+      ],
+      "line": 3,
+      "col": 24,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/lazy.ts",
+      "specifier": "./lazy",
+      "kinds": [
+        "local",
+        "dynamic-import"
+      ],
+      "line": 15,
+      "col": 8,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/app/src/util.ts",
+      "specifier": "./util",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 1,
+      "col": 22,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "packages/lib/src/index.ts",
+      "specifier": "@acme/lib",
+      "kinds": [
+        "local",
+        "aliased",
+        "aliased-workspace",
+        "import"
+      ],
+      "line": 12,
+      "col": 24,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/index.ts",
+      "to": "sys",
+      "specifier": "sys",
+      "kinds": [
+        "core",
+        "deprecated",
+        "import"
+      ],
+      "line": 10,
+      "col": 17,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/suppressed.ts",
+      "to": "./also-nope",
+      "specifier": "./also-nope",
+      "kinds": [
+        "unknown",
+        "import"
+      ],
+      "line": 3,
+      "col": 8,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/suppressed.ts",
+      "to": "./nope",
+      "specifier": "./nope",
+      "kinds": [
+        "unknown",
+        "import"
+      ],
+      "line": 2,
+      "col": 8,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/uses-test.ts",
+      "to": "packages/app/src/thing.test.ts",
+      "specifier": "./thing.test",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 1,
+      "col": 19,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/app/src/util.ts",
+      "to": "packages/app/src/helpers.ts",
+      "specifier": "./helpers",
+      "kinds": [
+        "local",
+        "import"
+      ],
+      "line": 1,
+      "col": 24,
+      "typeOnly": false,
+      "circular": true
+    },
+    {
+      "from": "packages/lib/src/index.ts",
+      "to": "@app/helpers",
+      "specifier": "@app/helpers",
+      "kinds": [
+        "unknown",
+        "import"
+      ],
+      "line": 2,
+      "col": 24,
+      "typeOnly": false,
+      "circular": false
+    },
+    {
+      "from": "packages/lib/src/index.ts",
+      "to": "packages/lib/src/inner.ts",
+      "specifier": "@lib/inner",
+      "kinds": [
+        "local",
+        "aliased",
+        "aliased-tsconfig",
+        "aliased-tsconfig-paths",
+        "import"
+      ],
+      "line": 1,
+      "col": 23,
+      "typeOnly": false,
+      "circular": false
+    }
+  ]
+}

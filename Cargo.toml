@@ -35,6 +35,9 @@ ignore = "0.4"
 insta = { version = "1", features = ["json", "yaml"] }
 proptest = "1"
 rayon = "1"
+napi = { version = "3", default-features = false, features = ["napi9", "async", "tokio_rt", "serde-json"] }
+napi-build = "2"
+napi-derive = "3"
 regex = "1"
 rustc-hash = "2"
 schemars = "1"

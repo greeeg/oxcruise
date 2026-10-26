@@ -7,7 +7,7 @@ use clap::Parser;
 use oxcruise_config::{JsConfigLoader, NodeSubprocessLoader};
 use oxcruise_graph::cruise;
 use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
-use oxcruise_rules::{Engine, ExternalRules, builtin_rules};
+use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
 use crate::args::{CheckArgs, Cli, ColorChoice, Command, FmtArgs};
 use crate::result::CliRunResult;
@@ -177,6 +177,19 @@ impl CliRunner {
             );
         }
 
+        let plugins: Vec<PluginRef> = config
+            .js_plugins
+            .iter()
+            .map(|p| PluginRef {
+                specifier: p.specifier().to_string(),
+                alias: p.alias().map(str::to_string),
+            })
+            .collect();
+        if let Some(rules) = &self.external_rules
+            && let Err(e) = rules.load_plugins(&plugins, &cwd)
+        {
+            return fail(err, e);
+        }
         let engine = match Engine::new(&config, self.external_rules.clone()) {
             Ok(e) => e,
             Err(errors) => {
@@ -195,6 +208,12 @@ impl CliRunner {
             Err(e) => return fail(err, e),
         };
         let run = engine.run(&output.graph, &cwd, &output.workspace);
+        if !run.fatal.is_empty() {
+            for f in &run.fatal {
+                let _ = writeln!(err, "error: {f}");
+            }
+            return CliRunResult::InvalidOptions;
+        }
         let (errors, warnings) = (
             run.count(oxcruise_core::Severity::Error),
             run.count(oxcruise_core::Severity::Warn),

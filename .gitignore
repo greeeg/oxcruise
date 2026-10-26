@@ -10,3 +10,7 @@ dist
 !/tests/fixtures/**/node_modules
 
 /tasks/conformance/.cache
+/apps/oxcruise/src-js/bindings.js
+/apps/oxcruise/src-js/bindings.d.ts
+/apps/oxcruise/src-js/*.node
+/npm/oxcruise/dist

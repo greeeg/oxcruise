@@ -18,9 +18,9 @@ doc = false
 [features]
 default = []
 # napi bindings and JS plugin host (filled in by the napi task).
-napi = []
+napi = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
 # mimalloc as the global allocator.
-allocator = []
+allocator = ["dep:mimalloc"]
 
 [lints]
 workspace = true
@@ -33,7 +33,14 @@ oxcruise_report = { workspace = true }
 oxcruise_resolve = { workspace = true }
 oxcruise_rules = { workspace = true }
 clap = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+napi = { workspace = true, optional = true }
+napi-derive = { workspace = true, optional = true }
+mimalloc = { version = "0.1", optional = true }
+
+[build-dependencies]
+napi-build = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta = { workspace = true }
