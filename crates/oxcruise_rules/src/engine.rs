@@ -335,10 +335,18 @@ impl Engine {
             }
         }
 
-        // Suppressions, then ordering.
-        let before = violations.len();
-        violations.retain(|v| !is_suppressed(graph, v));
-        let suppressed = before - violations.len();
+        // Suppressions, then one violation per cycle, then ordering.
+        let (cycle_violations, mut violations): (Vec<_>, Vec<_>) =
+            violations.into_iter().partition(is_cycle_violation);
+        let mut suppressed = 0;
+        violations.retain(|v| {
+            let hidden = is_suppressed(graph, v);
+            suppressed += usize::from(hidden);
+            !hidden
+        });
+        let (cycles, suppressed_cycles) = dedupe_cycles(graph, cycle_violations);
+        suppressed += suppressed_cycles;
+        violations.extend(cycles);
         violations.sort_by(|a, b| {
             let key = |v: &Violation| {
                 (
@@ -506,6 +514,39 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
         out.extend(cx.into_violations());
     }
     out
+}
+
+/// A violation on an edge that carries the cycle it belongs to.
+fn is_cycle_violation(v: &Violation) -> bool {
+    v.edge.is_some() && !v.path.is_empty()
+}
+
+/// Every edge of a cycle is reported by its own violation, all describing the same cycle.
+/// Keep one per distinct cycle (the one starting at the alphabetically first module). A cycle
+/// is suppressed when *any* of its edges is: annotate one import to accept the whole cycle.
+/// Returns the kept violations and how many cycles were suppressed.
+fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usize) {
+    let mut groups: BTreeMap<(String, Vec<u32>), Vec<Violation>> = BTreeMap::new();
+    for v in violations {
+        let mut ids: Vec<u32> = v.path.iter().map(|s| s.module.0).collect();
+        // module ids follow path order, so the minimum id is the alphabetically first module
+        let start = ids
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, id)| **id)
+            .map_or(0, |(i, _)| i);
+        ids.rotate_left(start);
+        groups.entry((v.rule.clone(), ids)).or_default().push(v);
+    }
+    let (mut kept, mut suppressed) = (vec![], 0);
+    for (_, group) in groups {
+        if group.iter().any(|v| is_suppressed(g, v)) {
+            suppressed += 1;
+        } else if let Some(v) = group.into_iter().min_by_key(|v| (v.from, v.edge)) {
+            kept.push(v);
+        }
+    }
+    (kept, suppressed)
 }
 
 fn is_suppressed(g: &Graph, v: &Violation) -> bool {

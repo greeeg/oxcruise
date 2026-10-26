@@ -235,20 +235,43 @@ fn severity_override_and_off_for_declarative_rules() {
 #[test]
 fn suppression_comments() {
     let tester = t(json!({ "rules": { "no-circular": "error", "no-orphans": "error" } }));
-    // suppressing one rule on an edge leaves the other edge's violation alone
-    let out = tester.fail(&["a.ts -> b.ts [ignore=no-circular]", "b.ts -> a.ts"]);
-    insta::assert_snapshot!("suppression_edge", out);
+    // a cycle is reported once; annotating any one of its imports accepts the whole cycle
+    tester.pass(&["a.ts -> b.ts [ignore=no-circular]", "b.ts -> a.ts"]);
+    tester.pass(&["a.ts -> b.ts", "b.ts -> a.ts [ignore=no-circular]"]);
+    // ... but an independent cycle next to it is still reported
+    let out = tester.fail(&[
+        "a.ts -> b.ts [ignore=no-circular]",
+        "b.ts -> a.ts",
+        "c.ts -> d.ts",
+        "d.ts -> c.ts",
+    ]);
+    insta::assert_snapshot!("suppression_cycle", out);
+    // a different rule name does not suppress it
+    tester.fail(&["a.ts -> b.ts [ignore=no-orphans]", "b.ts -> a.ts"]);
     // `*` silences every rule on that edge
-    tester.pass(&["a.ts -> b.ts [ignore=*]", "b.ts -> a.ts [ignore=*]"]);
+    tester.pass(&["a.ts -> b.ts [ignore=*]", "b.ts -> a.ts"]);
     // file-level suppression silences the module-level orphan rule
     tester.pass(&["lonely.ts [ignore-file=no-orphans]"]);
     tester.fail(&["lonely.ts [ignore-file=no-circular]"]);
-    let r = tester.run(&[
-        "a.ts -> b.ts [ignore=no-circular]",
-        "b.ts -> a.ts [ignore=no-circular]",
-    ]);
+    let r = tester.run(&["a.ts -> b.ts [ignore=no-circular]", "b.ts -> a.ts"]);
     assert_eq!(r.violations.len(), 0);
-    assert_eq!(r.suppressed, 2);
+    assert_eq!(r.suppressed, 1, "one cycle, not one per edge");
+}
+
+#[test]
+fn every_edge_of_a_cycle_is_one_violation_total() {
+    let tester = t(json!({ "rules": { "no-circular": "error" } }));
+    let r = tester.run(&["a.ts -> b.ts", "b.ts -> c.ts", "c.ts -> a.ts"]);
+    assert_eq!(r.violations.len(), 1);
+    assert_eq!(r.violations[0].path.len(), 3);
+    // two cycles that share a module are two violations
+    let two = tester.run(&[
+        "a.ts -> b.ts",
+        "b.ts -> a.ts",
+        "a.ts -> c.ts",
+        "c.ts -> a.ts",
+    ]);
+    assert_eq!(two.violations.len(), 2);
 }
 
 #[test]

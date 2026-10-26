@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: out
+---
+error no-circular c.ts:3:1 -> d.ts: circular dependency: c.ts → d.ts → c.ts

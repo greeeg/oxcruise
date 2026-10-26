@@ -3,6 +3,4 @@ source: crates/oxcruise_rules/tests/declarative.rs
 expression: out
 ---
 error no-circular src/a.ts:1:1 -> src/b.ts: circular dependency: src/a.ts → src/b.ts → src/a.ts
-error no-circular src/b.ts:2:1 -> src/a.ts: circular dependency: src/b.ts → src/a.ts → src/b.ts
 warn no-circular legacy/a.ts:3:1 -> legacy/b.ts: circular dependency: legacy/a.ts → legacy/b.ts → legacy/a.ts
-warn no-circular legacy/b.ts:4:1 -> legacy/a.ts: circular dependency: legacy/b.ts → legacy/a.ts → legacy/b.ts

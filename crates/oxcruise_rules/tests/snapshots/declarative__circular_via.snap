@@ -3,4 +3,3 @@ source: crates/oxcruise_rules/tests/declarative.rs
 expression: "via.fail(&[\"src/a.ts -> src/shared/s.ts\", \"src/shared/s.ts -> src/b.ts\",\n\"src/b.ts -> src/a.ts\"])"
 ---
 error via-shared src/a.ts:1:1 -> src/shared/s.ts: circular dependency: src/a.ts → src/shared/s.ts → src/b.ts → src/a.ts
-error via-shared src/b.ts:3:1 -> src/a.ts: circular dependency: src/b.ts → src/a.ts → src/shared/s.ts → src/b.ts
