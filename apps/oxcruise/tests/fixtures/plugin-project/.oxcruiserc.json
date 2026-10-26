@@ -1,0 +1,9 @@
+{
+  "entries": ["src"],
+  "jsPlugins": ["../plugins/acme.ts"],
+  "rules": {
+    "acme/max-fan-out": ["warn", { "max": 3 }],
+    "acme/no-direct-db": "error",
+    "no-orphans": "off"
+  }
+}
