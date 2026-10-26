@@ -1,0 +1,61 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"require.cjs\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./one",
+      "kinds": [
+        "require"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 18,
+        "end": 25
+      },
+      "loc": {
+        "line": 1,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "pkg",
+      "kinds": [
+        "require"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 46,
+        "end": 51
+      },
+      "loc": {
+        "line": 2,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./nested",
+      "kinds": [
+        "require"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 147,
+        "end": 157
+      },
+      "loc": {
+        "line": 6,
+        "col": 18
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

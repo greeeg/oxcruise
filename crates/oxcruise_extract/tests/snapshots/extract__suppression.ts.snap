@@ -1,0 +1,134 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"suppression.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./one",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 81,
+        "end": 88
+      },
+      "loc": {
+        "line": 2,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./two",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 108,
+        "end": 115
+      },
+      "loc": {
+        "line": 3,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./three",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 135,
+        "end": 144
+      },
+      "loc": {
+        "line": 4,
+        "col": 19
+      },
+      "suppressed": [
+        "*"
+      ]
+    },
+    {
+      "specifier": "./four",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 223,
+        "end": 231
+      },
+      "loc": {
+        "line": 8,
+        "col": 8
+      },
+      "suppressed": [
+        "*"
+      ]
+    },
+    {
+      "specifier": "./five",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 295,
+        "end": 303
+      },
+      "loc": {
+        "line": 10,
+        "col": 19
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [
+    {
+      "specifier": "./one",
+      "imported": "a",
+      "local": "a",
+      "is_type": false
+    },
+    {
+      "specifier": "./two",
+      "imported": "b",
+      "local": "b",
+      "is_type": false
+    },
+    {
+      "specifier": "./three",
+      "imported": "c",
+      "local": "c",
+      "is_type": false
+    },
+    {
+      "specifier": "./four",
+      "imported": "d",
+      "local": "d",
+      "is_type": false
+    },
+    {
+      "specifier": "./five",
+      "imported": "e",
+      "local": "e",
+      "is_type": false
+    },
+    {
+      "specifier": "./one",
+      "imported": "a2",
+      "local": "a2",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

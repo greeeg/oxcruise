@@ -1,0 +1,61 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"dynamic-import.js\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./literal",
+      "kinds": [
+        "dynamic-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 23,
+        "end": 34
+      },
+      "loc": {
+        "line": 1,
+        "col": 24
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./template-no-expr",
+      "kinds": [
+        "dynamic-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 60,
+        "end": 80
+      },
+      "loc": {
+        "line": 2,
+        "col": 24
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./lazy",
+      "kinds": [
+        "dynamic-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 183,
+        "end": 191
+      },
+      "loc": {
+        "line": 5,
+        "col": 24
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": true,
+  "parse_error": null
+}

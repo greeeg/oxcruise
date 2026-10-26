@@ -1,0 +1,60 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"module.mts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./a.mjs",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 18,
+        "end": 27
+      },
+      "loc": {
+        "line": 1,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./t.mjs",
+      "kinds": [
+        "type-only",
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 52,
+        "end": 61
+      },
+      "loc": {
+        "line": 2,
+        "col": 24
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [
+    {
+      "name": "T",
+      "kind": "reexport",
+      "from": "./t.mjs",
+      "is_type": true
+    }
+  ],
+  "imports": [
+    {
+      "specifier": "./a.mjs",
+      "imported": "a",
+      "local": "a",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

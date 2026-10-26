@@ -1,0 +1,43 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"jsx-file.jsx\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "react",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 18,
+        "end": 25
+      },
+      "loc": {
+        "line": 1,
+        "col": 19
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [
+    {
+      "name": "App",
+      "kind": "local",
+      "from": null,
+      "is_type": false
+    }
+  ],
+  "imports": [
+    {
+      "specifier": "react",
+      "imported": "default",
+      "local": "React",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

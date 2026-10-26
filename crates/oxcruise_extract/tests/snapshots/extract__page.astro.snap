@@ -1,0 +1,91 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"page.astro\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "../layouts/Layout.astro",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 23,
+        "end": 48
+      },
+      "loc": {
+        "line": 2,
+        "col": 20
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./types",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 77,
+        "end": 86
+      },
+      "loc": {
+        "line": 3,
+        "col": 28
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./dynamic",
+      "kinds": [
+        "dynamic-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 114,
+        "end": 125
+      },
+      "loc": {
+        "line": 4,
+        "col": 27
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./client",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 155,
+        "end": 165
+      },
+      "loc": {
+        "line": 6,
+        "col": 24
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [
+    {
+      "specifier": "../layouts/Layout.astro",
+      "imported": "default",
+      "local": "Layout",
+      "is_type": false
+    },
+    {
+      "specifier": "./types",
+      "imported": "Props",
+      "local": "Props",
+      "is_type": true
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

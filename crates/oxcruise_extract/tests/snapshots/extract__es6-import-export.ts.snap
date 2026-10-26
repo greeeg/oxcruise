@@ -1,0 +1,203 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"es6-import-export.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./default",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 16,
+        "end": 27
+      },
+      "loc": {
+        "line": 1,
+        "col": 17
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./namespace",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 49,
+        "end": 62
+      },
+      "loc": {
+        "line": 2,
+        "col": 21
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./named",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 90,
+        "end": 99
+      },
+      "loc": {
+        "line": 3,
+        "col": 27
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./side-effect",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 108,
+        "end": 123
+      },
+      "loc": {
+        "line": 4,
+        "col": 8
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "pkg",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 141,
+        "end": 146
+      },
+      "loc": {
+        "line": 5,
+        "col": 17
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./reexport",
+      "kinds": [
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 166,
+        "end": 178
+      },
+      "loc": {
+        "line": 6,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./star",
+      "kinds": [
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 194,
+        "end": 202
+      },
+      "loc": {
+        "line": 7,
+        "col": 15
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./star-as",
+      "kinds": [
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 230,
+        "end": 241
+      },
+      "loc": {
+        "line": 8,
+        "col": 27
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [
+    {
+      "name": "local",
+      "kind": "local",
+      "from": null,
+      "is_type": false
+    },
+    {
+      "name": "default",
+      "kind": "local",
+      "from": null,
+      "is_type": false
+    },
+    {
+      "name": "x",
+      "kind": "reexport",
+      "from": "./reexport",
+      "is_type": false
+    },
+    {
+      "name": "nsExport",
+      "kind": "namespace",
+      "from": "./star-as",
+      "is_type": false
+    },
+    {
+      "name": "*",
+      "kind": "star",
+      "from": "./star",
+      "is_type": false
+    }
+  ],
+  "imports": [
+    {
+      "specifier": "./default",
+      "imported": "default",
+      "local": "def",
+      "is_type": false
+    },
+    {
+      "specifier": "./namespace",
+      "imported": "*",
+      "local": "ns",
+      "is_type": false
+    },
+    {
+      "specifier": "./named",
+      "imported": "a",
+      "local": "a",
+      "is_type": false
+    },
+    {
+      "specifier": "./named",
+      "imported": "b",
+      "local": "c",
+      "is_type": false
+    },
+    {
+      "specifier": "pkg",
+      "imported": "default",
+      "local": "dep",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

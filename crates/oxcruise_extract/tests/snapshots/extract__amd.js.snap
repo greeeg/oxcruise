@@ -1,0 +1,77 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"amd.js\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./dep-a",
+      "kinds": [
+        "amd-define"
+      ],
+      "module_system": "amd",
+      "span": {
+        "start": 8,
+        "end": 17
+      },
+      "loc": {
+        "line": 1,
+        "col": 9
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "pkg",
+      "kinds": [
+        "amd-define"
+      ],
+      "module_system": "amd",
+      "span": {
+        "start": 41,
+        "end": 46
+      },
+      "loc": {
+        "line": 1,
+        "col": 42
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./dep-b",
+      "kinds": [
+        "amd-define"
+      ],
+      "module_system": "amd",
+      "span": {
+        "start": 107,
+        "end": 116
+      },
+      "loc": {
+        "line": 2,
+        "col": 18
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./dep-c",
+      "kinds": [
+        "amd-require"
+      ],
+      "module_system": "amd",
+      "span": {
+        "start": 146,
+        "end": 155
+      },
+      "loc": {
+        "line": 3,
+        "col": 10
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

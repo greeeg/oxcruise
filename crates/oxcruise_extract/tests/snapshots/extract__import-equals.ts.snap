@@ -1,0 +1,46 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"import-equals.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "fs",
+      "kinds": [
+        "import-equals"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 20,
+        "end": 24
+      },
+      "loc": {
+        "line": 1,
+        "col": 21
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./types",
+      "kinds": [
+        "type-only",
+        "import-equals"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 51,
+        "end": 60
+      },
+      "loc": {
+        "line": 2,
+        "col": 25
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

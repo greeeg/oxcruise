@@ -1,0 +1,67 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"jsdoc.js\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./foo",
+      "kinds": [
+        "type-only",
+        "jsdoc",
+        "jsdoc-import-tag"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 26,
+        "end": 31
+      },
+      "loc": {
+        "line": 1,
+        "col": 27
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./bar",
+      "kinds": [
+        "type-only",
+        "jsdoc",
+        "jsdoc-bracket-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 59,
+        "end": 64
+      },
+      "loc": {
+        "line": 3,
+        "col": 20
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "baz",
+      "kinds": [
+        "type-only",
+        "jsdoc",
+        "jsdoc-bracket-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 92,
+        "end": 95
+      },
+      "loc": {
+        "line": 4,
+        "col": 19
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

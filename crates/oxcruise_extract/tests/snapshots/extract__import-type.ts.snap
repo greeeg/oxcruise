@@ -1,0 +1,64 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"import-type.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./type-a",
+      "kinds": [
+        "type-only",
+        "type-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 16,
+        "end": 26
+      },
+      "loc": {
+        "line": 1,
+        "col": 17
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./type-b",
+      "kinds": [
+        "type-only",
+        "type-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 52,
+        "end": 62
+      },
+      "loc": {
+        "line": 2,
+        "col": 22
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "pkg",
+      "kinds": [
+        "type-only",
+        "type-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 86,
+        "end": 91
+      },
+      "loc": {
+        "line": 3,
+        "col": 22
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

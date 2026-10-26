@@ -1,0 +1,97 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"component.vue\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./plain",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 56,
+        "end": 65
+      },
+      "loc": {
+        "line": 3,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./props",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 129,
+        "end": 138
+      },
+      "loc": {
+        "line": 6,
+        "col": 28
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./child.vue",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 158,
+        "end": 171
+      },
+      "loc": {
+        "line": 7,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./lazy",
+      "kinds": [
+        "dynamic-import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 199,
+        "end": 207
+      },
+      "loc": {
+        "line": 8,
+        "col": 27
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [
+    {
+      "specifier": "./plain",
+      "imported": "default",
+      "local": "Plain",
+      "is_type": false
+    },
+    {
+      "specifier": "./props",
+      "imported": "Props",
+      "local": "Props",
+      "is_type": true
+    },
+    {
+      "specifier": "./child.vue",
+      "imported": "default",
+      "local": "Child",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

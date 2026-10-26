@@ -1,0 +1,39 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"suppress-file.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./x",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 47,
+        "end": 52
+      },
+      "loc": {
+        "line": 2,
+        "col": 8
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [
+    {
+      "rules": [
+        "no-unresolvable"
+      ],
+      "loc": {
+        "line": 1,
+        "col": 1
+      }
+    }
+  ],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": true,
+  "parse_error": null
+}

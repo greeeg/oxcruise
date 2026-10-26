@@ -1,0 +1,80 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"triple-slash.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./globals.d.ts",
+      "kinds": [
+        "triple-slash-directive",
+        "triple-slash-file-reference"
+      ],
+      "module_system": "tsd",
+      "span": {
+        "start": 21,
+        "end": 35
+      },
+      "loc": {
+        "line": 1,
+        "col": 22
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "node",
+      "kinds": [
+        "triple-slash-directive",
+        "triple-slash-type-reference"
+      ],
+      "module_system": "tsd",
+      "span": {
+        "start": 62,
+        "end": 66
+      },
+      "loc": {
+        "line": 2,
+        "col": 23
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./amd-dep",
+      "kinds": [
+        "triple-slash-directive",
+        "triple-slash-amd-dependency"
+      ],
+      "module_system": "amd",
+      "span": {
+        "start": 128,
+        "end": 137
+      },
+      "loc": {
+        "line": 4,
+        "col": 27
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./real",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 149,
+        "end": 157
+      },
+      "loc": {
+        "line": 5,
+        "col": 8
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": true,
+  "parse_error": null
+}

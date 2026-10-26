@@ -1,0 +1,215 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"type-only.ts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./type-stmt",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 23,
+        "end": 36
+      },
+      "loc": {
+        "line": 1,
+        "col": 24
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./all-inline-types",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 69,
+        "end": 89
+      },
+      "loc": {
+        "line": 2,
+        "col": 32
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./mixed",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 117,
+        "end": 126
+      },
+      "loc": {
+        "line": 3,
+        "col": 27
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./type-ns",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 152,
+        "end": 163
+      },
+      "loc": {
+        "line": 4,
+        "col": 25
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./value",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 183,
+        "end": 192
+      },
+      "loc": {
+        "line": 5,
+        "col": 19
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./value",
+      "kinds": [
+        "type-only",
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 217,
+        "end": 226
+      },
+      "loc": {
+        "line": 6,
+        "col": 24
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./type-reexport",
+      "kinds": [
+        "type-only",
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 251,
+        "end": 268
+      },
+      "loc": {
+        "line": 7,
+        "col": 24
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./inline-type-reexport",
+      "kinds": [
+        "type-only",
+        "export"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 301,
+        "end": 325
+      },
+      "loc": {
+        "line": 8,
+        "col": 32
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [
+    {
+      "name": "H",
+      "kind": "reexport",
+      "from": "./type-reexport",
+      "is_type": true
+    },
+    {
+      "name": "I",
+      "kind": "reexport",
+      "from": "./inline-type-reexport",
+      "is_type": true
+    },
+    {
+      "name": "J",
+      "kind": "reexport",
+      "from": "./inline-type-reexport",
+      "is_type": true
+    }
+  ],
+  "imports": [
+    {
+      "specifier": "./type-stmt",
+      "imported": "A",
+      "local": "A",
+      "is_type": true
+    },
+    {
+      "specifier": "./all-inline-types",
+      "imported": "B",
+      "local": "B",
+      "is_type": true
+    },
+    {
+      "specifier": "./all-inline-types",
+      "imported": "C",
+      "local": "C",
+      "is_type": true
+    },
+    {
+      "specifier": "./mixed",
+      "imported": "D",
+      "local": "D",
+      "is_type": true
+    },
+    {
+      "specifier": "./mixed",
+      "imported": "e",
+      "local": "e",
+      "is_type": false
+    },
+    {
+      "specifier": "./type-ns",
+      "imported": "*",
+      "local": "T",
+      "is_type": true
+    },
+    {
+      "specifier": "./value",
+      "imported": "f",
+      "local": "f",
+      "is_type": false
+    },
+    {
+      "specifier": "./value",
+      "imported": "G",
+      "local": "G",
+      "is_type": true
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}

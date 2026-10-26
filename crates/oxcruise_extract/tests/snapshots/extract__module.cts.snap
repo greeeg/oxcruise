@@ -1,0 +1,45 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"module.cts\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "node:fs",
+      "kinds": [
+        "import-equals"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 20,
+        "end": 29
+      },
+      "loc": {
+        "line": 1,
+        "col": 21
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./x.cjs",
+      "kinds": [
+        "require"
+      ],
+      "module_system": "cjs",
+      "span": {
+        "start": 50,
+        "end": 59
+      },
+      "loc": {
+        "line": 2,
+        "col": 19
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [],
+  "has_module_syntax": false,
+  "parse_error": null
+}

@@ -1,0 +1,58 @@
+---
+source: crates/oxcruise_extract/tests/extract.rs
+expression: "run(\"component.svelte\")"
+---
+{
+  "deps": [
+    {
+      "specifier": "./helper",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 61,
+        "end": 71
+      },
+      "loc": {
+        "line": 2,
+        "col": 26
+      },
+      "suppressed": []
+    },
+    {
+      "specifier": "./Other.svelte",
+      "kinds": [
+        "import"
+      ],
+      "module_system": "es6",
+      "span": {
+        "start": 112,
+        "end": 128
+      },
+      "loc": {
+        "line": 5,
+        "col": 21
+      },
+      "suppressed": []
+    }
+  ],
+  "file_suppressions": [],
+  "exports": [],
+  "imports": [
+    {
+      "specifier": "./helper",
+      "imported": "helper",
+      "local": "helper",
+      "is_type": false
+    },
+    {
+      "specifier": "./Other.svelte",
+      "imported": "default",
+      "local": "Other",
+      "is_type": false
+    }
+  ],
+  "has_module_syntax": true,
+  "parse_error": null
+}
