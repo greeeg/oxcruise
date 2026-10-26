@@ -1,0 +1,27 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: written
+---
+// Migrated from .dependency-cruiser.json by `oxcruise migrate`.
+// TODO: rule `needs-license` skipped: unsupported `to.license`
+// TODO: `options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases
+import { defineConfig } from "oxcruise";
+
+export default defineConfig({
+  "follow": {
+    "doNotFollow": [
+      {
+        "regex": "node_modules"
+      }
+    ]
+  },
+  "forbid": [
+    {
+      "name": "no-circular",
+      "severity": "warn",
+      "to": {
+        "circular": true
+      }
+    }
+  ]
+});

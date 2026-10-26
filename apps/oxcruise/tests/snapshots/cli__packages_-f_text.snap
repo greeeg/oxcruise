@@ -1,0 +1,31 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: "format!(\"exit: {}\\n--- stdout\\n{}\\n--- stderr\\n{}\", o.result.code(), o.stdout,\no.stderr)"
+---
+exit: 1
+--- stdout
+packages/app/src/cycle-a.ts -> packages/app/src/cycle-b.ts
+packages/app/src/cycle-b.ts -> packages/app/src/cycle-a.ts
+packages/app/src/helpers.ts -> packages/app/src/util.ts [type-only]
+packages/app/src/index.ts -> ./missing
+packages/app/src/index.ts -> fs
+packages/app/src/index.ts -> node_modules/fsevents/index.js
+packages/app/src/index.ts -> node_modules/left-pad/index.js
+packages/app/src/index.ts -> node_modules/lodash/index.js
+packages/app/src/index.ts -> node_modules/react/index.js
+packages/app/src/index.ts -> node_modules/vitest/index.js
+packages/app/src/index.ts -> packages/app/src/cjs-thing.js
+packages/app/src/index.ts -> packages/app/src/cycle-a.ts
+packages/app/src/index.ts -> packages/app/src/helpers.ts
+packages/app/src/index.ts -> packages/app/src/internal/secret.ts
+packages/app/src/index.ts -> packages/app/src/lazy.ts [dynamic-import]
+packages/app/src/index.ts -> packages/app/src/util.ts
+packages/app/src/index.ts -> packages/lib/src/index.ts
+packages/app/src/index.ts -> sys
+packages/app/src/suppressed.ts -> ./also-nope
+packages/app/src/suppressed.ts -> ./nope
+packages/app/src/uses-test.ts -> packages/app/src/thing.test.ts
+packages/app/src/util.ts -> packages/app/src/helpers.ts
+packages/lib/src/index.ts -> @app/helpers
+packages/lib/src/index.ts -> packages/lib/src/inner.ts
+--- stderr

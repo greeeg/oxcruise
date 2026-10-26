@@ -1,0 +1,6 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: o.stderr
+---
+error: invalid options for `layers`: `allow` refers to unknown layer `x`
+error: unknown rule `no-circluar`; did you mean `no-circular`?

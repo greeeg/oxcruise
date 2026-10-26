@@ -1,0 +1,118 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: "format!(\"exit: {}\\n--- stdout\\n{}\\n--- stderr\\n{}\", o.result.code(), o.stdout,\no.stderr)"
+---
+exit: 1
+--- stdout
+error[no-circular]: circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts
+  --> packages/app/src/cycle-a.ts:1:19
+   |
+ 1 | import { b } from "./cycle-b";
+   |                   ^^^^^^^^^^^
+   = cycle:
+     ╭─▶ packages/app/src/cycle-a.ts
+     ╰── packages/app/src/cycle-b.ts
+
+error[no-circular]: circular dependency: packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts
+  --> packages/app/src/cycle-b.ts:1:19
+   |
+ 1 | import { a } from "./cycle-a";
+   |                   ^^^^^^^^^^^
+   = cycle:
+     ╭─▶ packages/app/src/cycle-b.ts
+     ╰── packages/app/src/cycle-a.ts
+
+error[no-circular]: circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts
+  --> packages/app/src/helpers.ts:1:27
+   |
+ 1 | import type { util } from "./util";
+   |                           ^^^^^^^^
+   = cycle:
+     ╭─▶ packages/app/src/helpers.ts
+     ╰── packages/app/src/util.ts
+
+error[no-dev-deps-in-prod]: production code imports dev dependency `vitest`
+  --> packages/app/src/index.ts:5:22
+   |
+ 5 | import { test } from "vitest";
+   |                      ^^^^^^^^
+   = imports node_modules/vitest/index.js
+
+error[no-non-package-json]: `left-pad` is not declared in package.json
+  --> packages/app/src/index.ts:8:21
+   |
+ 8 | import leftPad from "left-pad";
+   |                     ^^^^^^^^^^
+   = imports node_modules/left-pad/index.js
+
+error[no-unresolvable]: cannot resolve `./missing`
+  --> packages/app/src/index.ts:11:22
+    |
+ 11 | import { gone } from "./missing";
+    |                      ^^^^^^^^^^^
+   = imports ./missing
+
+error[no-unresolvable]: cannot resolve `./also-nope`
+  --> packages/app/src/suppressed.ts:3:8
+   |
+ 3 | import "./also-nope";
+   |        ^^^^^^^^^^^^^
+   = imports ./also-nope
+
+error[not-to-test]: production code imports test code `packages/app/src/thing.test.ts`
+  --> packages/app/src/uses-test.ts:1:19
+   |
+ 1 | import { t } from "./thing.test";
+   |                   ^^^^^^^^^^^^^^
+   = imports packages/app/src/thing.test.ts
+
+error[no-circular]: circular dependency: packages/app/src/util.ts → packages/app/src/helpers.ts → packages/app/src/util.ts
+  --> packages/app/src/util.ts:1:24
+   |
+ 1 | import { helper } from "./helpers";
+   |                        ^^^^^^^^^^^
+   = cycle:
+     ╭─▶ packages/app/src/util.ts
+     ╰── packages/app/src/helpers.ts
+
+error[no-unresolvable]: cannot resolve `@app/helpers`
+  --> packages/lib/src/index.ts:2:24
+   |
+ 2 | import { helper } from "@app/helpers";
+   |                        ^^^^^^^^^^^^^^
+   = imports @app/helpers
+
+warn[peer-deps-used]: `react` is a peer dependency
+  --> packages/app/src/index.ts:6:19
+   |
+ 6 | import React from "react";
+   |                   ^^^^^^^
+   = imports node_modules/react/index.js
+
+warn[no-deprecated-npm]: `left-pad` is deprecated by its maintainers
+  --> packages/app/src/index.ts:8:21
+   |
+ 8 | import leftPad from "left-pad";
+   |                     ^^^^^^^^^^
+   = imports node_modules/left-pad/index.js
+
+warn[no-deprecated-core]: `sys` is a deprecated Node.js module
+  --> packages/app/src/index.ts:10:17
+    |
+ 10 | import sys from "sys";
+    |                 ^^^^^
+   = imports sys
+
+warn[no-orphans]: this module is not imported by any module and imports nothing
+  --> packages/app/src/orphan.ts
+
+info[optional-deps-used]: `fsevents` is an optional dependency and may not be installed
+  --> packages/app/src/index.ts:7:22
+   |
+ 7 | import fsevents from "fsevents";
+   |                      ^^^^^^^^^^
+   = imports node_modules/fsevents/index.js
+
+✖ 15 problems (10 errors, 4 warnings, 1 info) in 25 modules, 24 dependencies
+  1 suppressed by comments
+--- stderr

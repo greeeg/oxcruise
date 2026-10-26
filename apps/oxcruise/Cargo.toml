@@ -1,0 +1,40 @@
+[package]
+name = "oxcruise"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc."
+publish = false
+
+[lib]
+name = "oxcruise"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "oxcruise"
+path = "src/main.rs"
+doc = false
+
+[features]
+default = []
+# napi bindings and JS plugin host (filled in by the napi task).
+napi = []
+# mimalloc as the global allocator.
+allocator = []
+
+[lints]
+workspace = true
+
+[dependencies]
+oxcruise_core = { workspace = true }
+oxcruise_config = { workspace = true }
+oxcruise_graph = { workspace = true }
+oxcruise_report = { workspace = true }
+oxcruise_resolve = { workspace = true }
+oxcruise_rules = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }

@@ -128,7 +128,10 @@ fn discover(opts: &CruiseOptions, resolver: &Resolver, entries: Vec<PathBuf>) ->
         let mut queue: Vec<Work> = vec![];
         for e in entries {
             let rel = resolver.relative(&e);
+            let not_followed = opts.do_not_follow.is_match(&rel);
             let idx = g.node(NodeKey::Path(e), ModuleKind::Source, rel);
+            // doNotFollow also holds for entries: they are kept, but not explored.
+            g.nodes[idx].not_followed = not_followed;
             g.reach(idx, 0, &mut queue);
         }
         let drain = |g: &mut Discoverer, q: &mut Vec<Work>| {

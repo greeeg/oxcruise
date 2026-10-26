@@ -351,11 +351,11 @@ fn prune(v: &mut serde_json::Value, default: Option<&serde_json::Value>) -> bool
     use serde_json::Value;
     match v {
         Value::Object(map) => {
-            let keys: Vec<String> = map.keys().cloned().collect();
-            for k in keys {
-                let child_default = default.and_then(|d| d.get(&k));
-                if prune(map.get_mut(&k).expect("key exists"), child_default) {
-                    map.remove(&k);
+            // Rebuild rather than `remove`: with `preserve_order`, removal reorders keys.
+            let old = std::mem::take(map);
+            for (k, mut v) in old {
+                if !prune(&mut v, default.and_then(|d| d.get(&k))) {
+                    map.insert(k, v);
                 }
             }
             map.is_empty()
@@ -389,6 +389,14 @@ mod tests {
                 "forbid": [{"name": "x", "severity": "error", "to": {"circular": false, "path": "a"}}]
             })
         );
+        // field order follows the struct, not removal order
+        let keys: Vec<_> = v["forbid"][0]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        assert_eq!(keys, ["name", "severity", "to"]);
     }
 
     #[test]

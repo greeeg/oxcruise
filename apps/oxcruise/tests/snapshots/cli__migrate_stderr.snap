@@ -1,0 +1,6 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: o.stderr
+---
+warning: <cwd>/.dependency-cruiser.json: rule `needs-license` skipped: unsupported `to.license`
+warning: <cwd>/.dependency-cruiser.json: `options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases

@@ -1,0 +1,56 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: "format!(\"exit: {}\\n--- stdout\\n{}\\n--- stderr\\n{}\", o.result.code(), o.stdout,\no.stderr)"
+---
+exit: 1
+--- stdout
+flowchart LR
+  n0["fs"]
+  n1["node_modules/fsevents/index.js"]
+  n2["node_modules/left-pad/index.js"]
+  n3["node_modules/lodash/index.js"]
+  n4["node_modules/react/index.js"]
+  n5["node_modules/vitest/index.js"]
+  n6["packages/app/src/cjs-thing.js"]
+  n7["packages/app/src/cycle-a.ts"]
+  n8["packages/app/src/cycle-b.ts"]
+  n9["packages/app/src/helpers.ts"]
+  n10["packages/app/src/index.ts"]
+  n11["packages/app/src/internal/secret.ts"]
+  n12["packages/app/src/lazy.ts"]
+  n13["packages/app/src/orphan.ts"]
+  n14["packages/app/src/suppressed.ts"]
+  n15["packages/app/src/thing.test.ts"]
+  n16["packages/app/src/uses-test.ts"]
+  n17["packages/app/src/util.ts"]
+  n18["packages/lib/src/index.ts"]
+  n19["packages/lib/src/inner.ts"]
+  n20["sys"]
+  n7 --> n8
+  n8 --> n7
+  n9 -.-> n17
+  n10 --> n0
+  n10 --> n1
+  n10 --> n2
+  n10 --> n3
+  n10 --> n4
+  n10 --> n5
+  n10 --> n6
+  n10 --> n7
+  n10 --> n9
+  n10 --> n11
+  n10 -..-> n12
+  n10 --> n17
+  n10 --> n18
+  n10 --> n20
+  n16 --> n15
+  n17 --> n9
+  n18 --> n19
+  linkStyle 0 stroke:red,stroke-width:2px
+  linkStyle 1 stroke:red,stroke-width:2px
+  linkStyle 2 stroke:red,stroke-width:2px
+  linkStyle 5 stroke:red,stroke-width:2px
+  linkStyle 8 stroke:red,stroke-width:2px
+  linkStyle 17 stroke:red,stroke-width:2px
+  linkStyle 18 stroke:red,stroke-width:2px
+--- stderr

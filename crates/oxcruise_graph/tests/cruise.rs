@@ -111,6 +111,15 @@ fn exclude_include_and_do_not_follow() {
     assert!(g.module(lib).not_followed);
     assert_eq!(g.out_degree(lib), 0);
     assert!(g.find("packages/lib/src/inner.ts").is_none());
+
+    // ... also when the module is itself an entry
+    let mut o = opts();
+    o.do_not_follow =
+        PathMatcher::new(&[PathPattern::Glob("packages/app/src/util.ts".into())]).unwrap();
+    let g = cruise(&o).unwrap().graph;
+    let util = g.find("packages/app/src/util.ts").unwrap();
+    assert!(g.module(util).not_followed);
+    assert_eq!(g.out_degree(util), 0);
 }
 
 #[test]

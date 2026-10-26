@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "apps/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -28,6 +28,7 @@ oxc_syntax = "0.155"
 oxc_resolver = "11.24"
 
 anyhow = "1"
+clap = { version = "4", features = ["derive"] }
 bitflags = "2"
 globset = "0.4"
 ignore = "0.4"
