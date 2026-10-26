@@ -1,0 +1,74 @@
+# DRAFT. Not run, and publishing needs an explicit decision: this workflow publishes to npm.
+# It builds the addon for every target, assembles the @oxcruise/binding-* packages and the
+# main package, and publishes only when a `v*` tag is pushed AND the `publish` environment
+# (with an NPM_TOKEN secret and required reviewers) approves.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, triple: linux-x64-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, triple: linux-arm64-gnu }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, triple: linux-x64-musl, musl: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, triple: linux-arm64-musl, musl: true }
+          - { os: macos-13, target: x86_64-apple-darwin, triple: darwin-x64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, triple: darwin-arm64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, triple: win32-x64-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, triple: win32-arm64-msvc }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: matrix.musl
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: pnpm -C apps/oxcruise exec napi build --platform --esm --js-package-name @oxcruise/binding --release --features allocator,napi --target ${{ matrix.target }} --output-dir src-js --js bindings.js --dts bindings.d.ts --no-dts-header
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binding-${{ matrix.triple }}
+          path: apps/oxcruise/src-js/*.node
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: publish # configure required reviewers on this environment
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - run: pnpm -C apps/oxcruise run build:js
+      # move each .node into its npm/<triple> package, then add optionalDependencies to the main package
+      - run: |
+          pnpm -C apps/oxcruise exec napi artifacts --cwd ../.. --package-json-path npm/oxcruise/package.json --output-dir artifacts --npm-dir npm
+          pnpm -C apps/oxcruise exec napi pre-publish --cwd ../.. --package-json-path npm/oxcruise/package.json --npm-dir npm -t npm --no-gh-release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

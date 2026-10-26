@@ -20,5 +20,10 @@ rustc-hash = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 insta = { workspace = true }
 serde_json = { workspace = true }
+
+[[bench]]
+name = "extract"
+harness = false
