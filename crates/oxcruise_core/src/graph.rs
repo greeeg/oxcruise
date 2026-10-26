@@ -43,6 +43,8 @@ pub struct Module {
     /// Modules matched by `doNotFollow`/depth limit: present but not expanded.
     pub not_followed: bool,
     pub parse_error: Option<String>,
+    /// Rules silenced for the whole file by `oxcruise-ignore-file`; `"*"` means all.
+    pub suppressed: Vec<String>,
 }
 
 impl Module {
@@ -53,6 +55,7 @@ impl Module {
             package: None,
             not_followed: false,
             parse_error: None,
+            suppressed: vec![],
         }
     }
 }
