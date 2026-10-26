@@ -26,8 +26,29 @@ fn rule(name: &str, sev: oxcruise_core::Severity) -> Value {
     json!({ "name": name, "severity": sev.as_str() })
 }
 
+/// depcruise reports only what a dependency resolves to when it could not be resolved
+/// (`unknown`), not how it was written.
+fn dep_kinds(d: &crate::DepOut) -> DepKinds {
+    // `url`, `worker` and `call` are oxcruise additions that the cruise-result schema does not know.
+    let known = d.kinds & !(DepKinds::URL | DepKinds::WORKER | DepKinds::CALL);
+    if d.to_kind == ModuleKind::Unresolved {
+        known & !DepKinds::SYNTAX_ANY
+    } else {
+        known
+    }
+}
+
+/// depcruise strips the `node:` prefix of built-in modules.
+fn module_name(d: &crate::DepOut) -> &str {
+    if d.to_kind == ModuleKind::Core {
+        d.specifier.strip_prefix("node:").unwrap_or(&d.specifier)
+    } else {
+        &d.specifier
+    }
+}
+
 pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
-    let modules: Vec<Value> = result
+    let mut modules: Vec<Value> = result
         .modules
         .iter()
         .map(|m| {
@@ -47,18 +68,18 @@ pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
                         "followable": d.to_kind == ModuleKind::Source,
                         "couldNotResolve": d.to_kind == ModuleKind::Unresolved,
                         "dynamic": d.kinds.contains(DepKinds::DYNAMIC_IMPORT),
-                        "module": d.specifier,
+                        "module": module_name(d),
                         "moduleSystem": d.module_system.as_str(),
                         "exoticallyRequired": d.kinds.contains(DepKinds::EXOTIC_REQUIRE),
-                        "dependencyTypes": kinds(d.kinds),
+                        "dependencyTypes": kinds(dep_kinds(d)),
                         "valid": d.rules.iter().all(|r| r.severity == oxcruise_core::Severity::Ignore),
                     });
                     let map = o.as_object_mut().expect("object");
                     if !d.rules.is_empty() {
                         map.insert("rules".into(), Value::Array(d.rules.iter().map(|r| rule(&r.name, r.severity)).collect()));
                     }
+                    map.insert("circular".into(), json!(d.circular));
                     if d.circular {
-                        map.insert("circular".into(), json!(true));
                         map.insert("cycle".into(), cycle(&d.cycle));
                     }
                     o
@@ -94,6 +115,34 @@ pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
             o
         })
         .collect();
+
+    // Unresolved specifiers are modules too, so consumers can see what depends on them.
+    let mut unresolved: std::collections::BTreeMap<&str, Vec<&str>> =
+        std::collections::BTreeMap::new();
+    for m in &result.modules {
+        for d in m
+            .dependencies
+            .iter()
+            .filter(|d| d.to_kind == ModuleKind::Unresolved)
+        {
+            let v = unresolved.entry(d.to.as_str()).or_default();
+            if !v.contains(&m.path.as_str()) {
+                v.push(&m.path);
+            }
+        }
+    }
+    for (spec, dependents) in unresolved {
+        modules.push(json!({
+            "source": spec,
+            "dependencies": [],
+            "dependents": dependents,
+            "orphan": false,
+            "valid": true,
+            "followable": false,
+            "coreModule": false,
+            "couldNotResolve": true,
+        }));
+    }
 
     let violations: Vec<Value> = result
         .violations

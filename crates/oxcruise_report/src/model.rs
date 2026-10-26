@@ -126,12 +126,18 @@ impl CruiseResult {
                 severity: v.severity,
             };
             match v.edge {
-                Some(e) => {
-                    edge_rules.entry(e.0).or_default().push(r);
-                    if !v.path.is_empty() && !edge_cycles.contains_key(&e.0) {
-                        edge_cycles.insert(e.0, hops(graph, &v.path));
+                Some(_) if !v.path.is_empty() => {
+                    // A cycle is reported once, but every edge on it is part of it.
+                    let all = hops(graph, &v.path);
+                    for (i, step) in v.path.iter().enumerate() {
+                        let Some(e) = step.edge else { continue };
+                        edge_rules.entry(e.0).or_default().push(r.clone());
+                        let mut rotated = all.clone();
+                        rotated.rotate_left(i);
+                        edge_cycles.entry(e.0).or_insert(rotated);
                     }
                 }
+                Some(e) => edge_rules.entry(e.0).or_default().push(r),
                 None => module_rules.entry(v.from.0).or_default().push(r),
             }
         }

@@ -245,8 +245,7 @@ expression: "rendered(\"json-depcruise\", &plain())"
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
-            "unknown",
-            "import"
+            "unknown"
           ],
           "valid": false,
           "rules": [
@@ -254,7 +253,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-unresolvable",
               "severity": "error"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "fs",
@@ -262,14 +262,15 @@ expression: "rendered(\"json-depcruise\", &plain())"
           "followable": false,
           "couldNotResolve": false,
           "dynamic": false,
-          "module": "node:fs",
+          "module": "fs",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "core",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "node_modules/fsevents/index.js",
@@ -290,7 +291,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "optional-deps-used",
               "severity": "info"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "node_modules/left-pad/index.js",
@@ -316,7 +318,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-deprecated-npm",
               "severity": "warn"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "node_modules/lodash/index.js",
@@ -331,7 +334,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "npm",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "node_modules/react/index.js",
@@ -352,7 +356,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "peer-deps-used",
               "severity": "warn"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "node_modules/vitest/index.js",
@@ -373,7 +378,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-dev-deps-in-prod",
               "severity": "error"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "packages/app/src/cjs-thing.js",
@@ -388,7 +394,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "local",
             "require"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/app/src/cycle-a.ts",
@@ -403,7 +410,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "local",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/app/src/helpers.ts",
@@ -421,7 +429,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "aliased-tsconfig-paths",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/app/src/internal/secret.ts",
@@ -438,7 +447,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "aliased-subpath-import",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/app/src/lazy.ts",
@@ -453,7 +463,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "local",
             "dynamic-import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/app/src/util.ts",
@@ -468,7 +479,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "local",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "packages/lib/src/index.ts",
@@ -485,7 +497,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "aliased-workspace",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         },
         {
           "resolved": "sys",
@@ -507,7 +520,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-deprecated-core",
               "severity": "warn"
             }
-          ]
+          ],
+          "circular": false
         }
       ],
       "dependents": [],
@@ -558,8 +572,7 @@ expression: "rendered(\"json-depcruise\", &plain())"
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
-            "unknown",
-            "import"
+            "unknown"
           ],
           "valid": false,
           "rules": [
@@ -567,7 +580,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-unresolvable",
               "severity": "error"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "./nope",
@@ -579,10 +593,10 @@ expression: "rendered(\"json-depcruise\", &plain())"
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
-            "unknown",
-            "import"
+            "unknown"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         }
       ],
       "dependents": [],
@@ -620,7 +634,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "not-to-test",
               "severity": "error"
             }
-          ]
+          ],
+          "circular": false
         }
       ],
       "dependents": [],
@@ -690,8 +705,7 @@ expression: "rendered(\"json-depcruise\", &plain())"
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
-            "unknown",
-            "import"
+            "unknown"
           ],
           "valid": false,
           "rules": [
@@ -699,7 +713,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
               "name": "no-unresolvable",
               "severity": "error"
             }
-          ]
+          ],
+          "circular": false
         },
         {
           "resolved": "packages/lib/src/inner.ts",
@@ -717,7 +732,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
             "aliased-tsconfig-paths",
             "import"
           ],
-          "valid": true
+          "valid": true,
+          "circular": false
         }
       ],
       "dependents": [
@@ -745,6 +761,54 @@ expression: "rendered(\"json-depcruise\", &plain())"
       "valid": true,
       "coreModule": true,
       "followable": false
+    },
+    {
+      "source": "./also-nope",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/suppressed.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true
+    },
+    {
+      "source": "./missing",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true
+    },
+    {
+      "source": "./nope",
+      "dependencies": [],
+      "dependents": [
+        "packages/app/src/suppressed.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true
+    },
+    {
+      "source": "@app/helpers",
+      "dependencies": [],
+      "dependents": [
+        "packages/lib/src/index.ts"
+      ],
+      "orphan": false,
+      "valid": true,
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true
     }
   ],
   "summary": {
@@ -767,31 +831,6 @@ expression: "rendered(\"json-depcruise\", &plain())"
           },
           {
             "name": "packages/app/src/cycle-a.ts",
-            "dependencyTypes": [
-              "local",
-              "import"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "cycle",
-        "from": "packages/app/src/cycle-b.ts",
-        "to": "packages/app/src/cycle-a.ts",
-        "rule": {
-          "name": "no-circular",
-          "severity": "error"
-        },
-        "cycle": [
-          {
-            "name": "packages/app/src/cycle-a.ts",
-            "dependencyTypes": [
-              "local",
-              "import"
-            ]
-          },
-          {
-            "name": "packages/app/src/cycle-b.ts",
             "dependencyTypes": [
               "local",
               "import"
@@ -871,32 +910,6 @@ expression: "rendered(\"json-depcruise\", &plain())"
         }
       },
       {
-        "type": "cycle",
-        "from": "packages/app/src/util.ts",
-        "to": "packages/app/src/helpers.ts",
-        "rule": {
-          "name": "no-circular",
-          "severity": "error"
-        },
-        "cycle": [
-          {
-            "name": "packages/app/src/helpers.ts",
-            "dependencyTypes": [
-              "local",
-              "import"
-            ]
-          },
-          {
-            "name": "packages/app/src/util.ts",
-            "dependencyTypes": [
-              "local",
-              "type-only",
-              "import"
-            ]
-          }
-        ]
-      },
-      {
         "type": "dependency",
         "from": "packages/lib/src/index.ts",
         "to": "@app/helpers",
@@ -951,7 +964,7 @@ expression: "rendered(\"json-depcruise\", &plain())"
         }
       }
     ],
-    "error": 10,
+    "error": 8,
     "warn": 4,
     "info": 1,
     "ignore": 1,

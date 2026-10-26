@@ -738,33 +738,6 @@ expression: "rendered(\"json\", &plain())"
       "rule": "no-circular",
       "severity": "error",
       "kind": "cycle",
-      "from": "packages/app/src/cycle-b.ts",
-      "to": "packages/app/src/cycle-a.ts",
-      "line": 1,
-      "col": 19,
-      "message": "circular dependency: packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts",
-      "cycle": [
-        {
-          "module": "packages/app/src/cycle-b.ts",
-          "kinds": [
-            "local",
-            "import"
-          ]
-        },
-        {
-          "module": "packages/app/src/cycle-a.ts",
-          "kinds": [
-            "local",
-            "import"
-          ]
-        }
-      ],
-      "specifier_len": 11
-    },
-    {
-      "rule": "no-circular",
-      "severity": "error",
-      "kind": "cycle",
       "from": "packages/app/src/helpers.ts",
       "to": "packages/app/src/util.ts",
       "line": 1,
@@ -845,34 +818,6 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 14
     },
     {
-      "rule": "no-circular",
-      "severity": "error",
-      "kind": "cycle",
-      "from": "packages/app/src/util.ts",
-      "to": "packages/app/src/helpers.ts",
-      "line": 1,
-      "col": 24,
-      "message": "circular dependency: packages/app/src/util.ts → packages/app/src/helpers.ts → packages/app/src/util.ts",
-      "cycle": [
-        {
-          "module": "packages/app/src/util.ts",
-          "kinds": [
-            "local",
-            "import"
-          ]
-        },
-        {
-          "module": "packages/app/src/helpers.ts",
-          "kinds": [
-            "local",
-            "type-only",
-            "import"
-          ]
-        }
-      ],
-      "specifier_len": 11
-    },
-    {
       "rule": "no-unresolvable",
       "severity": "error",
       "kind": "dependency",
@@ -936,7 +881,7 @@ expression: "rendered(\"json\", &plain())"
     }
   ],
   "summary": {
-    "error": 10,
+    "error": 8,
     "warn": 4,
     "info": 1,
     "suppressed": 1,

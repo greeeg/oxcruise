@@ -11,15 +11,6 @@ error[no-circular]: circular dependency: packages/app/src/cycle-a.ts → package
      ╭─▶ packages/app/src/cycle-a.ts
      ╰── packages/app/src/cycle-b.ts
 
-error[no-circular]: circular dependency: packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts
-  --> packages/app/src/cycle-b.ts:1:19
-   |
- 1 | import { a } from "./cycle-a";
-   |                   ^^^^^^^^^^^
-   = cycle:
-     ╭─▶ packages/app/src/cycle-b.ts
-     ╰── packages/app/src/cycle-a.ts
-
 error[no-circular]: circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts
   --> packages/app/src/helpers.ts:1:27
    |
@@ -64,15 +55,6 @@ error[not-to-test]: production code imports test code `packages/app/src/thing.te
    |                   ^^^^^^^^^^^^^^
    = imports packages/app/src/thing.test.ts
 
-error[no-circular]: circular dependency: packages/app/src/util.ts → packages/app/src/helpers.ts → packages/app/src/util.ts
-  --> packages/app/src/util.ts:1:24
-   |
- 1 | import { helper } from "./helpers";
-   |                        ^^^^^^^^^^^
-   = cycle:
-     ╭─▶ packages/app/src/util.ts
-     ╰── packages/app/src/helpers.ts
-
 error[no-unresolvable]: cannot resolve `@app/helpers`
   --> packages/lib/src/index.ts:2:24
    |
@@ -111,5 +93,5 @@ info[optional-deps-used]: `fsevents` is an optional dependency and may not be in
    |                      ^^^^^^^^^^
    = imports node_modules/fsevents/index.js
 
-✖ 15 problems (10 errors, 4 warnings, 1 info) in 25 modules, 24 dependencies
+✖ 13 problems (8 errors, 4 warnings, 1 info) in 25 modules, 24 dependencies
   1 suppressed by comments
