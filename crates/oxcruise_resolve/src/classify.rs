@@ -83,21 +83,28 @@ pub(crate) fn resolved(r: &Resolver, from_file: &Path, spec: &str, path: &Path) 
 }
 
 fn npm(r: &Resolver, from_dir: &Path, spec: &str, path: &Path, package: String) -> Resolved {
-    let mut names = vec![package.clone()];
-    if let Some(pkg) = bare_package_name(spec)
-        && !names.contains(&pkg)
-    {
-        names.push(pkg);
-    }
-    // `@types/foo` satisfies an import of `foo` and the other way round.
-    for n in names.clone() {
-        names.push(types_counterpart(&n));
-    }
-
+    // The name written in the import is what the project declared; fall back to the package
+    // the file lives in, and only then to the `@types/*` counterpart (types-only installs).
+    let written = bare_package_name(spec);
     let mut kinds = DepKinds::empty();
     if let Some(m) = r.manifest_for(from_dir) {
-        for n in &names {
-            kinds |= m.sections_for(n);
+        let declared = |names: &[&str]| {
+            names
+                .iter()
+                .fold(DepKinds::empty(), |k, n| k | m.sections_for(n))
+        };
+        let primary: Vec<&str> = written.iter().map(String::as_str).collect();
+        kinds = declared(&primary);
+        if kinds.is_empty() {
+            kinds = declared(&[package.as_str()]);
+        }
+        if kinds.is_empty() {
+            let types: Vec<String> = [written.as_deref(), Some(package.as_str())]
+                .into_iter()
+                .flatten()
+                .map(types_counterpart)
+                .collect();
+            kinds = declared(&types.iter().map(String::as_str).collect::<Vec<_>>());
         }
     }
     if kinds.is_empty() {
@@ -195,7 +202,7 @@ fn aliased_kind(r: &Resolver, from_file: &Path, spec: &str) -> DepKinds {
     {
         return base | DepKinds::ALIASED_WORKSPACE;
     }
-    if let Ok(Some(ts)) = r.inner().find_tsconfig(from_file) {
+    if let Ok(Some(ts)) = r.oxc(crate::ResolveMode::Esm).find_tsconfig(from_file) {
         if paths_match(&ts, spec) {
             return base | DepKinds::ALIASED_TSCONFIG | DepKinds::ALIASED_TSCONFIG_PATHS;
         }

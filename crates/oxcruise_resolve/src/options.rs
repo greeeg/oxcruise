@@ -47,17 +47,31 @@ impl ResolveConfig {
     }
 }
 
+/// Source extensions first, declaration files last: a runtime dependency graph wants
+/// `index.js` over `index.d.ts` when a package has no `main`.
 const DEFAULT_EXTENSIONS: &[&str] = &[
-    ".ts", ".tsx", ".mts", ".cts", ".d.ts", ".js", ".jsx", ".mjs", ".cjs", ".json", ".node",
-    ".vue", ".svelte", ".astro",
+    ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json", ".node", ".vue",
+    ".svelte", ".astro", ".d.ts", ".d.mts", ".d.cts",
 ];
 
-pub(crate) fn to_oxc(c: &ResolveConfig) -> ResolveOptions {
+/// Which export condition decides between dual ESM/CJS packages, as in Node:
+/// `import`/`export`/`import()` use `import`, `require()` uses `require`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResolveMode {
+    Esm,
+    Cjs,
+}
+
+pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
     let mut conditions: Vec<String> = vec![];
     if c.prefer_source {
         conditions.extend(c.source_conditions.iter().cloned());
     }
-    for n in ["import", "require", "node", "default"]
+    let runtime = match mode {
+        ResolveMode::Esm => "import",
+        ResolveMode::Cjs => "require",
+    };
+    for n in [runtime, "node", "default"]
         .map(String::from)
         .iter()
         .chain(&c.conditions)
@@ -105,10 +119,10 @@ pub(crate) fn to_oxc(c: &ResolveConfig) -> ResolveOptions {
             .extensions
             .clone()
             .unwrap_or_else(|| DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect()),
-        main_fields: c
-            .main_fields
-            .clone()
-            .unwrap_or_else(|| vec!["module".into(), "main".into()]),
+        main_fields: c.main_fields.clone().unwrap_or_else(|| match mode {
+            ResolveMode::Esm => vec!["module".into(), "main".into()],
+            ResolveMode::Cjs => vec!["main".into()],
+        }),
         builtin_modules: true,
         ..ResolveOptions::default()
     }

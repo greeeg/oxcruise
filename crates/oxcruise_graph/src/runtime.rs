@@ -11,7 +11,7 @@ use std::sync::mpsc::{self, TryRecvError};
 use oxc_allocator::Allocator;
 use oxcruise_core::{DepKinds, Edge, Graph, Module, ModuleId, ModuleKind};
 use oxcruise_extract::{RawDependency, extract};
-use oxcruise_resolve::{Resolved, Resolver, Target, WorkspacePackage};
+use oxcruise_resolve::{ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
 use rustc_hash::FxHashMap;
 
 use crate::options::CruiseOptions;
@@ -95,7 +95,16 @@ fn process(resolver: &Resolver, opts: &CruiseOptions, path: &Path) -> Processed 
         .deps
         .into_iter()
         .map(|d| {
-            let r = resolver.resolve(path, &d.specifier);
+            // Node picks `require` vs `import` conditions by how the dependency is written.
+            let mode = if d
+                .kinds
+                .intersects(DepKinds::REQUIRE | DepKinds::EXOTIC_REQUIRE | DepKinds::IMPORT_EQUALS)
+            {
+                ResolveMode::Cjs
+            } else {
+                ResolveMode::Esm
+            };
+            let r = resolver.resolve(path, &d.specifier, mode);
             (d, r)
         })
         .collect();

@@ -10,7 +10,7 @@ mod workspace;
 
 pub use classify::{Resolved, Target};
 pub use manifest::Manifest;
-pub use options::{ResolveConfig, TsconfigMode};
+pub use options::{ResolveConfig, ResolveMode, TsconfigMode};
 pub use workspace::{Workspace, WorkspacePackage};
 
 use std::path::{Path, PathBuf};
@@ -19,7 +19,8 @@ use oxc_resolver::{ResolveError, Resolver as OxcResolver};
 use oxcruise_core::DepKinds;
 
 pub struct Resolver {
-    inner: OxcResolver,
+    esm: OxcResolver,
+    cjs: OxcResolver,
     config: ResolveConfig,
     manifests: manifest::ManifestCache,
     workspace: Workspace,
@@ -28,9 +29,11 @@ pub struct Resolver {
 impl Resolver {
     pub fn new(config: ResolveConfig) -> Self {
         let workspace = Workspace::discover(&config.root);
-        let inner = OxcResolver::new(options::to_oxc(&config));
+        let esm = OxcResolver::new(options::to_oxc(&config, ResolveMode::Esm));
+        let cjs = OxcResolver::new(options::to_oxc(&config, ResolveMode::Cjs));
         Self {
-            inner,
+            esm,
+            cjs,
             config,
             manifests: manifest::ManifestCache::default(),
             workspace,
@@ -46,22 +49,25 @@ impl Resolver {
     }
 
     /// Resolve `specifier` as written in `from_file` (an absolute path).
-    pub fn resolve(&self, from_file: &Path, specifier: &str) -> Resolved {
+    pub fn resolve(&self, from_file: &Path, specifier: &str, mode: ResolveMode) -> Resolved {
         if classify::is_skipped_specifier(specifier) {
             return Resolved {
                 target: Target::Skip,
                 kinds: DepKinds::empty(),
             };
         }
-        match self.inner.resolve_file(from_file, specifier) {
+        match self.oxc(mode).resolve_file(from_file, specifier) {
             Ok(res) => classify::resolved(self, from_file, specifier, res.path()),
             Err(ResolveError::Builtin { resolved, .. }) => classify::core(&resolved),
             Err(e) => classify::unresolved(&e),
         }
     }
 
-    pub(crate) fn inner(&self) -> &OxcResolver {
-        &self.inner
+    pub(crate) fn oxc(&self, mode: ResolveMode) -> &OxcResolver {
+        match mode {
+            ResolveMode::Esm => &self.esm,
+            ResolveMode::Cjs => &self.cjs,
+        }
     }
     pub(crate) fn config(&self) -> &ResolveConfig {
         &self.config
