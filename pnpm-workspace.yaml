@@ -1,0 +1,3 @@
+packages:
+  - apps/oxcruise
+  - npm/oxcruise

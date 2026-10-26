@@ -1,0 +1,7 @@
+{
+  "name": "oxcruise-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": { "node": ">=22.18" }
+}

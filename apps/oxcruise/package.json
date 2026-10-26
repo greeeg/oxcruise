@@ -1,0 +1,26 @@
+{
+  "name": "@oxcruise/app",
+  "private": true,
+  "type": "module",
+  "description": "Node host for oxcruise: CLI shim, plugin runtime, config loader and the programmatic API",
+  "scripts": {
+    "build:binding": "napi build --platform --esm --js-package-name @oxcruise/binding --release --features allocator,napi --output-dir src-js --js bindings.js --dts bindings.d.ts --no-dts-header",
+    "build:binding:debug": "napi build --platform --esm --js-package-name @oxcruise/binding --features napi --output-dir src-js --js bindings.js --dts bindings.d.ts --no-dts-header",
+    "build:js": "tsdown",
+    "build": "pnpm build:binding && pnpm build:js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "config-ts": "node --experimental-strip-types scripts/config-types.ts"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "3.10.9",
+    "@types/node": "^22.18.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "tsdown": "0.23.2",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "napi": {
+    "binaryName": "oxcruise"
+  }
+}
