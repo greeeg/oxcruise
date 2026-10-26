@@ -87,7 +87,10 @@ fn json() {
 
 #[test]
 fn json_depcruise() {
-    insta::assert_snapshot!(rendered("json-depcruise", &plain()));
+    // compact on the wire, pretty in the snapshot so it can be reviewed
+    let value: serde_json::Value =
+        serde_json::from_str(&rendered("json-depcruise", &plain())).unwrap();
+    insta::assert_snapshot!(serde_json::to_string_pretty(&value).unwrap());
 }
 
 #[test]

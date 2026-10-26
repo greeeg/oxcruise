@@ -1,6 +1,6 @@
 ---
 source: crates/oxcruise_report/tests/reporters.rs
-expression: "rendered(\"json-depcruise\", &plain())"
+expression: "serde_json::to_string_pretty(&value).unwrap()"
 ---
 {
   "modules": [
@@ -12,8 +12,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
       ],
       "orphan": false,
       "valid": true,
-      "coreModule": true,
-      "followable": false
+      "followable": false,
+      "coreModule": true
     },
     {
       "source": "node_modules/fsevents/index.js",
@@ -759,8 +759,8 @@ expression: "rendered(\"json-depcruise\", &plain())"
       ],
       "orphan": false,
       "valid": true,
-      "coreModule": true,
-      "followable": false
+      "followable": false,
+      "coreModule": true
     },
     {
       "source": "./also-nope",
