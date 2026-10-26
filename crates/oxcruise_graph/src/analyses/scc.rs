@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use oxcruise_core::{CycleStep, Edge, EdgeId, Graph, ModuleId};
 
 /// Strongly connected components, computed once for the whole graph.
@@ -120,6 +118,35 @@ pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> S
     }
 }
 
+/// Reusable BFS state, so finding the shortest cycle of every edge does not allocate and clear
+/// two `n`-sized vectors per edge. A slot is "set" when its stamp equals the current one.
+#[derive(Default)]
+struct Scratch {
+    stamp: u32,
+    seen: Vec<u32>,
+    via: Vec<EdgeId>,
+    queue: Vec<ModuleId>,
+}
+
+impl Scratch {
+    fn begin(&mut self, n: usize) {
+        if self.seen.len() < n {
+            self.seen.resize(n, 0);
+            self.via.resize(n, EdgeId(u32::MAX));
+        }
+        if self.stamp == u32::MAX {
+            self.seen.iter_mut().for_each(|s| *s = 0);
+            self.stamp = 0;
+        }
+        self.stamp += 1;
+        self.queue.clear();
+    }
+}
+
+thread_local! {
+    static SCRATCH: std::cell::RefCell<Scratch> = std::cell::RefCell::new(Scratch::default());
+}
+
 /// Shortest cycle through `edge`: `edge.from -> edge.to -> ... -> edge.from`.
 ///
 /// Steps list each module with the edge that leaves it; the last step's edge
@@ -143,45 +170,53 @@ pub fn shortest_cycle(
     }
     // BFS b -> a, staying inside the component.
     let comp = scc.component(a);
-    let mut pred: Vec<Option<EdgeId>> = vec![None; g.module_count()];
-    let mut seen = vec![false; g.module_count()];
-    let mut q = VecDeque::from([b]);
-    seen[b.idx()] = true;
-    while let Some(m) = q.pop_front() {
-        if m == a {
-            break;
-        }
-        for id in g.out_edge_ids(m) {
-            let ed = g.edge(id);
-            if !keep(ed) || seen[ed.to.idx()] || scc.component(ed.to) != comp {
-                continue;
+    SCRATCH.with(|cell| {
+        let mut sc = cell.borrow_mut();
+        sc.begin(g.module_count());
+        let stamp = sc.stamp;
+        sc.seen[b.idx()] = stamp;
+        sc.queue.push(b);
+        let mut head = 0;
+        let mut found = false;
+        'bfs: while head < sc.queue.len() {
+            let m = sc.queue[head];
+            head += 1;
+            for id in g.out_edge_ids(m) {
+                let ed = g.edge(id);
+                if !keep(ed) || sc.seen[ed.to.idx()] == stamp || scc.component(ed.to) != comp {
+                    continue;
+                }
+                sc.seen[ed.to.idx()] = stamp;
+                sc.via[ed.to.idx()] = id;
+                if ed.to == a {
+                    found = true;
+                    break 'bfs;
+                }
+                sc.queue.push(ed.to);
             }
-            seen[ed.to.idx()] = true;
-            pred[ed.to.idx()] = Some(id);
-            q.push_back(ed.to);
         }
-    }
-    if !seen[a.idx()] {
-        return None;
-    }
-    // Walk back from a to b.
-    let mut back: Vec<EdgeId> = vec![];
-    let mut cur = a;
-    while cur != b {
-        let id = pred[cur.idx()].expect("bfs predecessor");
-        back.push(id);
-        cur = g.edge(id).from;
-    }
-    back.reverse();
-    let mut steps = vec![CycleStep {
-        module: a,
-        edge: Some(edge),
-    }];
-    for id in back {
-        steps.push(CycleStep {
-            module: g.edge(id).from,
-            edge: Some(id),
-        });
-    }
-    Some(steps)
+        if !found {
+            return None;
+        }
+        // Walk back from a to b.
+        let mut back: Vec<EdgeId> = vec![];
+        let mut cur = a;
+        while cur != b {
+            let id = sc.via[cur.idx()];
+            back.push(id);
+            cur = g.edge(id).from;
+        }
+        back.reverse();
+        let mut steps = vec![CycleStep {
+            module: a,
+            edge: Some(edge),
+        }];
+        for id in back {
+            steps.push(CycleStep {
+                module: g.edge(id).from,
+                edge: Some(id),
+            });
+        }
+        Some(steps)
+    })
 }
