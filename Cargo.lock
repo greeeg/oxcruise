@@ -874,6 +874,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxcruise_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "oxcruise_resolve"
 version = "0.1.0"
 dependencies = [
@@ -885,6 +894,26 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "oxcruise_rules"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "globset",
+ "insta",
+ "oxcruise_config",
+ "oxcruise_core",
+ "oxcruise_graph",
+ "oxcruise_macros",
+ "oxcruise_resolve",
+ "rayon",
+ "regex",
+ "rustc-hash",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
