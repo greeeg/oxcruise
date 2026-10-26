@@ -244,9 +244,9 @@ pub struct ToCondition {
     pub exotically_required: Option<bool>,
     /// The dependency is part of a cycle.
     pub circular: Option<bool>,
-    /// The cycle goes through a module/edge matching this.
+    /// The cycle goes through a module (other than the importer) or an edge matching this.
     pub via: Option<ViaCondition>,
-    /// Every intermediate step of the cycle matches this.
+    /// Every module (importer included) and every edge of the cycle matches this.
     pub via_only: Option<ViaCondition>,
     /// `to` is reachable from `from` through other modules.
     pub reachable: Option<bool>,
