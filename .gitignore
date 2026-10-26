@@ -8,3 +8,5 @@ dist
 .oxcruise-cache
 
 !/tests/fixtures/**/node_modules
+
+/tasks/conformance/.cache

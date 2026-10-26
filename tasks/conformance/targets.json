@@ -1,0 +1,98 @@
+[
+  {
+    "name": "es6",
+    "dir": "test/extract/__mocks__/es6",
+    "entries": [
+      "."
+    ]
+  },
+  {
+    "name": "cjs",
+    "dir": "test/extract/__mocks__/cjs",
+    "entries": [
+      "."
+    ]
+  },
+  {
+    "name": "ts",
+    "dir": "test/extract/__mocks__/ts",
+    "entries": [
+      "."
+    ],
+    "needs": [
+      "typescript"
+    ]
+  },
+  {
+    "name": "ts-types",
+    "dir": "test/extract/__mocks__/ts-types",
+    "entries": [
+      "."
+    ],
+    "needs": [
+      "typescript"
+    ]
+  },
+  {
+    "name": "vue",
+    "dir": "test/extract/__mocks__/vue",
+    "entries": [
+      "."
+    ],
+    "needs": [
+      "typescript",
+      "@vue/compiler-sfc"
+    ]
+  },
+  {
+    "name": "amd",
+    "dir": "test/extract/__mocks__/amd",
+    "entries": [
+      "."
+    ]
+  },
+  {
+    "name": "exotic-require",
+    "dir": "test/extract/__mocks__/exotic-require",
+    "entries": [
+      "."
+    ],
+    "exoticRequireStrings": [
+      "need",
+      "window.require"
+    ]
+  },
+  {
+    "name": "donotfollow",
+    "dir": "test/extract/__mocks__/donotfollow",
+    "entries": [
+      "."
+    ],
+    "doNotFollow": "donotfollow/node_modules|node_modules"
+  },
+  {
+    "name": "max-depth-1",
+    "dir": "test/extract/__mocks__/maxDepth",
+    "entries": [
+      "index.js"
+    ],
+    "maxDepth": 1
+  },
+  {
+    "name": "depcruise-src",
+    "dir": ".",
+    "entries": [
+      "src"
+    ],
+    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$"
+  },
+  {
+    "name": "depcruise-tools",
+    "dir": ".",
+    "entries": [
+      "tools",
+      "bin"
+    ],
+    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$"
+  }
+]

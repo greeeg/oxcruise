@@ -1,0 +1,10 @@
+{
+  "name": "oxcruise-conformance",
+  "private": true,
+  "type": "module",
+  "description": "Diffs oxcruise against dependency-cruiser 18.7",
+  "dependencies": {
+    "ajv": "8.17.1",
+    "dependency-cruiser": "18.7.0"
+  }
+}

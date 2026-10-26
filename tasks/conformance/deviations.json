@@ -1,0 +1,51 @@
+[
+  {
+    "kind": "module-only-in-depcruise",
+    "match": "node_modules/",
+    "reason": "Dual ESM/CJS packages: oxcruise resolves like Node, so `import` and `export ... from` use the package's `import` condition (e.g. dist/index.mjs) and `require()` the `require` condition. dependency-cruiser resolves one merged condition list and lands on the CJS entry. The edge exists in both tools; only the file inside node_modules differs."
+  },
+  {
+    "kind": "module-only-in-oxcruise",
+    "match": "node_modules/",
+    "reason": "Dual ESM/CJS packages: oxcruise resolves like Node, so `import` and `export ... from` use the package's `import` condition (e.g. dist/index.mjs) and `require()` the `require` condition. dependency-cruiser resolves one merged condition list and lands on the CJS entry. The edge exists in both tools; only the file inside node_modules differs."
+  },
+  {
+    "kind": "edge-only-in-depcruise",
+    "match": "node_modules/",
+    "reason": "Dual ESM/CJS packages: oxcruise resolves like Node, so `import` and `export ... from` use the package's `import` condition (e.g. dist/index.mjs) and `require()` the `require` condition. dependency-cruiser resolves one merged condition list and lands on the CJS entry. The edge exists in both tools; only the file inside node_modules differs."
+  },
+  {
+    "kind": "edge-only-in-oxcruise",
+    "match": "node_modules/",
+    "reason": "Dual ESM/CJS packages: oxcruise resolves like Node, so `import` and `export ... from` use the package's `import` condition (e.g. dist/index.mjs) and `require()` the `require` condition. dependency-cruiser resolves one merged condition list and lands on the CJS entry. The edge exists in both tools; only the file inside node_modules differs."
+  },
+  {
+    "kind": "syntax-differs",
+    "match": "depcruise \\[import\\] vs oxcruise \\[export,import\\]",
+    "reason": "A module that both imports and re-exports from the same specifier keeps both kinds in oxcruise (`import` and `export`); dependency-cruiser keeps only the first. oxcruise merges the kinds of duplicate dependencies instead of dropping information."
+  },
+  {
+    "target": "amd",
+    "kind": "module-only-in-oxcruise",
+    "match": "local-module-in-drag",
+    "reason": "AMD module ids without a leading ./ are resolved by requirejs against `baseUrl`/`paths`. oxcruise has no requirejs config support and resolves them like package specifiers, so they are reported unresolved."
+  },
+  {
+    "target": "amd",
+    "kind": "edge-only-in-depcruise",
+    "match": "local-module-in-drag",
+    "reason": "Same as above: non-relative AMD ids are not resolved against the requirejs config."
+  },
+  {
+    "target": "amd",
+    "kind": "edge-only-in-oxcruise",
+    "match": "local-module-in-drag",
+    "reason": "Same as above: non-relative AMD ids are not resolved against the requirejs config."
+  },
+  {
+    "target": "amd",
+    "kind": "violation-only-in-oxcruise",
+    "match": "local-module-in-drag",
+    "reason": "Consequence of the unresolved non-relative AMD id above (`not-to-unresolvable`, and the file it should have pointed to looks orphaned)."
+  }
+]
