@@ -1,0 +1,18 @@
+{
+  "extends": ["oxcruise:recommended"],
+  "rules": {
+    "no-orphans": ["error", {
+      "ignore": [
+        { "regex": "(^|/)[.][^/]+[.](js|cjs|mjs|ts|cts|mts|json)$" },
+        { "regex": "[.]d[.]ts$" },
+        { "regex": "(^|/)tsconfig[.]json$" },
+        { "regex": "(^|/)(babel|webpack)[.]config[.](js|cjs|mjs|ts|cts|mts|json)$" }
+      ]
+    }],
+    "no-deprecated-core": "error",
+    "no-deprecated-npm": "error",
+    "no-duplicate-dep-types": "error",
+    "optional-deps-used": "warn",
+    "peer-deps-used": "error"
+  }
+}

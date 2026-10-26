@@ -1,0 +1,9 @@
+---
+source: crates/oxcruise_config/tests/depcruise_import.rs
+expression: warnings
+---
+[
+  "rule `uses-license` skipped: unsupported `to.license`",
+  "forbidden rule `folder-rule` skipped: folder-scope rules are not supported yet",
+  "`options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases"
+]

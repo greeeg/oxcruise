@@ -1,0 +1,841 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OxcruiseConfig",
+  "description": "The oxcruise configuration file.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "allow": {
+      "description": "If non-empty, every dependency must match one of these.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeclarativeRule"
+      }
+    },
+    "entries": {
+      "description": "Files, directories or globs to start from.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PathSpec"
+      }
+    },
+    "extends": {
+      "description": "Presets (`oxcruise:recommended`, `oxcruise:strict`) or paths to other config files.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "extract": {
+      "$ref": "#/$defs/ExtractSection",
+      "default": {
+        "calls": [],
+        "exoticRequireStrings": [],
+        "jsdoc": false,
+        "skipTripleSlash": false
+      }
+    },
+    "follow": {
+      "$ref": "#/$defs/FollowConfig",
+      "default": {
+        "doNotFollow": [],
+        "maxDepth": null,
+        "npm": false
+      }
+    },
+    "forbid": {
+      "description": "Ad-hoc forbidden dependencies.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeclarativeRule"
+      }
+    },
+    "includeOnly": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PathSpec"
+      }
+    },
+    "jsPlugins": {
+      "description": "JS/TS plugin modules (paths or package names).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "options": {
+      "$ref": "#/$defs/Options",
+      "default": {
+        "cycles": {
+          "ignoreTypeOnly": false
+        },
+        "maxWarnings": null,
+        "reportDeadRules": false,
+        "respectGitignore": false
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Override"
+      }
+    },
+    "require": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RequireRule"
+      }
+    },
+    "resolve": {
+      "$ref": "#/$defs/ResolveSection",
+      "default": {
+        "alias": {},
+        "conditions": [],
+        "extensions": [],
+        "mainFields": [],
+        "preferSource": false,
+        "sourceConditions": [],
+        "tsconfig": null
+      }
+    },
+    "rules": {
+      "description": "Built-in and plugin rules by name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/RuleEntry"
+      },
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "CycleOptions": {
+      "type": "object",
+      "properties": {
+        "ignoreTypeOnly": {
+          "description": "Drop type-only edges before looking for cycles (runtime-only cycles).",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "DeclarativeRule": {
+      "description": "An ad-hoc rule: dependencies from `from` to `to` are violations (`forbid`)\nor the only permitted ones (`allow`).",
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FromSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Level",
+          "default": "error"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ToSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    },
+    "ExtractSection": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "description": "Callee names whose first string argument is a dependency, e.g. `jest.mock`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "exoticRequireStrings": {
+          "description": "Callee names treated like `require`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "jsdoc": {
+          "description": "Detect `@import` and `import(\"x\")` in JSDoc comments.",
+          "type": "boolean",
+          "default": false
+        },
+        "skipTripleSlash": {
+          "description": "Skip `/// <reference ... />` directives.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "FollowConfig": {
+      "type": "object",
+      "properties": {
+        "doNotFollow": {
+          "description": "Keep matching modules in the graph but do not explore their dependencies.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          }
+        },
+        "maxDepth": {
+          "description": "Explore at most this many hops from the entries.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "npm": {
+          "description": "Parse files in `node_modules` instead of keeping them as leaves.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "FromCondition": {
+      "description": "Conditions on the importing module.",
+      "type": "object",
+      "properties": {
+        "numberOfDependentsLessThan": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "numberOfDependentsMoreThan": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "orphan": {
+          "description": "No dependencies in or out.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pathNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "FromSpec": {
+      "description": "A path condition given as a glob string, or the full object form.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/FromCondition"
+        }
+      ]
+    },
+    "Level": {
+      "description": "Severity of a rule. `off` disables it.",
+      "type": "string",
+      "enum": [
+        "off",
+        "info",
+        "warn",
+        "error"
+      ]
+    },
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "OneOrMany2": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PathSpec"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathSpec"
+          }
+        }
+      ]
+    },
+    "Options": {
+      "type": "object",
+      "properties": {
+        "cycles": {
+          "$ref": "#/$defs/CycleOptions",
+          "default": {
+            "ignoreTypeOnly": false
+          }
+        },
+        "maxWarnings": {
+          "description": "Fail when there are more warnings than this.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "reportDeadRules": {
+          "description": "Warn about rules whose `from`/`to` matched nothing.",
+          "type": "boolean",
+          "default": false
+        },
+        "respectGitignore": {
+          "description": "Honour `.gitignore` while walking entries.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Override": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "description": "Globs of the importing module this override applies to.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RuleEntry"
+          },
+          "default": {}
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "files"
+      ]
+    },
+    "PathSpec": {
+      "description": "A path pattern: a glob string, or `{ \"regex\": \"...\" }`.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/RegexSpec"
+        }
+      ]
+    },
+    "RegexSpec": {
+      "type": "object",
+      "properties": {
+        "regex": {
+          "description": "A regular expression (Rust `regex` syntax, linear time).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "regex"
+      ]
+    },
+    "Relation": {
+      "description": "How two modules relate, for the `relation` condition.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "same-package",
+            "cross-package"
+          ]
+        },
+        {
+          "description": "`to` is in the same folder as `from`.",
+          "type": "string",
+          "const": "same-folder"
+        },
+        {
+          "description": "`to` is below the folder of `from`.",
+          "type": "string",
+          "const": "descendant-of-from"
+        },
+        {
+          "description": "`to` is below the parent folder of `from`.",
+          "type": "string",
+          "const": "descendant-of-from-parent"
+        },
+        {
+          "description": "`to` is in a sibling folder of `from`'s folder.",
+          "type": "string",
+          "const": "sibling"
+        }
+      ]
+    },
+    "RelationObj": {
+      "type": "object",
+      "properties": {
+        "any": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Relation"
+          }
+        },
+        "not": {
+          "description": "None of these relations holds.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Relation"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "RelationSpec": {
+      "anyOf": [
+        {
+          "description": "Any of these relations holds.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relation"
+          }
+        },
+        {
+          "$ref": "#/$defs/RelationObj"
+        }
+      ]
+    },
+    "RequireRule": {
+      "description": "A requirement: every `module` must have a dependency matching `to`.",
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "module": {
+          "$ref": "#/$defs/FromSpec"
+        },
+        "name": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Level",
+          "default": "error"
+        },
+        "to": {
+          "$ref": "#/$defs/ToSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "module",
+        "to"
+      ]
+    },
+    "ResolveSection": {
+      "type": "object",
+      "properties": {
+        "alias": {
+          "description": "Aliases: `{ \"~\": \"./src\" }`.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/OneOrMany"
+          },
+          "default": {}
+        },
+        "conditions": {
+          "description": "Extra export/import condition names, added to `import`, `require`, `node`, `default`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "extensions": {
+          "description": "Explicit extension list, e.g. `[\".ts\", \".tsx\", \".js\"]`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "mainFields": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "preferSource": {
+          "description": "Resolve workspace packages to their source (adds the `source` condition first).",
+          "type": "boolean",
+          "default": false
+        },
+        "sourceConditions": {
+          "description": "Condition names used by `preferSource`. Defaults to `[\"source\"]`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "tsconfig": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TsconfigSetting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "RuleEntry": {
+      "description": "A rule entry: `\"error\"`, or `[\"error\", { ...options }]`.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Level"
+        },
+        {
+          "type": "array",
+          "items": true
+        }
+      ]
+    },
+    "ToCondition": {
+      "description": "Conditions on the dependency and the module it points to.",
+      "type": "object",
+      "properties": {
+        "circular": {
+          "description": "The dependency is part of a cycle.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "couldNotResolve": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "dependencyTypes": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependencyTypesNot": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "dynamic": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "exoticallyRequired": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "moreThanOneDependencyType": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "numberOfDependentsLessThan": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "numberOfDependentsMoreThan": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "orphan": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pathNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reachable": {
+          "description": "`to` is reachable from `from` through other modules.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "relation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RelationSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "typeOnly": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "via": {
+          "description": "The cycle goes through a module/edge matching this.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViaCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "viaOnly": {
+          "description": "Every intermediate step of the cycle matches this.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViaCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToSpec": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ToCondition"
+        }
+      ]
+    },
+    "TsconfigMode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "off"
+      ]
+    },
+    "TsconfigSetting": {
+      "anyOf": [
+        {
+          "description": "`\"auto\"` (nearest tsconfig per file) or `\"off\"`.",
+          "$ref": "#/$defs/TsconfigMode"
+        },
+        {
+          "description": "A path to one tsconfig used for every file.",
+          "type": "string"
+        }
+      ]
+    },
+    "ViaCondition": {
+      "description": "A module or edge on a cycle or path: module predicates plus edge predicates.",
+      "type": "object",
+      "properties": {
+        "dependencyTypes": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependencyTypesNot": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "dynamic": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pathNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany2"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "typeOnly": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

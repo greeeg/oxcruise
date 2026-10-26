@@ -1,0 +1,21 @@
+[package]
+name = "oxcruise_config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Configuration model, loading, presets and the dependency-cruiser importer for oxcruise"
+
+[lints]
+workspace = true
+
+[dependencies]
+oxcruise_core = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }
