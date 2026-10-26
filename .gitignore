@@ -6,3 +6,5 @@ dist
 *.log
 /tmp
 .oxcruise-cache
+
+!/tests/fixtures/**/node_modules

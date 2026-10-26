@@ -1,0 +1,6 @@
+{
+  "name": "monorepo-root",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "devDependencies": { "vitest": "1.0.0" }
+}
