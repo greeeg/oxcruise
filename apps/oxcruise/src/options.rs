@@ -106,9 +106,16 @@ mod tests {
 
     #[test]
     fn absolutizes_relative_alias_targets() {
+        // Compared as paths: Windows renders the result with backslashes.
         let root = Path::new("/repo");
-        assert_eq!(absolutize(root, "./src"), "/repo/src");
-        assert_eq!(absolutize(root, "../shared/lib"), "/shared/lib");
+        assert_eq!(
+            Path::new(&absolutize(root, "./src")),
+            Path::new("/repo/src")
+        );
+        assert_eq!(
+            Path::new(&absolutize(root, "../shared/lib")),
+            Path::new("/shared/lib")
+        );
         assert_eq!(absolutize(root, "some-package"), "some-package");
         assert_eq!(absolutize(root, "/abs"), "/abs");
     }

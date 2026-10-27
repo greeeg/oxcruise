@@ -1,3 +1,6 @@
 packages:
   - apps/oxcruise
   - npm/oxcruise
+allowBuilds:
+  esbuild: true
+  lefthook: true

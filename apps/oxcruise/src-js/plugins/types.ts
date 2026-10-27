@@ -85,7 +85,10 @@ export interface RuleVisitors {
 }
 
 /** `{ max: { type: "number", default: 15 } }`: the options a rule takes and their defaults. */
-export type OptionsSchema = Record<string, { type?: string; default?: unknown; description?: string }>;
+export type OptionsSchema = Record<
+  string,
+  { type?: string; default?: unknown; description?: string }
+>;
 
 export interface RuleDefinition<Options = Record<string, unknown>> {
   meta?: { docs?: string; schema?: OptionsSchema };
@@ -97,7 +100,14 @@ export interface CruiseResultJson {
   version: number;
   modules: ModuleJson[];
   violations: ViolationJson[];
-  summary: { error: number; warn: number; info: number; suppressed: number; total_modules: number; total_dependencies: number };
+  summary: {
+    error: number;
+    warn: number;
+    info: number;
+    suppressed: number;
+    total_modules: number;
+    total_dependencies: number;
+  };
   warnings: string[];
 }
 

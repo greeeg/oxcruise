@@ -23,7 +23,10 @@ const timeout = Number(arg("--timeout", "300"));
 const skipDepcruise = process.argv.includes("--skip-depcruise");
 
 const oxcruise = join(repo, "target/release/oxcruise");
-const depcruise = join(repo, "tasks/conformance/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs");
+const depcruise = join(
+  repo,
+  "tasks/conformance/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs",
+);
 if (!existsSync(oxcruise)) {
   console.error("build first: cargo build --release -p oxcruise");
   process.exit(2);
@@ -54,12 +57,23 @@ function measure(cmd, args, cwd) {
   let rss = 0;
   for (let i = 0; i < runs; i++) {
     const t0 = performance.now();
-    const r = spawnSync("python3", ["-c", RUSAGE, cmd, ...args], { cwd, encoding: "utf8", maxBuffer: 1 << 30, env: { ...process.env, BENCH_TIMEOUT: String(timeout) } });
+    const r = spawnSync("python3", ["-c", RUSAGE, cmd, ...args], {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 1 << 30,
+      env: { ...process.env, BENCH_TIMEOUT: String(timeout) },
+    });
     const secs = (performance.now() - t0) / 1000;
-    if (r.status === 124) return { secs: timeout, mb: Number((r.stderr ?? "").trim().split("\n").at(-1)) / 1024, timedOut: true };
+    if (r.status === 124)
+      return {
+        secs: timeout,
+        mb: Number((r.stderr ?? "").trim().split("\n").at(-1)) / 1024,
+        timedOut: true,
+      };
     const kb = Number((r.stderr ?? "").trim().split("\n").at(-1));
     // exit 1 = rule violations found, which is a normal result for these runs
-    if (r.status !== 0 && r.status !== 1) throw new Error(`${cmd} exited ${r.status}\n${r.stderr.slice(-500)}`);
+    if (r.status !== 0 && r.status !== 1)
+      throw new Error(`${cmd} exited ${r.status}\n${r.stderr.slice(-500)}`);
     best = Math.min(best, secs);
     rss = Math.max(rss, kb / 1024);
   }
@@ -70,9 +84,14 @@ const rows = [];
 function bench(name, cwd, entries, modules) {
   // the same rule set for both tools: no-circular, plus the graph itself (JSON output to a pipe)
   const cfg = join(tmpdir(), "oxcruise-bench.dependency-cruiser.json");
-  execFileSync("node", ["-e", `require("fs").writeFileSync(${JSON.stringify(cfg)}, JSON.stringify({forbidden:[{name:"no-circular",severity:"error",from:{},to:{circular:true}}],options:{doNotFollow:{path:"node_modules"},tsPreCompilationDeps:false}}))`]);
+  execFileSync("node", [
+    "-e",
+    `require("fs").writeFileSync(${JSON.stringify(cfg)}, JSON.stringify({forbidden:[{name:"no-circular",severity:"error",from:{},to:{circular:true}}],options:{doNotFollow:{path:"node_modules"},tsPreCompilationDeps:false}}))`,
+  ]);
   const ox = measure(oxcruise, ["--config", cfg, "-f", "json-depcruise", ...entries], cwd);
-  const dc = haveDepcruise ? measure("node", [depcruise, "--config", cfg, "-T", "json", ...entries], cwd) : null;
+  const dc = haveDepcruise
+    ? measure("node", [depcruise, "--config", cfg, "-T", "json", ...entries], cwd)
+    : null;
   rows.push({ name, modules, ox, dc });
 }
 
@@ -89,10 +108,15 @@ try {
   rmSync(tmp, { recursive: true, force: true });
 }
 
-const fmt = (m) => (m ? `${m.timedOut ? "> " : ""}${m.secs.toFixed(2)} s / ${m.mb.toFixed(0)} MB` : "n/a");
-console.log(`\nbest of ${runs} runs, ${cpus().length} cores (${cpus()[0].model.trim()}), node ${process.version}\n`);
+const fmt = (m) =>
+  m ? `${m.timedOut ? "> " : ""}${m.secs.toFixed(2)} s / ${m.mb.toFixed(0)} MB` : "n/a";
+console.log(
+  `\nbest of ${runs} runs, ${cpus().length} cores (${cpus()[0].model.trim()}), node ${process.version}\n`,
+);
 console.log("| target | oxcruise (time / peak RSS) | dependency-cruiser | speedup |");
 console.log("|---|---|---|---|");
 for (const r of rows) {
-  console.log(`| ${r.name} | ${fmt(r.ox)} | ${fmt(r.dc)} | ${r.dc ? `${r.dc.timedOut ? "> " : ""}${(r.dc.secs / r.ox.secs).toFixed(0)}x` : ""} |`);
+  console.log(
+    `| ${r.name} | ${fmt(r.ox)} | ${fmt(r.dc)} | ${r.dc ? `${r.dc.timedOut ? "> " : ""}${(r.dc.secs / r.ox.secs).toFixed(0)}x` : ""} |`,
+  );
 }

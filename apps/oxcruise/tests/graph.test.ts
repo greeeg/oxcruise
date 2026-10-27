@@ -6,8 +6,23 @@ const dir = new URL("../src-js/__fixtures__/", import.meta.url);
 const bin = readFileSync(new URL("monorepo.graph.bin", dir));
 const expected = JSON.parse(readFileSync(new URL("monorepo.graph.json", dir), "utf8")) as {
   packages: string[];
-  modules: { path: string; kind: string; package: string | null; notFollowed: boolean; dependents: number }[];
-  edges: { from: string; to: string; specifier: string; kinds: string[]; line: number | null; col: number | null; typeOnly: boolean; circular: boolean }[];
+  modules: {
+    path: string;
+    kind: string;
+    package: string | null;
+    notFollowed: boolean;
+    dependents: number;
+  }[];
+  edges: {
+    from: string;
+    to: string;
+    specifier: string;
+    kinds: string[];
+    line: number | null;
+    col: number | null;
+    typeOnly: boolean;
+    circular: boolean;
+  }[];
 };
 
 const graph = () => new GraphFacade(bin);
@@ -55,7 +70,10 @@ describe("graph buffer written by Rust", () => {
     expect(g.module("nope/missing.ts")).toBeUndefined();
 
     const util = g.module("packages/app/src/util.ts")!;
-    expect(util.dependents.map((m) => m.path).sort()).toEqual(["packages/app/src/helpers.ts", "packages/app/src/index.ts"]);
+    expect(util.dependents.map((m) => m.path).sort()).toEqual([
+      "packages/app/src/helpers.ts",
+      "packages/app/src/index.ts",
+    ]);
     // module objects are cached, so identity comparison works
     expect(g.module("packages/app/src/util.ts")).toBe(util);
   });
@@ -67,7 +85,9 @@ describe("graph buffer written by Rust", () => {
     expect(typeImport.is("local")).toBe(true);
     expect(typeImport.is("dynamic-import")).toBe(false);
     expect(() => typeImport.is("nope" as never)).toThrow(/unknown dependency kind/);
-    const dynamic = g.module("packages/app/src/index.ts")!.dependencies.find((d) => d.specifier === "./lazy")!;
+    const dynamic = g
+      .module("packages/app/src/index.ts")!
+      .dependencies.find((d) => d.specifier === "./lazy")!;
     expect(dynamic.is("dynamic-import")).toBe(true);
   });
 
@@ -82,8 +102,13 @@ describe("graph buffer written by Rust", () => {
     const a = g.module("packages/app/src/cycle-a.ts")!;
     const edge = a.dependencies.find((d) => d.specifier === "./cycle-b")!;
     expect(edge.circular).toBe(true);
-    expect(edge.cycle!.map((m) => m.path)).toEqual(["packages/app/src/cycle-a.ts", "packages/app/src/cycle-b.ts"]);
-    const notCyclic = g.module("packages/app/src/index.ts")!.dependencies.find((d) => d.specifier === "./cycle-a")!;
+    expect(edge.cycle!.map((m) => m.path)).toEqual([
+      "packages/app/src/cycle-a.ts",
+      "packages/app/src/cycle-b.ts",
+    ]);
+    const notCyclic = g
+      .module("packages/app/src/index.ts")!
+      .dependencies.find((d) => d.specifier === "./cycle-a")!;
     expect(notCyclic.circular).toBe(false);
     expect(notCyclic.cycle).toBeUndefined();
 
@@ -109,7 +134,9 @@ describe("buffer handling", () => {
     shifted.set(bin, 3);
     const view = shifted.subarray(3);
     expect(view.byteOffset % 4).not.toBe(0);
-    expect(new GraphFacade(view).modules.map((m) => m.path)).toEqual(graph().modules.map((m) => m.path));
+    expect(new GraphFacade(view).modules.map((m) => m.path)).toEqual(
+      graph().modules.map((m) => m.path),
+    );
   });
 
   test("bad magic and unsupported versions are rejected clearly", () => {

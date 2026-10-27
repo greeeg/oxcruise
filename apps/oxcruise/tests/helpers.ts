@@ -11,7 +11,10 @@ export async function loadNative() {
   try {
     return await import("../src-js/bindings.js");
   } catch (e) {
-    throw new Error(`the native addon is not built (${e instanceof Error ? e.message : e}); run \`pnpm build:binding:debug\` in apps/oxcruise`, { cause: e });
+    throw new Error(
+      `the native addon is not built (${e instanceof Error ? e.message : e}); run \`pnpm build:binding:debug\` in apps/oxcruise`,
+      { cause: e },
+    );
   }
 }
 
@@ -53,4 +56,13 @@ export function project(files: Record<string, string>): string {
   return dir;
 }
 
-export const nativeBuilt = existsSync(join(root, "src-js", `oxcruise.${process.platform === "linux" ? "linux" : process.platform}-${process.arch}-${process.platform === "linux" ? "gnu" : ""}.node`.replace(/-$/, "")));
+export const nativeBuilt = existsSync(
+  join(
+    root,
+    "src-js",
+    `oxcruise.${process.platform === "linux" ? "linux" : process.platform}-${process.arch}-${process.platform === "linux" ? "gnu" : ""}.node`.replace(
+      /-$/,
+      "",
+    ),
+  ),
+);

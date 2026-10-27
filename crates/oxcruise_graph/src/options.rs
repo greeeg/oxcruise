@@ -30,7 +30,7 @@ pub struct CruiseOptions {
 
 impl CruiseOptions {
     pub fn new(root: impl Into<PathBuf>, entries: Vec<String>) -> Self {
-        let root = root.into();
+        let root = oxcruise_resolve::simplify_path(&root.into());
         Self {
             resolve: ResolveConfig::new(root.clone()),
             root,

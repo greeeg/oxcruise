@@ -2,8 +2,6 @@ name: ci
 
 on:
   push:
-    branches: [main]
-  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,6 +35,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec oxfmt --check '**/*.{js,mjs,cjs,ts,mts,cts}'
       - run: pnpm -C apps/oxcruise run build:binding:debug
       - run: pnpm -C apps/oxcruise run build:js
       - run: pnpm -C apps/oxcruise run typecheck

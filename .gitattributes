@@ -1,0 +1,3 @@
+# Tests compare fixtures, snapshots and generated files byte-for-byte (span offsets).
+# Force LF so Windows checkouts do not get CRLF.
+* text=auto eol=lf

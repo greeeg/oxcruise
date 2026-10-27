@@ -1,0 +1,22 @@
+# Git hooks, installed by `pnpm install` (see the `prepare` script in package.json).
+# Docs: https://lefthook.dev/configuration/
+# Keep these fast; clippy and the tests are CI's job (`just ready` runs everything locally).
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: rustfmt
+      glob: "*.rs"
+      run: cargo fmt --all
+      stage_fixed: true
+
+    - name: oxfmt
+      glob: "*.{js,mjs,cjs,ts,mts,cts}"
+      run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: clippy
+      glob: "*.{rs,toml}"
+      run: just lint

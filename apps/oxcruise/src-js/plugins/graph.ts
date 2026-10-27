@@ -33,15 +33,21 @@ export class GraphBuffer {
     // A Node Buffer can start at any byte of a pooled ArrayBuffer; Uint32Array needs 4-byte alignment.
     const aligned = source.byteOffset % 4 === 0 ? source : Uint8Array.from(source);
     this.bytes = aligned;
-    this.words = new Uint32Array(aligned.buffer, aligned.byteOffset, Math.floor(aligned.byteLength / 4));
+    this.words = new Uint32Array(
+      aligned.buffer,
+      aligned.byteOffset,
+      Math.floor(aligned.byteLength / 4),
+    );
     const h = this.words;
     if (h.length < HEADER_WORDS || h[0] !== MAGIC) throw new Error("not an oxcruise graph buffer");
-    if (h[1] !== VERSION) throw new Error(`unsupported graph buffer version ${h[1]} (expected ${VERSION})`);
+    if (h[1] !== VERSION)
+      throw new Error(`unsupported graph buffer version ${h[1]} (expected ${VERSION})`);
     this.moduleCount = h[2]!;
     this.edgeCount = h[3]!;
     const stringCount = h[4]!;
     const packageCount = h[5]!;
-    const view = (byteOffset: number, length: number) => this.words.subarray(byteOffset / 4, byteOffset / 4 + length);
+    const view = (byteOffset: number, length: number) =>
+      this.words.subarray(byteOffset / 4, byteOffset / 4 + length);
     this.stringOffsets = view(h[6]!, stringCount + 1);
     this.stringBase = h[7]!;
     this.modules = view(h[8]!, this.moduleCount * 4);
@@ -184,7 +190,7 @@ class DependencyFacade implements Dependency {
     const out: DepKind[] = [];
     for (let i = 0; i < DEP_KINDS.length; i++) {
       const word = i < 32 ? lo : hi;
-      if ((word >>> i % 32) & 1) out.push(DEP_KINDS[i]!);
+      if ((word >>> (i % 32)) & 1) out.push(DEP_KINDS[i]!);
     }
     return out;
   }
@@ -202,14 +208,15 @@ class DependencyFacade implements Dependency {
     return (this.g.buf.edgeFlags(this.index) & 4) !== 0;
   }
   get cycle(): readonly Module[] | undefined {
-    if (this.cycleCache === null) this.cycleCache = this.circular ? this.g.shortestCycle(this.index) : undefined;
+    if (this.cycleCache === null)
+      this.cycleCache = this.circular ? this.g.shortestCycle(this.index) : undefined;
     return this.cycleCache;
   }
   is(kind: DepKind): boolean {
     const bit = DEP_KINDS.indexOf(kind);
     if (bit < 0) throw new Error(`unknown dependency kind \`${kind}\``);
     const [lo, hi] = this.g.buf.edgeKinds(this.index);
-    return (((bit < 32 ? lo : hi) >>> bit % 32) & 1) !== 0;
+    return (((bit < 32 ? lo : hi) >>> (bit % 32)) & 1) !== 0;
   }
 }
 
@@ -236,7 +243,9 @@ export class GraphFacade implements Graph {
   }
 
   get modules(): readonly Module[] {
-    return (this.allModules ??= Array.from({ length: this.buf.moduleCount }, (_, i) => this.module_(i)));
+    return (this.allModules ??= Array.from({ length: this.buf.moduleCount }, (_, i) =>
+      this.module_(i),
+    ));
   }
   get edges(): readonly Dependency[] {
     return (this.allEdges ??= Array.from({ length: this.buf.edgeCount }, (_, i) => this.edge(i)));
@@ -319,7 +328,7 @@ export class GraphFacade implements Graph {
     }
     if (!seen.has(a)) return undefined;
     const back: number[] = [];
-    for (let cur = a; cur !== b; ) {
+    for (let cur = a; cur !== b;) {
       const e = via.get(cur)!;
       back.push(this.buf.edgeFrom(e));
       cur = this.buf.edgeFrom(e);

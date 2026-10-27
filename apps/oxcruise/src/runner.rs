@@ -142,7 +142,7 @@ impl CliRunner {
         };
         let started = Instant::now();
         let cwd = match self.resolve_cwd(args.cwd.as_deref()).canonicalize() {
-            Ok(c) => c,
+            Ok(c) => oxcruise_resolve::simplify_path(&c),
             Err(e) => return fail(err, format!("cannot use working directory: {e}")),
         };
 

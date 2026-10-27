@@ -20,10 +20,16 @@ fn run_in(cwd: &Path, args: &[&str]) -> Out {
     let result = CliRunner::new(args.iter().map(|s| s.to_string()).collect())
         .with_cwd(cwd.to_path_buf())
         .run(&mut out, &mut err);
+    // Replace the canonical path first: on macOS the raw temp dir (`/var/...`) is a
+    // suffix of the canonical one (`/private/var/...`), and output may use either.
+    let canonical = cwd.canonicalize().unwrap();
     let scrub = |b: Vec<u8>| {
         String::from_utf8(b)
             .unwrap()
-            .replace(cwd.canonicalize().unwrap().to_str().unwrap(), "<cwd>")
+            .replace(canonical.to_str().unwrap(), "<cwd>")
+            .replace(cwd.to_str().unwrap(), "<cwd>")
+            // Windows joins with `\`; snapshots are recorded with `/`.
+            .replace("<cwd>\\", "<cwd>/")
             .lines()
             .filter(|l| !l.starts_with("finished in"))
             .collect::<Vec<_>>()
