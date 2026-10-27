@@ -49,7 +49,9 @@ export function packageCandidates(specifier: string): string[] {
     }
     return [specifier];
   }
-  return specifier.startsWith("oxcruise-plugin-") ? [specifier] : [`oxcruise-plugin-${specifier}`, specifier];
+  return specifier.startsWith("oxcruise-plugin-")
+    ? [specifier]
+    : [`oxcruise-plugin-${specifier}`, specifier];
 }
 
 export function resolveSpecifier(specifier: string, cwd: string): string {
@@ -92,7 +94,8 @@ export function validatePlugin(value: unknown, source: string): PluginDefinition
   }
   for (const [name, fn] of Object.entries((p.reporters ?? {}) as Record<string, unknown>)) {
     if (!NAME.test(name)) throw new Error(`${where}: invalid reporter name \`${name}\``);
-    if (typeof fn !== "function") throw new Error(`${where}: reporter \`${name}\` must be a function`);
+    if (typeof fn !== "function")
+      throw new Error(`${where}: reporter \`${name}\` must be a function`);
   }
   return value as PluginDefinition;
 }
@@ -110,20 +113,27 @@ export interface LoadedMetadata {
   reporters: string[];
 }
 
-export async function loadPlugin(request: LoadRequest, registry: PluginRegistry): Promise<LoadedMetadata> {
+export async function loadPlugin(
+  request: LoadRequest,
+  registry: PluginRegistry,
+): Promise<LoadedMetadata> {
   const source = resolveSpecifier(request.specifier, request.cwd);
   let mod: { default?: unknown };
   try {
     mod = (await import(pathToFileURL(source).href)) as { default?: unknown };
   } catch (e) {
     const hint = /\.[cm]?ts$/.test(source) ? " (TypeScript plugins need Node >= 22.18)" : "";
-    throw new Error(`failed to import ${source}: ${e instanceof Error ? e.message : String(e)}${hint}`);
+    throw new Error(
+      `failed to import ${source}: ${e instanceof Error ? e.message : String(e)}${hint}`,
+    );
   }
   const def = validatePlugin(mod.default, source);
   const name = request.alias ?? def.meta.name;
   const existing = registry.plugins.get(name);
   if (existing && existing.source !== source) {
-    throw new Error(`two plugins are named \`${name}\` (${existing.source} and ${source}); give one an alias in \`jsPlugins\``);
+    throw new Error(
+      `two plugins are named \`${name}\` (${existing.source} and ${source}); give one an alias in \`jsPlugins\``,
+    );
   }
   registry.plugins.set(name, { name, def, source });
   return { name, rules: Object.keys(def.rules ?? {}), reporters: Object.keys(def.reporters ?? {}) };

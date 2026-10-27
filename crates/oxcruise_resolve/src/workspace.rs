@@ -74,6 +74,7 @@ impl Workspace {
 
     /// Index of the package that owns `path` (deepest directory wins).
     pub fn package_of(&self, path: &Path) -> Option<usize> {
+        let path = &crate::simplify_path(path);
         self.packages
             .iter()
             .enumerate()

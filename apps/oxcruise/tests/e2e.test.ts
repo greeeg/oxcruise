@@ -20,14 +20,22 @@ describe("plugin rules through the CLI", () => {
       "src/index.ts": 'import "./a"; import "./b";\n',
       "src/a.ts": "export {};\n",
       "src/b.ts": "export {};\n",
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: [join(fixtures, "plugins/acme.ts")], rules: { "acme/max-fan-out": "warn" } }),
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: [join(fixtures, "plugins/acme.ts")],
+        rules: { "acme/max-fan-out": "warn" },
+      }),
     });
     expect((await runCli(dir, [])).code).toBe(0);
     const strict = project({
       "src/index.ts": 'import "./a"; import "./b";\n',
       "src/a.ts": "export {};\n",
       "src/b.ts": "export {};\n",
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: [join(fixtures, "plugins/acme.ts")], rules: { "acme/max-fan-out": ["error", { max: 1 }] } }),
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: [join(fixtures, "plugins/acme.ts")],
+        rules: { "acme/max-fan-out": ["error", { max: 1 }] },
+      }),
     });
     const o = await runCli(strict, []);
     expect(o.code).toBe(1);
@@ -38,7 +46,11 @@ describe("plugin rules through the CLI", () => {
     const dir = project({
       "src/a.ts": 'import "./b";\n',
       "src/b.ts": 'import "./a";\n',
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: [join(fixtures, "plugins/acme.ts")], rules: { "acme/cycle-budget": ["error", { max: 0 }] } }),
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: [join(fixtures, "plugins/acme.ts")],
+        rules: { "acme/cycle-budget": ["error", { max: 0 }] },
+      }),
     });
     const o = await runCli(dir, []);
     expect(o.code).toBe(1);
@@ -49,7 +61,9 @@ describe("plugin rules through the CLI", () => {
     // the fixture already suppresses one edge; assert it did not leak into the report
     const o = await runCli(pluginProject, ["-f", "json"]);
     const result = JSON.parse(o.stdout);
-    const direct = result.violations.filter((v: { rule: string }) => v.rule === "acme/no-direct-db");
+    const direct = result.violations.filter(
+      (v: { rule: string }) => v.rule === "acme/no-direct-db",
+    );
     expect(direct).toHaveLength(1);
     expect(direct[0].message).toContain("src/db/query.ts");
     expect(result.summary.suppressed).toBe(1);
@@ -58,7 +72,11 @@ describe("plugin rules through the CLI", () => {
       "src/index.ts": "// oxcruise-ignore-file acme/max-fan-out\nimport './a'; import './b';\n",
       "src/a.ts": "export {};\n",
       "src/b.ts": "export {};\n",
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: [join(fixtures, "plugins/acme.ts")], rules: { "acme/max-fan-out": ["error", { max: 1 }] } }),
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: [join(fixtures, "plugins/acme.ts")],
+        rules: { "acme/max-fan-out": ["error", { max: 1 }] },
+      }),
     });
     expect((await runCli(file, [])).code).toBe(0);
   });
@@ -66,8 +84,13 @@ describe("plugin rules through the CLI", () => {
   test("a plugin that throws fails the run instead of passing silently", async () => {
     const dir = project({
       "src/a.ts": "export {};\n",
-      "plugin.mjs": 'export default { meta: { name: "boom" }, rules: { explode: { create() { return { module() { throw new Error("kaboom"); } }; } } } };\n',
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: ["./plugin.mjs"], rules: { "boom/explode": "error" } }),
+      "plugin.mjs":
+        'export default { meta: { name: "boom" }, rules: { explode: { create() { return { module() { throw new Error("kaboom"); } }; } } } };\n',
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: ["./plugin.mjs"],
+        rules: { "boom/explode": "error" },
+      }),
     });
     const o = await runCli(dir, []);
     expect(o.code).toBe(2);
@@ -77,7 +100,11 @@ describe("plugin rules through the CLI", () => {
   test("configuring a rule the plugin does not have is a clear error", async () => {
     const dir = project({
       "src/a.ts": "export {};\n",
-      ".oxcruiserc.json": JSON.stringify({ entries: ["src"], jsPlugins: [join(fixtures, "plugins/acme.ts")], rules: { "acme/nope": "error" } }),
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: [join(fixtures, "plugins/acme.ts")],
+        rules: { "acme/nope": "error" },
+      }),
     });
     const o = await runCli(dir, []);
     expect(o.code).toBe(2);
@@ -105,9 +132,16 @@ describe("plugin reporters", () => {
   test("-f plugin/reporter renders through the plugin", async () => {
     const o = await runCli(pluginProject, ["-f", "acme/json-lines"]);
     expect(o.code).toBe(1);
-    const lines = o.stdout.trim().split("\n").map((l) => JSON.parse(l));
+    const lines = o.stdout
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
     expect(lines.map((l) => l.rule).sort()).toEqual(["acme/max-fan-out", "acme/no-direct-db"]);
-    expect(lines.find((l) => l.rule === "acme/no-direct-db")).toMatchObject({ severity: "error", file: "src/ui/page.ts", line: 3 });
+    expect(lines.find((l) => l.rule === "acme/no-direct-db")).toMatchObject({
+      severity: "error",
+      file: "src/ui/page.ts",
+      line: 3,
+    });
   });
 
   test("an unknown reporter says which plugin should provide it", async () => {
@@ -133,13 +167,17 @@ describe("configs evaluated by the host Node", () => {
   test("a function config and an async one", async () => {
     const dir = project({
       "src/a.ts": "import './a';\n",
-      "oxcruise.config.mjs": 'export default async () => ({ entries: ["src"], rules: { "no-circular": "error" } });\n',
+      "oxcruise.config.mjs":
+        'export default async () => ({ entries: ["src"], rules: { "no-circular": "error" } });\n',
     });
     expect((await runCli(dir, [])).code).toBe(1);
   });
 
   test("a config that throws names the file", async () => {
-    const dir = project({ "oxcruise.config.mjs": "throw new Error('bad config');\n", "src/a.ts": "" });
+    const dir = project({
+      "oxcruise.config.mjs": "throw new Error('bad config');\n",
+      "src/a.ts": "",
+    });
     const o = await runCli(dir, []);
     expect(o.code).toBe(2);
     expect(o.stderr).toMatch(/cannot evaluate .*oxcruise\.config\.mjs: bad config/);
@@ -148,7 +186,8 @@ describe("configs evaluated by the host Node", () => {
   test("a dependency-cruiser CJS config is imported", async () => {
     const dir = project({
       "src/a.ts": "import './a';\n",
-      ".dependency-cruiser.cjs": "module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {}, to: { circular: true } }] };\n",
+      ".dependency-cruiser.cjs":
+        "module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {}, to: { circular: true } }] };\n",
     });
     const o = await runCli(dir, ["src"]);
     expect(o.code).toBe(1);
@@ -158,7 +197,11 @@ describe("configs evaluated by the host Node", () => {
 
 describe("cruise() programmatic API", () => {
   test("answers architecture questions about a result", async () => {
-    const g = await cruise({ cwd: join(fixtures, "plugin-project"), noConfig: true, paths: ["src"] });
+    const g = await cruise({
+      cwd: join(fixtures, "plugin-project"),
+      noConfig: true,
+      paths: ["src"],
+    });
     expect(g.summary.total_modules).toBeGreaterThan(5);
 
     const page = g.module("src/ui/page.ts")!;
@@ -169,7 +212,10 @@ describe("cruise() programmatic API", () => {
     expect(g.module("src/index.ts")!.dependsOnTransitively("src/db/**")).toBe(false);
     expect(g.module("src/missing.ts")).toBeUndefined();
 
-    expect(g.modulesMatching("src/db/*.ts").map((m) => m.path)).toEqual(["src/db/allowed.ts", "src/db/query.ts"]);
+    expect(g.modulesMatching("src/db/*.ts").map((m) => m.path)).toEqual([
+      "src/db/allowed.ts",
+      "src/db/query.ts",
+    ]);
     expect(g.module("src/db/query.ts")!.dependents).toEqual(["src/ui/page.ts"]);
   });
 
@@ -194,13 +240,19 @@ describe("cruise() programmatic API", () => {
 
   test("plugins run through cruise() too", async () => {
     const g = await cruise({ cwd: pluginProject });
-    expect(g.violations.map((v) => v.rule).sort()).toEqual(["acme/max-fan-out", "acme/no-direct-db"]);
+    expect(g.violations.map((v) => v.rule).sort()).toEqual([
+      "acme/max-fan-out",
+      "acme/no-direct-db",
+    ]);
   });
 });
 
 describe("misc", () => {
   test("the host never loads the plugin runtime for runs without plugins", async () => {
-    const dir = project({ "src/a.ts": "export {};\n", ".oxcruiserc.json": '{ "entries": ["src"] }' });
+    const dir = project({
+      "src/a.ts": "export {};\n",
+      ".oxcruiserc.json": '{ "entries": ["src"] }',
+    });
     expect((await runCli(dir, [])).code).toBe(0);
   });
 

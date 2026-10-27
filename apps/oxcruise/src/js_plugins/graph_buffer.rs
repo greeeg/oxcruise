@@ -349,7 +349,9 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+// Unix only: the monorepo fixture links `node_modules/@acme/lib` with a symlink, which Windows
+// checkouts turn into a plain file, so the graph (and the bytes) differ there.
+#[cfg(all(test, unix))]
 mod fixtures {
     //! The JS facade tests decode `monorepo.graph.bin` and compare with `monorepo.graph.json`.
     //! Both come from this encoder; this test fails when they are stale.

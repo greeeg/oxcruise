@@ -10,6 +10,13 @@
   ],
   "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/greeeg/oxcruise.git",
+    "directory": "npm/linux-x64-gnu"
+  },
+  "homepage": "https://github.com/greeeg/oxcruise#readme",
+  "bugs": "https://github.com/greeeg/oxcruise/issues",
   "engines": {
     "node": ">=22.18"
   },

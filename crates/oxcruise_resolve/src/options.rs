@@ -35,7 +35,7 @@ pub struct ResolveConfig {
 impl ResolveConfig {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
-            root: root.into(),
+            root: crate::simplify_path(&root.into()),
             alias: vec![],
             conditions: vec![],
             main_fields: None,
@@ -93,7 +93,7 @@ pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
         tsconfig: match &c.tsconfig {
             TsconfigMode::Auto => Some(TsconfigDiscovery::Auto),
             TsconfigMode::File(p) => Some(TsconfigDiscovery::Manual(TsconfigOptions {
-                config_file: p.clone(),
+                config_file: crate::simplify_path(p),
                 references: TsconfigReferences::Auto,
             })),
             TsconfigMode::Disabled => None,
@@ -104,7 +104,9 @@ pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
             .map(|(k, vs)| {
                 (
                     k.clone(),
-                    vs.iter().map(|v| AliasValue::Path(v.clone())).collect(),
+                    vs.iter()
+                        .map(|v| AliasValue::Path(simplify_str(v)))
+                        .collect(),
                 )
             })
             .collect(),
@@ -126,4 +128,11 @@ pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
         builtin_modules: true,
         ..ResolveOptions::default()
     }
+}
+
+/// `simplify_path` for alias targets, which are strings (and may be bare package names).
+fn simplify_str(v: &str) -> String {
+    crate::simplify_path(std::path::Path::new(v))
+        .to_string_lossy()
+        .into_owned()
 }

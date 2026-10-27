@@ -1,0 +1,102 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, triple: linux-x64-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, triple: linux-arm64-gnu }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, triple: linux-x64-musl, musl: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, triple: linux-arm64-musl, musl: true }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, triple: darwin-x64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, triple: darwin-arm64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, triple: win32-x64-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, triple: win32-arm64-msvc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # musl cdylibs must link dynamically (-crt-static), which needs a real musl toolchain; the distro
+      # `musl-tools` wrapper is glibc-backed and fails with "cannot find libgcc_s.so.1". Build them with
+      # zig through `napi build -x` (cargo-zigbuild) instead.
+      - if: matrix.musl
+        uses: mlugg/setup-zig@v2
+      - if: matrix.musl
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+      - run: pnpm -C apps/oxcruise exec napi build --platform --esm --js-package-name @oxcruise/binding --release --features allocator,napi --target ${{ matrix.target }} ${{ matrix.musl && '-x' || '' }} --output-dir src-js --js bindings.js --dts bindings.d.ts --no-dts-header
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binding-${{ matrix.triple }}
+          path: apps/oxcruise/src-js/*.node
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: publish # configure required reviewers on this environment
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Upgrade npm (trusted publishing needs npm >= 11.5.1)
+        run: npm install -g npm@latest
+      - name: Check package versions match the tag
+        run: |
+          tag="$GITHUB_REF_NAME"
+          for dir in npm/*/; do
+            version="$(node -p "require('./${dir}package.json').version")"
+            if [ "$version" != "$tag" ]; then
+              echo "::error::${dir}package.json is $version but the tag is $tag"
+              exit 1
+            fi
+          done
+      - run: pnpm -C apps/oxcruise run build:js
+      # move each .node into its npm/<triple> package, then add optionalDependencies to the main package
+      # (publishing is done below with pnpm, so napi must not publish the platform packages itself)
+      - run: |
+          pnpm -C apps/oxcruise exec napi artifacts --cwd ../.. --package-json-path npm/oxcruise/package.json --output-dir artifacts --npm-dir npm
+          pnpm -C apps/oxcruise exec napi pre-publish --cwd ../.. --package-json-path npm/oxcruise/package.json --npm-dir npm -t npm --no-gh-release --skip-optional-publish
+      # platform packages first, so the main package's optionalDependencies resolve; a rerun after a
+      # partial failure skips versions that are already on the registry
+      - name: Publish
+        run: |
+          for dir in npm/*/; do
+            [ "$dir" = "npm/oxcruise/" ] && continue
+            name="$(node -p "require('./${dir}package.json').name")"
+            version="$(node -p "require('./${dir}package.json').version")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then echo "skip $name@$version"; continue; fi
+            pnpm -C "$dir" publish --provenance --access public --no-git-checks
+          done
+          name="$(node -p "require('./npm/oxcruise/package.json').name")"
+          version="$(node -p "require('./npm/oxcruise/package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then echo "skip $name@$version"; exit 0; fi
+          pnpm -C npm/oxcruise publish --provenance --access public --no-git-checks

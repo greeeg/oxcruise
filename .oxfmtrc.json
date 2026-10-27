@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    "**/fixtures/**",
+    "**/*.generated.ts",
+    "apps/oxcruise/src-js/bindings.js",
+    "apps/oxcruise/src-js/bindings.d.ts",
+    "tasks/conformance/.cache/**"
+  ]
+}

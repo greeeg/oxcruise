@@ -4,10 +4,15 @@ default:
     @just --list
 
 # Everything CI checks: fmt, clippy, Rust tests, JS typecheck and tests
-ready: fmt lint test node-test
+ready: fmt-check lint test node-test
 
 fmt:
     cargo fmt --all
+    pnpm exec oxfmt '**/*.{js,mjs,cjs,ts,mts,cts}'
+
+fmt-check:
+    cargo fmt --all --check
+    pnpm exec oxfmt --check '**/*.{js,mjs,cjs,ts,mts,cts}'
 
 lint:
     cargo clippy --workspace --all-targets -- -D warnings

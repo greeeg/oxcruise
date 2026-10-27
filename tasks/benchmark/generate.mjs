@@ -29,11 +29,15 @@ const rand = () => {
 
 const perFolder = 25;
 const folders = Math.ceil(count / perFolder);
-const path = (i) => `pkg${Math.floor(i / (perFolder * 20))}/feature${Math.floor(i / perFolder) % 20}/m${i}.${ext}`;
+const path = (i) =>
+  `pkg${Math.floor(i / (perFolder * 20))}/feature${Math.floor(i / perFolder) % 20}/m${i}.${ext}`;
 
 rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
-writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "synthetic", private: true, dependencies: { lodash: "4" } }));
+writeFileSync(
+  join(dir, "package.json"),
+  JSON.stringify({ name: "synthetic", private: true, dependencies: { lodash: "4" } }),
+);
 
 for (let i = 0; i < count; i++) {
   const lines = [];

@@ -56,6 +56,8 @@ impl Resolver {
                 kinds: DepKinds::empty(),
             };
         }
+        // oxc_resolver's tsconfig discovery does not recognise `\\?\` paths.
+        let from_file = &simplify_path(from_file);
         match self.oxc(mode).resolve_file(from_file, specifier) {
             Ok(res) => classify::resolved(self, from_file, specifier, res.path()),
             Err(ResolveError::Builtin { resolved, .. }) => classify::core(&resolved),
@@ -83,10 +85,29 @@ impl Resolver {
     }
 }
 
+/// Drops the Windows verbatim prefix (`\\?\C:\x` -> `C:\x`, `\\?\UNC\h\s` -> `\\h\s`).
+///
+/// `Path::canonicalize` returns verbatim paths on Windows while the resolver and most
+/// tools return plain ones, and `strip_prefix` treats the two spellings as unrelated.
+/// Other verbatim forms (`\\?\Volume{..}`) and non-Windows paths are returned as is.
+pub fn simplify_path(path: &Path) -> PathBuf {
+    let Some(s) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    match s.strip_prefix(r"\\?\") {
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => PathBuf::from(rest),
+        _ => path.to_path_buf(),
+    }
+}
+
 pub fn relative_to(root: &Path, path: &Path) -> String {
-    let rel = match path.strip_prefix(root) {
+    let (root, path) = (simplify_path(root), simplify_path(path));
+    let rel = match path.strip_prefix(&root) {
         Ok(r) => r.to_path_buf(),
-        Err(_) => diff_paths(path, root).unwrap_or_else(|| PathBuf::from(path)),
+        Err(_) => diff_paths(&path, &root).unwrap_or(path),
     };
     rel.to_string_lossy().replace('\\', "/")
 }
@@ -117,4 +138,27 @@ fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
         }
     }
     Some(out.iter().map(|c| c.as_os_str()).collect())
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn simplify_path_drops_only_drive_and_unc_verbatim_prefixes() {
+        let p = |s: &str| simplify_path(Path::new(s));
+        assert_eq!(p(r"\\?\D:\a\b"), PathBuf::from(r"D:\a\b"));
+        assert_eq!(p(r"\\?\UNC\host\share\x"), PathBuf::from(r"\\host\share\x"));
+        assert_eq!(p(r"\\?\Volume{1}\x"), PathBuf::from(r"\\?\Volume{1}\x"));
+        assert_eq!(p("/a/b"), PathBuf::from("/a/b"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn relative_to_treats_verbatim_and_plain_spellings_alike() {
+        assert_eq!(
+            relative_to(Path::new(r"\\?\D:\a"), Path::new(r"D:\a\src\x.ts")),
+            "src/x.ts"
+        );
+    }
 }

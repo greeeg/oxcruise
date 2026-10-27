@@ -6,7 +6,12 @@
 import { runCaptured } from "./bindings.js";
 import { matchesGlob } from "./glob.ts";
 import { createHost } from "./host.ts";
-import type { CruiseResultJson, DependencyJson, ModuleJson, ViolationJson } from "./plugins/types.ts";
+import type {
+  CruiseResultJson,
+  DependencyJson,
+  ModuleJson,
+  ViolationJson,
+} from "./plugins/types.ts";
 
 export interface CruiseOptions {
   /** Directory to run in (default: the current directory). */
@@ -102,7 +107,8 @@ export class CruiseResult {
 
 export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult> {
   const args = ["--format", "json", "--color", "never"];
-  const flag = (name: string, values: readonly string[] | undefined) => values?.forEach((v) => args.push(name, v));
+  const flag = (name: string, values: readonly string[] | undefined) =>
+    values?.forEach((v) => args.push(name, v));
   if (options.cwd) args.push("--cwd", options.cwd);
   if (options.config) args.push("--config", options.config);
   if (options.noConfig) args.push("--no-config");
