@@ -98,7 +98,6 @@ pub struct ViolationOut {
 pub struct Summary {
     pub error: usize,
     pub warn: usize,
-    pub info: usize,
     pub suppressed: usize,
     pub total_modules: usize,
     pub total_dependencies: usize,
@@ -225,7 +224,6 @@ impl CruiseResult {
             summary: Summary {
                 error: count(Severity::Error),
                 warn: count(Severity::Warn),
-                info: count(Severity::Info),
                 suppressed,
                 total_modules: graph.module_count(),
                 total_dependencies: graph.edge_count(),

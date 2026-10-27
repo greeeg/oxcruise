@@ -3,7 +3,19 @@ source: crates/oxcruise_config/tests/depcruise_import.rs
 expression: warnings
 ---
 [
-  "rule `uses-license` skipped: unsupported `to.license`",
-  "forbidden rule `folder-rule` skipped: folder-scope rules are not supported yet",
+  "rule `no-circular` was dropped: `to.circular` is not supported (the built-in rule `no-circular` covers this)",
+  "rule `no-orphans` was dropped: `from.orphan` is not supported (the built-in rule `no-orphans` covers this)",
+  "rule `not-to-dev-dep` was dropped: `to.dependencyTypes`, `to.dependencyTypesNot` are not supported (the built-in rule `no-dev-deps-in-prod` covers this)",
+  "rule `only-via-index` was dropped: `to.circular`, `to.viaOnly` are not supported (write a JS plugin rule for it)",
+  "rule `uses-license` was dropped: `to.license` is not supported (write a JS plugin rule for it)",
+  "rule `lookahead` was dropped: the regex `^(?!src)` (unsupported `?`) does not convert to a glob. Rewrite it by hand, or write a JS plugin rule",
+  "rule `capture-not-defined` was dropped: `to` refers to capture group `1` that `from` does not define as `([^/]+)`",
+  "rule `folder-rule` was dropped: folder-scope rules are not supported",
+  "`allowed` rules were dropped: oxcruise has no allow-lists. Describe the architecture with the `layers` rule, or add `forbid` rules",
+  "`required` rules were dropped: oxcruise has no `require` rules. Write a JS plugin rule if you need this check",
+  "`options.includeOnly` was dropped: oxcruise has no include list. Start from the right `entries` and list what to leave out in `ignorePatterns`",
+  "`options.maxDepth` was dropped: use the `--max-depth` flag",
+  "`options.enhancedResolveOptions.extensions` was dropped: oxcruise uses the resolver defaults",
+  "`options.enhancedResolveOptions.mainFields` was dropped: oxcruise uses the resolver defaults",
   "`options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases"
 ]

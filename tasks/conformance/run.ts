@@ -2,15 +2,17 @@
 //
 //   node --experimental-strip-types tasks/conformance/run.ts [--only name] [--bin path] [--verbose]
 //
-// Both tools read the SAME dependency-cruiser config (oxcruise through its importer), so this
-// checks migration as well as parity. Output is compared on modules, edges, dependency types
-// and violations; known, intentional differences live in deviations.json.
+// dependency-cruiser reads a generated dependency-cruiser config; oxcruise reads what
+// `oxcruise migrate --json` makes of that same config, so this checks migration as well as parity.
+// oxcruise's native `json` output is mapped to dependency-cruiser's shape here and compared on
+// modules, edges and dependency types. Violations are not compared: oxcruise's rule language is
+// much smaller, and the rules that cannot be migrated are dropped with a warning.
+// Known, intentional differences live in deviations.json.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Ajv from "ajv";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cache = join(here, ".cache");
@@ -33,6 +35,8 @@ if (!existsSync(repo)) {
 type Target = {
   needs?: string[];
   exclude?: string;
+  /** Hand-written globs for an `exclude` regex that `migrate` cannot convert. */
+  excludeGlobs?: string[];
   name: string;
   dir: string;
   entries: string[];
@@ -74,6 +78,7 @@ function config(t: Target) {
   const options: Record<string, unknown> = {
     doNotFollow: { path: t.doNotFollow ?? "node_modules" },
     tsPreCompilationDeps: true,
+    detectJSDocImports: true,
     moduleSystems: ["es6", "cjs", "amd", "tsd"],
     exoticRequireStrings: t.exoticRequireStrings ?? [],
   };
@@ -122,51 +127,92 @@ type Dep = {
   coreModule?: boolean;
   dynamic?: boolean;
   moduleSystem?: string;
+  /** oxcruise only: written as `new URL(.., import.meta.url)` or a worker. */
+  url?: boolean;
 };
 type Mod = { source: string; dependencies: Dep[]; coreModule?: boolean };
-type Result = {
-  modules: Mod[];
-  summary: {
-    violations: {
-      type: string;
-      from: string;
-      to: string;
-      rule: { name: string; severity: string };
-    }[];
-  };
-};
+type Result = { modules: Mod[] };
 
-function run(cmd: string, argv: string[], cwd: string): Result {
+function run(cmd: string, argv: string[], cwd: string): string {
   try {
-    return JSON.parse(
-      execFileSync(cmd, argv, {
-        cwd,
-        maxBuffer: 1 << 30,
-        stdio: ["ignore", "pipe", "pipe"],
-      }).toString(),
-    );
+    return execFileSync(cmd, argv, {
+      cwd,
+      maxBuffer: 1 << 30,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).toString();
   } catch (e) {
     // both tools exit non-zero when there are errors; the JSON is still on stdout
     const { stdout, stderr } = e as { stdout?: Buffer; stderr?: Buffer };
-    if (stdout?.length) return JSON.parse(stdout.toString());
+    if (stdout?.length) return stdout.toString();
     throw new Error(`${cmd} ${argv.join(" ")}\n${stderr?.toString() ?? e}`);
   }
 }
 
-const ajv = new Ajv({ strict: false, allErrors: true });
-const validate = ajv.compile(
-  JSON.parse(readFileSync(join(repo, "src/schema/cruise-result.schema.json"), "utf8")),
-);
+// ---- oxcruise `json` -> dependency-cruiser's module shape ----------------------------------------
+
+type OxDep = {
+  to: string;
+  to_kind: "source" | "stub" | "core" | "unresolved";
+  specifier: string;
+  kinds: string[];
+  module_system: string;
+};
+type OxResult = { modules: { path: string; kind: string; dependencies: OxDep[] }[] };
+
+// oxcruise-only concepts that dependency-cruiser does not know.
+const OX_ONLY = new Set(["url", "worker", "call"]);
+// How a dependency is written, as opposed to what it resolves to.
+const SYNTAX = new Set([
+  "import",
+  "export",
+  "require",
+  "dynamic-import",
+  "import-equals",
+  "type-import",
+  "amd-define",
+  "amd-require",
+  ...OX_ONLY,
+]);
+
+function fromOxcruise(json: string): Result {
+  const ox = JSON.parse(json) as OxResult;
+  const modules: Mod[] = ox.modules.map((m) => ({
+    source: m.path,
+    dependencies: m.dependencies.map((d) => {
+      // dependency-cruiser reports only what an unresolvable dependency resolves to (`unknown`)
+      const kinds = d.kinds.filter(
+        (k) => !OX_ONLY.has(k) && !(d.to_kind === "unresolved" && SYNTAX.has(k)),
+      );
+      return {
+        resolved: d.to,
+        // dependency-cruiser strips the `node:` prefix of built-in modules
+        module: d.to_kind === "core" ? d.specifier.replace(/^node:/, "") : d.specifier,
+        dependencyTypes: kinds,
+        couldNotResolve: d.to_kind === "unresolved",
+        coreModule: d.to_kind === "core",
+        dynamic: d.kinds.includes("dynamic-import"),
+        moduleSystem: d.module_system,
+        url: d.kinds.includes("url") || d.kinds.includes("worker"),
+      };
+    }),
+  }));
+  // unresolved specifiers are modules in dependency-cruiser's output
+  const seen = new Set(modules.map((m) => m.source));
+  for (const m of ox.modules)
+    for (const d of m.dependencies)
+      if (d.to_kind === "unresolved" && !seen.has(d.to)) {
+        seen.add(d.to);
+        modules.push({ source: d.to, dependencies: [] });
+      }
+  return { modules };
+}
 
 function facts(r: Result) {
   const modules = new Set<string>(r.modules.map((m) => m.source));
   const edges = new Map<string, Dep>();
   for (const m of r.modules)
     for (const d of m.dependencies) edges.set(`${m.source} -> ${d.resolved} (${d.module})`, d);
-  const violations = new Set<string>(
-    r.summary.violations.map((v) => `${v.rule.name}: ${v.from} -> ${v.to}`),
-  );
-  return { modules, edges, violations };
+  return { modules, edges };
 }
 
 const normalizeSet = (a: string[], keep: (s: string) => boolean) => a.filter(keep).sort().join(",");
@@ -191,37 +237,43 @@ for (const t of targets.filter((t) => !only || t.name === only)) {
   }
   const cfgPath = join(cache, "configs", `${t.name}.dependency-cruiser.json`);
   writeFileSync(cfgPath, JSON.stringify(config(t), null, 2));
-  // oxcruise reads the very same dependency-cruiser config (through its importer). The wrapper only
-  // switches off `new URL(..., import.meta.url)` dependencies, which depcruise does not have.
-  const oxCfgPath = join(cache, "configs", `${t.name}.oxcruise.json`);
-  writeFileSync(
-    oxCfgPath,
-    JSON.stringify(
-      { extends: [`./${t.name}.dependency-cruiser.json`], extract: { skipUrls: true } },
-      null,
-      2,
-    ),
-  );
   const cwd = join(repo, t.dir);
 
-  const dc = run(
-    "node",
-    [depcruiseBin, "--config", cfgPath, "--output-type", "json", ...t.entries],
-    cwd,
-  );
-  const ox = run(
+  // oxcruise gets what `migrate` makes of the very same config
+  const oxCfgPath = join(cache, "configs", `${t.name}.oxcruiserc.json`);
+  const migrated = spawnSync(
     oxcruiseBin,
-    ["--config", oxCfgPath, "-f", "json-depcruise", "--cwd", cwd, ...t.entries],
-    cwd,
+    ["migrate", "--json", "--force", "--config", cfgPath, "--output", oxCfgPath, "--cwd", cwd],
+    { encoding: "utf8" },
   );
+  if (migrated.status !== 0) throw new Error(`migrate failed for ${t.name}:\n${migrated.stderr}`);
+  const warnings = migrated.stderr.split("\n").filter((l) => l.startsWith("warning:"));
+  if (t.excludeGlobs) {
+    // an `exclude` regex that does not convert to a glob is written by hand
+    const oxCfg = JSON.parse(readFileSync(oxCfgPath, "utf8"));
+    oxCfg.ignorePatterns = t.excludeGlobs;
+    writeFileSync(oxCfgPath, JSON.stringify(oxCfg, null, 2));
+  }
 
-  const schemaErrors = (name: string, r: Result) => {
-    if (validate(r)) return [];
-    return (validate.errors ?? [])
-      .slice(0, 5)
-      .map((e) => `${name}: ${e.instancePath} ${e.message}`);
-  };
-  const schema = [...schemaErrors("depcruise", dc), ...schemaErrors("oxcruise", ox)];
+  const dc: Result = JSON.parse(
+    run("node", [depcruiseBin, "--config", cfgPath, "--output-type", "json", ...t.entries], cwd),
+  );
+  const ox = fromOxcruise(
+    run(
+      oxcruiseBin,
+      [
+        "--config",
+        oxCfgPath,
+        "-f",
+        "json",
+        "--cwd",
+        cwd,
+        ...(t.maxDepth ? ["--max-depth", String(t.maxDepth)] : []),
+        ...t.entries,
+      ],
+      cwd,
+    ),
+  );
 
   const a = facts(dc),
     b = facts(ox);
@@ -231,42 +283,96 @@ for (const t of targets.filter((t) => !only || t.name === only)) {
     diffs.push({ kind, key, detail, reason: dev?.reason });
   };
 
+  // JSDoc imports are always on in oxcruise; dependency-cruiser needs `typescript` for them
+  const isJsdoc = (d: Dep) => d.dependencyTypes.includes("jsdoc");
+  const incoming = new Map<string, Dep[]>();
+  for (const [k, d] of b.edges) {
+    const to = k.split(" -> ")[1]!.replace(/ \(.*\)$/, "");
+    incoming.set(to, [...(incoming.get(to) ?? []), d]);
+  }
+  // `new URL(..)` dependencies are always on in oxcruise; dependency-cruiser has none. Whatever is
+  // reachable only through one is a consequence of it.
+  const target = (k: string) => k.split(" -> ")[1]!.replace(/ \(.*\)$/, "");
+  const source = (k: string) => k.split(" -> ")[0]!;
+  const outgoing = new Map<string, string[]>();
+  for (const k of b.edges.keys())
+    outgoing.set(source(k), [...(outgoing.get(source(k)) ?? []), target(k)]);
+  const viaUrl = new Set<string>();
+  const queue: string[] = [];
+  for (const [k, d] of b.edges)
+    if (!a.edges.has(k) && d.url && !viaUrl.has(target(k))) {
+      viaUrl.add(target(k));
+      queue.push(target(k));
+    }
+  for (let m = queue.pop(); m !== undefined; m = queue.pop())
+    for (const to of outgoing.get(m) ?? [])
+      if (!viaUrl.has(to)) {
+        viaUrl.add(to);
+        queue.push(to);
+      }
   for (const m of a.modules) if (!b.modules.has(m)) add("module-only-in-depcruise", m);
-  for (const m of b.modules) if (!a.modules.has(m)) add("module-only-in-oxcruise", m);
+  for (const m of b.modules)
+    if (!a.modules.has(m)) {
+      const via = incoming.get(m) ?? [];
+      add(
+        viaUrl.has(m)
+          ? "url-dependency-only-in-oxcruise"
+          : via.length > 0 && via.every(isJsdoc)
+            ? "jsdoc-import-only-in-oxcruise"
+            : "module-only-in-oxcruise",
+        m,
+      );
+    }
   for (const k of a.edges.keys()) if (!b.edges.has(k)) add("edge-only-in-depcruise", k);
-  for (const k of b.edges.keys()) if (!a.edges.has(k)) add("edge-only-in-oxcruise", k);
+  for (const [k, d] of b.edges)
+    if (!a.edges.has(k))
+      add(
+        d.url || viaUrl.has(source(k))
+          ? "url-dependency-only-in-oxcruise"
+          : isJsdoc(d)
+            ? "jsdoc-import-only-in-oxcruise"
+            : "edge-only-in-oxcruise",
+        k,
+      );
   for (const [k, da] of a.edges) {
     const db = b.edges.get(k);
     if (!db) continue;
+    if (isJsdoc(db) && !isJsdoc(da)) {
+      // the same import is also written as a JSDoc import (type-only), which changes its kinds
+      add("jsdoc-import-only-in-oxcruise", k);
+      continue;
+    }
     const ca = normalizeSet(da.dependencyTypes, (s) => CLASSIFICATION.has(s));
     const cb = normalizeSet(db.dependencyTypes, (s) => CLASSIFICATION.has(s));
     if (ca !== cb) add("classification-differs", k, `depcruise [${ca}] vs oxcruise [${cb}]`);
-    const sa = normalizeSet(da.dependencyTypes, (s) => !CLASSIFICATION.has(s));
-    const sb = normalizeSet(db.dependencyTypes, (s) => !CLASSIFICATION.has(s));
+    // `exoticRequireStrings` and `calls` are one kind in oxcruise
+    const syntax = (d: Dep) =>
+      normalizeSet(
+        d.dependencyTypes.map((s) => (s === "exotic-require" ? "call" : s)),
+        (s) => !CLASSIFICATION.has(s) && s !== "call",
+      );
+    const sa = syntax(da);
+    const sb = syntax(db);
     if (sa !== sb) add("syntax-differs", k, `depcruise [${sa}] vs oxcruise [${sb}]`);
     if ((da.moduleSystem ?? "") !== (db.moduleSystem ?? ""))
       add("module-system-differs", k, `${da.moduleSystem} vs ${db.moduleSystem}`);
   }
-  for (const v of a.violations) if (!b.violations.has(v)) add("violation-only-in-depcruise", v);
-  for (const v of b.violations) if (!a.violations.has(v)) add("violation-only-in-oxcruise", v);
 
   const bad = diffs.filter((d) => !d.reason);
-  unexplained += bad.length + schema.length;
+  unexplained += bad.length;
   report[t.name] = {
     modules: [a.modules.size, b.modules.size],
     edges: [a.edges.size, b.edges.size],
-    violations: [a.violations.size, b.violations.size],
-    schema,
+    migrationWarnings: warnings,
     diffs,
   };
   const explained = diffs.length - bad.length;
   console.log(
-    `${bad.length + schema.length === 0 ? "ok  " : "FAIL"} ${t.name.padEnd(16)} modules ${a.modules.size}/${b.modules.size}  edges ${a.edges.size}/${b.edges.size}  violations ${a.violations.size}/${b.violations.size}  diffs ${bad.length}${explained ? ` (+${explained} documented)` : ""}${schema.length ? `  schema errors ${schema.length}` : ""}`,
+    `${bad.length === 0 ? "ok  " : "FAIL"} ${t.name.padEnd(16)} modules ${a.modules.size}/${b.modules.size}  edges ${a.edges.size}/${b.edges.size}  migrate warnings ${warnings.length}  diffs ${bad.length}${explained ? ` (+${explained} documented)` : ""}`,
   );
   for (const d of bad.slice(0, verbose ? 1000 : 8))
     console.log(`       ${d.kind}: ${d.key}${d.detail ? `\n         ${d.detail}` : ""}`);
   if (bad.length > 8 && !verbose) console.log(`       ... ${bad.length - 8} more (--verbose)`);
-  for (const s of schema) console.log(`       schema: ${s}`);
 }
 
 writeFileSync(join(cache, "report.json"), JSON.stringify(report, null, 2));

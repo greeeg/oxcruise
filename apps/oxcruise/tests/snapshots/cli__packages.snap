@@ -13,15 +13,6 @@ error[no-circular]: circular dependency: packages/app/src/cycle-a.ts → package
      ╭─▶ packages/app/src/cycle-a.ts
      ╰── packages/app/src/cycle-b.ts
 
-error[no-circular]: circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts
-  --> packages/app/src/helpers.ts:1:27
-   |
- 1 | import type { util } from "./util";
-   |                           ^^^^^^^^
-   = cycle:
-     ╭─▶ packages/app/src/helpers.ts
-     ╰── packages/app/src/util.ts
-
 error[no-dev-deps-in-prod]: production code imports dev dependency `vitest`
   --> packages/app/src/index.ts:5:22
    |
@@ -29,7 +20,7 @@ error[no-dev-deps-in-prod]: production code imports dev dependency `vitest`
    |                      ^^^^^^^^
    = imports node_modules/vitest/index.js
 
-error[no-non-package-json]: `left-pad` is not declared in package.json
+error[no-undeclared-deps]: `left-pad` is not declared in package.json
   --> packages/app/src/index.ts:8:21
    |
  8 | import leftPad from "left-pad";
@@ -50,7 +41,7 @@ error[no-unresolvable]: cannot resolve `./also-nope`
    |        ^^^^^^^^^^^^^
    = imports ./also-nope
 
-error[not-to-test]: production code imports test code `packages/app/src/thing.test.ts`
+error[no-test-imports]: production code imports test code `packages/app/src/thing.test.ts`
   --> packages/app/src/uses-test.ts:1:19
    |
  1 | import { t } from "./thing.test";
@@ -64,21 +55,14 @@ error[no-unresolvable]: cannot resolve `@app/helpers`
    |                        ^^^^^^^^^^^^^^
    = imports @app/helpers
 
-warn[peer-deps-used]: `react` is a peer dependency
-  --> packages/app/src/index.ts:6:19
-   |
- 6 | import React from "react";
-   |                   ^^^^^^^
-   = imports node_modules/react/index.js
-
-warn[no-deprecated-npm]: `left-pad` is deprecated by its maintainers
+warn[no-deprecated]: `left-pad` is deprecated by its maintainers
   --> packages/app/src/index.ts:8:21
    |
  8 | import leftPad from "left-pad";
    |                     ^^^^^^^^^^
    = imports node_modules/left-pad/index.js
 
-warn[no-deprecated-core]: `sys` is a deprecated Node.js module
+warn[no-deprecated]: `sys` is a deprecated Node.js module
   --> packages/app/src/index.ts:10:17
     |
  10 | import sys from "sys";
@@ -88,13 +72,6 @@ warn[no-deprecated-core]: `sys` is a deprecated Node.js module
 warn[no-orphans]: this module is not imported by any module and imports nothing
   --> packages/app/src/orphan.ts
 
-info[optional-deps-used]: `fsevents` is an optional dependency and may not be installed
-  --> packages/app/src/index.ts:7:22
-   |
- 7 | import fsevents from "fsevents";
-   |                      ^^^^^^^^^^
-   = imports node_modules/fsevents/index.js
-
-✖ 13 problems (8 errors, 4 warnings, 1 info) in 25 modules, 24 dependencies
+✖ 10 problems (7 errors, 3 warnings) in 25 modules, 24 dependencies
   1 suppressed by comments
 --- stderr

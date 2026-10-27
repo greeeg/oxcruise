@@ -12,7 +12,7 @@ fn forbid_by_path_with_glob_captures() {
         "forbid": [{
             "name": "feature-isolation", "severity": "error",
             "from": "src/features/{feature}/**",
-            "to": { "path": "src/features/**", "pathNot": "src/features/{feature}/**" }
+            "to": ["src/features/**", "!src/features/{feature}/**"]
         }]
     }));
     tester.pass(&[
@@ -30,156 +30,88 @@ fn forbid_by_path_with_glob_captures() {
 }
 
 #[test]
-fn imported_depcruise_regex_backreferences() {
-    // what the importer produces for `"to": { "path": "^src/$1/" }`
+fn the_message_replaces_the_generic_text() {
     let tester = t(json!({
-        "forbid": [{
-            "name": "stay-in-your-lane",
-            "from": { "path": { "regex": "^src/([^/]+)/" } },
-            "to": { "path": { "regex": "^src/" }, "pathNot": { "regex": "^src/$1/" } }
-        }]
+        "forbid": [{ "name": "no-bad", "message": "bad.ts is going away", "to": "bad.ts" }]
     }));
-    tester.pass(&["src/a/x.ts -> src/a/y.ts"]);
-    tester.fail(&["src/a/x.ts -> src/b/y.ts"]);
+    let out = tester.fail(&["a.ts -> bad.ts"]);
+    assert!(out.ends_with(": bad.ts is going away"), "{out}");
+}
+
+#[test]
+fn a_list_of_only_negations_means_everything_except() {
+    let tester = t(json!({
+        "forbid": [{ "name": "prod-only", "from": ["!**/*.spec.ts"], "to": "lib/**" }]
+    }));
+    tester.pass(&["src/a.spec.ts -> lib/x.ts"]);
+    tester.fail(&["src/a.ts -> lib/x.ts"]);
+
+    // ... on the `to` side too: anything but the allowed folders
+    let to = t(json!({
+        "forbid": [{ "name": "only-shared", "from": "src/**", "to": ["!src/shared/**", "!lib/**"] }]
+    }));
+    to.pass(&["src/a.ts -> src/shared/x.ts", "src/a.ts -> lib/y.ts"]);
+    to.fail(&["src/a.ts -> src/b.ts"]);
 }
 
 #[test]
 fn relation_conditions() {
-    // no reaching up out of your parent folder (#624, #628)
-    let tester = t(json!({
-        "forbid": [{ "name": "no-reaching-up", "from": { "path": "src/**" }, "to": { "relation": { "not": ["descendant-of-from-parent"] } } }]
-    }));
-    tester.pass(&["src/a/x.ts -> src/a/y.ts", "src/a/x.ts -> src/b/y.ts"]);
+    let sib = t(json!({
+        "forbid": [{ "name": "no-siblings", "to": { "relation": ["sibling", "same-package"] } }]
+    }))
+    .with_package("pkg", 0);
+    // outside the package, in the same folder: neither relation holds
+    sib.pass(&["a/x.ts -> a/y.ts"]);
     insta::assert_snapshot!(
-        "relation_reaching_up",
-        tester.fail(&["src/a/x.ts -> lib/z.ts"])
+        "relation_sibling",
+        sib.fail(&["a/x.ts -> b/y.ts", "pkg/x.ts -> pkg/y.ts"])
     );
 
-    let sib =
-        t(json!({ "forbid": [{ "name": "no-siblings", "to": { "relation": ["sibling"] } }] }));
-    sib.pass(&["src/a/x.ts -> src/a/y.ts"]);
-    sib.fail(&["src/a/x.ts -> src/b/y.ts"]);
+    // a single relation may be written without a list
+    let one = t(json!({ "forbid": [{ "name": "r", "to": { "relation": "sibling" } }] }));
+    one.pass(&["src/a/x.ts -> src/a/y.ts"]);
+    one.fail(&["src/a/x.ts -> src/b/y.ts"]);
 }
 
 #[test]
-fn dependency_type_conditions() {
+fn kind_and_edge_conditions() {
     let tester = t(json!({
         "forbid": [
-            { "name": "no-dev", "to": { "dependencyTypes": ["npm-dev"], "dependencyTypesNot": ["type-only"] } },
+            { "name": "no-builtin-in-web", "from": "web/**", "to": { "kind": "builtin" } },
+            { "name": "no-unresolved", "to": { "kind": "unresolved" } },
             { "name": "no-dynamic", "to": { "dynamic": true } },
-            { "name": "no-unresolved", "to": { "couldNotResolve": true } },
+            { "name": "no-type-only-packages", "to": { "kind": ["package"], "typeOnly": true } },
         ]
     }));
-    tester.pass(&["a.ts -> x [npm-dev type-only]", "a.ts -> b.ts"]);
+    tester.pass(&[
+        "web/a.ts -> web/b.ts",
+        "server/a.ts -> fs [core]",
+        "a.ts -> x [npm]",
+    ]);
     insta::assert_snapshot!(
-        "dependency_type_conditions",
+        "kind_conditions",
         tester.fail(&[
-            "a.ts -> x [npm-dev]",
+            "web/a.ts -> fs [core]",
+            "a.ts -> ./nope [unknown]",
             "a.ts -> b.ts [dynamic-import]",
-            "a.ts -> ./nope [unknown]"
+            "a.ts -> types-pkg [npm type-only]",
         ])
     );
-    let err = oxcruise_rules::Engine::new(
-        &serde_json::from_value(
-            json!({ "forbid": [{ "name": "r", "to": { "dependencyTypes": ["npn"] } }] }),
-        )
-        .unwrap(),
-        None,
-    )
-    .err()
-    .unwrap();
-    assert!(err[0].contains("unknown dependency type `npn`"), "{err:?}");
 }
 
 #[test]
-fn module_rules_orphan_and_dependents() {
+fn kind_local_matches_project_files_only() {
     let tester = t(json!({
-        "forbid": [
-            { "name": "orphans", "severity": "warn", "from": { "orphan": true, "pathNot": "**/*.d.ts" }, "to": {} },
-            { "name": "popular", "severity": "info", "from": { "numberOfDependentsMoreThan": 2 } },
-        ]
+        "forbid": [{ "name": "no-local-from-scripts", "from": "scripts/**", "to": { "kind": "local" } }]
     }));
-    insta::assert_snapshot!(
-        "module_rules",
-        tester.fail(&[
-            "a.ts -> hub.ts",
-            "b.ts -> hub.ts",
-            "c.ts -> hub.ts",
-            "lonely.ts",
-            "types.d.ts"
-        ])
-    );
-}
-
-#[test]
-fn circular_with_via_and_via_only() {
-    // a cycle that goes through src/shared is forbidden; elsewhere it is fine
-    let via = t(
-        json!({ "forbid": [{ "name": "via-shared", "to": { "circular": true, "via": { "path": "src/shared/**" } } }] }),
-    );
-    via.pass(&["src/a.ts -> src/b.ts", "src/b.ts -> src/a.ts"]);
-    insta::assert_snapshot!(
-        "circular_via",
-        via.fail(&[
-            "src/a.ts -> src/shared/s.ts",
-            "src/shared/s.ts -> src/b.ts",
-            "src/b.ts -> src/a.ts"
-        ])
-    );
-
-    // viaOnly: every step must match
-    let only = t(
-        json!({ "forbid": [{ "name": "only-in-feature", "to": { "circular": true, "viaOnly": { "path": "src/feature/**" } } }] }),
-    );
-    only.pass(&[
-        "src/feature/a.ts -> src/other/b.ts",
-        "src/other/b.ts -> src/feature/a.ts",
-    ]);
-    only.fail(&[
-        "src/feature/a.ts -> src/feature/b.ts",
-        "src/feature/b.ts -> src/feature/a.ts",
-    ]);
-
-    // edge predicates on the cycle path (#695, #763): only cycles that contain a static edge
-    let edge = t(
-        json!({ "forbid": [{ "name": "static-cycle", "to": { "circular": true, "via": { "dynamic": false } } }] }),
-    );
-    edge.fail(&["a.ts -> b.ts", "b.ts -> a.ts"]);
-    let lazy = t(
-        json!({ "forbid": [{ "name": "cycle-without-dynamic", "to": { "circular": true, "viaOnly": { "dynamic": false } } }] }),
-    );
-    lazy.pass(&["a.ts -> b.ts [dynamic-import]", "b.ts -> a.ts"]);
-    lazy.fail(&["a.ts -> b.ts", "b.ts -> a.ts"]);
-
-    let bare_via = oxcruise_rules::Engine::new(
-        &serde_json::from_value(
-            json!({ "forbid": [{ "name": "r", "to": { "via": { "path": "x" } } }] }),
-        )
-        .unwrap(),
-        None,
-    )
-    .err()
-    .unwrap();
-    assert!(
-        bare_via[0].contains("need `circular: true`"),
-        "{bare_via:?}"
-    );
-}
-
-#[test]
-fn circular_ignoring_type_only_through_options() {
-    let tester = t(json!({
-        "options": { "cycles": { "ignoreTypeOnly": true } },
-        "forbid": [{ "name": "no-cycles", "to": { "circular": true } }]
-    }));
-    tester.pass(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
-    tester.fail(&["a.ts -> b.ts", "b.ts -> a.ts"]);
+    tester.pass(&["scripts/a.ts -> fs [core]", "scripts/a.ts -> x [npm]"]);
+    tester.fail(&["scripts/a.ts -> src/b.ts"]);
 }
 
 #[test]
 fn reachable() {
     let tester = t(json!({
-        "forbid": [{ "name": "ui-must-not-reach-db", "from": { "path": "src/ui/**" }, "to": { "path": "src/db/**", "reachable": true } }]
+        "forbid": [{ "name": "ui-must-not-reach-db", "from": "src/ui/**", "to": { "path": "src/db/**", "reachable": true } }]
     }));
     tester.pass(&[
         "src/ui/a.ts -> src/domain/b.ts",
@@ -194,42 +126,71 @@ fn reachable() {
             "src/db/q.ts -> src/db/conn.ts"
         ])
     );
+
+    // `kind` narrows what counts: here only packages
+    let pkgs = t(json!({
+        "forbid": [{ "name": "ui-no-pg", "from": "src/ui/**", "to": { "path": "pg", "kind": "package", "reachable": true } }]
+    }));
+    pkgs.pass(&["src/ui/a.ts -> src/db.ts"]);
+    pkgs.fail(&["src/ui/a.ts -> src/db.ts", "src/db.ts -> pg [npm]"]);
 }
 
 #[test]
-fn allow_list() {
+fn unsupported_combinations_are_errors() {
+    for (to, needle) in [
+        (json!({ "reachable": false }), "`reachable: false`"),
+        (
+            json!({ "reachable": true, "typeOnly": true }),
+            "`reachable` can only",
+        ),
+    ] {
+        let err = oxcruise_rules::Engine::new(
+            &serde_json::from_value(json!({ "forbid": [{ "name": "r", "to": to }] })).unwrap(),
+            None,
+        )
+        .err()
+        .unwrap();
+        assert!(err[0].contains("`r`") && err[0].contains(needle), "{err:?}");
+    }
+}
+
+#[test]
+fn a_forbid_rule_takes_its_level_from_severity_only() {
+    let forbid = json!([{ "name": "r", "severity": "warn", "to": "bad.ts" }]);
+    let out = t(json!({ "forbid": forbid })).fail(&["a.ts -> bad.ts"]);
+    assert!(out.starts_with("warn r"), "{out}");
+
+    // `rules` is for built-in and plugin rules; naming a forbid rule there is an error
+    let err = oxcruise_rules::Engine::new(
+        &serde_json::from_value(json!({ "forbid": forbid, "rules": { "r": "off" } })).unwrap(),
+        None,
+    )
+    .err()
+    .unwrap();
+    assert!(err[0].contains("unknown rule `r`"), "{err:?}");
+
+    // a forbid rule may not reuse a built-in name
+    let err = oxcruise_rules::Engine::new(
+        &serde_json::from_value(json!({ "forbid": [{ "name": "no-circular" }] })).unwrap(),
+        None,
+    )
+    .err()
+    .unwrap();
+    assert!(err[0].contains("already used"), "{err:?}");
+}
+
+#[test]
+fn overrides_can_change_a_forbid_rule_per_file() {
     let tester = t(json!({
-        "allow": [
-            { "name": "x", "severity": "warn", "from": { "path": "src/**" }, "to": { "path": "src/**" } },
-            { "name": "y", "severity": "warn", "from": { "path": "src/**" }, "to": { "dependencyTypes": ["core"] } },
+        "forbid": [{ "name": "no-bad", "to": "bad.ts" }],
+        "overrides": [
+            { "files": ["scripts/**"], "rules": { "no-bad": "off" } },
+            { "files": ["legacy/**"], "rules": { "no-bad": "warn" } },
         ]
     }));
-    tester.pass(&["src/a.ts -> src/b.ts", "src/a.ts -> fs [core]"]);
-    let out = tester.fail(&["src/a.ts -> lib/c.ts", "src/a.ts -> lodash [npm]"]);
-    insta::assert_snapshot!("allow_list", out);
-}
-
-#[test]
-fn require() {
-    let tester = t(json!({
-        "require": [{ "name": "pages-use-layout", "module": { "path": "src/pages/*.tsx" }, "to": { "path": "src/layout/**" } }]
-    }));
-    tester.pass(&["src/pages/home.tsx -> src/layout/main.tsx", "src/other.tsx"]);
-    insta::assert_snapshot!(
-        "require",
-        tester.fail(&[
-            "src/pages/home.tsx -> src/shared/x.ts",
-            "src/pages/about.tsx -> src/layout/main.tsx"
-        ])
-    );
-}
-
-#[test]
-fn severity_override_and_off_for_declarative_rules() {
-    let rules = json!([{ "name": "r", "severity": "error", "to": { "path": "bad.ts" } }]);
-    let out = t(json!({ "forbid": rules, "rules": { "r": "warn" } })).fail(&["a.ts -> bad.ts"]);
-    assert!(out.starts_with("warn r"), "{out}");
-    t(json!({ "forbid": rules, "rules": { "r": "off" } })).pass(&["a.ts -> bad.ts"]);
+    tester.pass(&["scripts/a.ts -> bad.ts"]);
+    let out = tester.fail(&["src/a.ts -> bad.ts", "legacy/a.ts -> bad.ts"]);
+    insta::assert_snapshot!("forbid_overrides", out);
 }
 
 #[test]
@@ -293,7 +254,7 @@ fn overrides_change_severity_and_options_per_file() {
     ]);
     insta::assert_snapshot!("overrides", out);
 
-    // an override can enable a rule that is off by default, with its own options
+    // an override can enable a rule that is off, with its own options
     let enable =
         t(json!({ "overrides": [{ "files": ["strict/**"], "rules": { "no-orphans": "error" } }] }));
     enable.pass(&["loose/lonely.ts"]);
@@ -301,40 +262,27 @@ fn overrides_change_severity_and_options_per_file() {
 }
 
 #[test]
-fn dead_rules_are_reported_when_asked() {
-    let config = |report: bool| {
-        json!({
-            "options": { "reportDeadRules": report },
-            "forbid": [
-                { "name": "typo-path", "from": { "path": "scr/**" }, "to": { "path": "x.ts" } },
-                { "name": "never-targets", "from": { "path": "src/**" }, "to": { "path": "nothing/**" } },
-                { "name": "alive", "from": { "path": "src/**" }, "to": { "path": "src/b.ts" } },
-            ]
-        })
-    };
-    let tester = t(config(true));
+fn dead_rules_are_always_reported() {
+    let tester = t(json!({
+        "forbid": [
+            { "name": "typo-path", "from": "scr/**", "to": "x.ts" },
+            { "name": "never-targets", "from": "src/**", "to": "nothing/**" },
+            { "name": "alive", "from": "src/**", "to": "src/b.ts" },
+        ]
+    }));
     let r = tester.run(&["src/a.ts -> src/b.ts"]);
     insta::assert_snapshot!("dead_rules", r.warnings.join("\n"));
-    assert!(
-        t(config(false))
-            .run(&["src/a.ts -> src/b.ts"])
-            .warnings
-            .is_empty()
-    );
 }
 
 #[test]
-fn bad_regex_names_the_rule() {
+fn bad_glob_names_the_rule() {
     let err = oxcruise_rules::Engine::new(
-        &serde_json::from_value(json!({ "forbid": [{ "name": "lookahead", "from": { "path": { "regex": "^(?!src)" } } }] })).unwrap(),
+        &serde_json::from_value(json!({ "forbid": [{ "name": "broken", "from": "src/{a,/**" }] }))
+            .unwrap(),
         None,
-    )
-    .err()
-    .unwrap();
-    assert!(
-        err[0].contains("lookahead") && err[0].contains("invalid pattern"),
-        "{err:?}"
     );
+    // an unterminated brace is taken literally, so the rule compiles; nothing may panic
+    assert!(err.is_ok() || err.err().unwrap()[0].contains("broken"));
 }
 
 #[test]

@@ -1,19 +1,17 @@
 ---
 source: crates/oxcruise_rules/tests/rules.rs
-expression: "rules.iter().map(|r|\nformat!(\"{} {} {}{}\", r.name, r.category, r.version, if r.recommended\n{ \" recommended\" } else { \"\" })).collect::<Vec<_>>().join(\"\\n\")"
+expression: "rules.iter().map(|r|\nformat!(\"{} {} {}\", r.name, r.category.as_str(),\nr.version)).collect::<Vec<_>>().join(\"\\n\")"
 ---
 internal-modules restriction 0.1.0
 layers restriction 0.1.0
-no-circular correctness 0.1.0 recommended
+no-circular correctness 0.1.0
 no-cross-package-relative correctness 0.1.0
-no-deprecated-core correctness 0.1.0 recommended
-no-deprecated-npm suspicious 0.1.0 recommended
-no-dev-deps-in-prod correctness 0.1.0 recommended
-no-duplicate-dep-types suspicious 0.1.0 recommended
-no-non-package-json correctness 0.1.0 recommended
-no-orphans suspicious 0.1.0 recommended
-no-unresolvable correctness 0.1.0 recommended
-not-to-spec correctness 0.1.0 recommended
-not-to-test correctness 0.1.0 recommended
-optional-deps-used restriction 0.1.0 recommended
-peer-deps-used restriction 0.1.0 recommended
+no-deprecated suspicious 0.1.0
+no-dev-deps-in-prod correctness 0.1.0
+no-duplicate-deps suspicious 0.1.0
+no-optional-deps restriction 0.1.0
+no-orphans suspicious 0.1.0
+no-peer-deps restriction 0.1.0
+no-test-imports correctness 0.1.0
+no-undeclared-deps correctness 0.1.0
+no-unresolvable correctness 0.1.0

@@ -20,11 +20,10 @@ export interface CruiseOptions {
   paths?: string[];
   /** Config file; default: discovered in `cwd`. */
   config?: string;
-  /** Ignore config files and use the recommended preset. */
+  /** Ignore config files and use the defaults. */
   noConfig?: boolean;
-  exclude?: string[];
-  includeOnly?: string[];
-  doNotFollow?: string[];
+  /** Globs of modules to leave out of the graph, on top of the config's `ignorePatterns`. */
+  ignorePatterns?: string[];
   maxDepth?: number;
   threads?: number;
 }
@@ -114,9 +113,7 @@ export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult>
   if (options.noConfig) args.push("--no-config");
   if (options.maxDepth !== undefined) args.push("--max-depth", String(options.maxDepth));
   if (options.threads !== undefined) args.push("--threads", String(options.threads));
-  flag("--exclude", options.exclude);
-  flag("--include-only", options.includeOnly);
-  flag("--do-not-follow", options.doNotFollow);
+  flag("--ignore-pattern", options.ignorePatterns);
   args.push(...(options.paths ?? []));
 
   const host = createHost();

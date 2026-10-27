@@ -8,7 +8,7 @@ use crate::options::CruiseOptions;
 
 /// Expand `opts.entries` into absolute, sorted, deduplicated source files.
 ///
-/// `exclude` is applied while walking, so excluded directories are never entered.
+/// `ignore` is applied while walking, so ignored directories are never entered.
 pub fn expand_entries(opts: &CruiseOptions) -> Result<Vec<PathBuf>, String> {
     let mut out: Vec<PathBuf> = vec![];
     let mut globs = vec![];
@@ -38,18 +38,17 @@ pub fn expand_entries(opts: &CruiseOptions) -> Result<Vec<PathBuf>, String> {
     out.dedup();
     out.retain(|p| {
         let rel = oxcruise_resolve::relative_to(&opts.root, p);
-        !opts.exclude.is_match(&rel)
-            && (opts.include_only.is_empty() || opts.include_only.is_match(&rel))
+        !opts.ignore.is_match(&rel)
     });
     Ok(out)
 }
 
 fn walk_dir(dir: &std::path::Path, opts: &CruiseOptions) -> Vec<PathBuf> {
     let root = opts.root.clone();
-    let exclude = opts.exclude.clone();
+    let ignore = opts.ignore.clone();
     let walker = WalkBuilder::new(dir)
         .standard_filters(false)
-        .git_ignore(opts.respect_gitignore)
+        .git_ignore(true)
         .require_git(false)
         .threads(opts.threads.unwrap_or(0))
         .filter_entry(move |e| {
@@ -58,7 +57,7 @@ fn walk_dir(dir: &std::path::Path, opts: &CruiseOptions) -> Vec<PathBuf> {
                 return false;
             }
             let rel = oxcruise_resolve::relative_to(&root, e.path());
-            !exclude.is_match(&rel)
+            !ignore.is_match(&rel)
         })
         .build_parallel();
 

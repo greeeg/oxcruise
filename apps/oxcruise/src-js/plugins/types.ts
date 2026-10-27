@@ -22,7 +22,7 @@ export interface Module {
   readonly kind: ModuleKind;
   /** Workspace package this module belongs to. */
   readonly package: string | undefined;
-  /** Kept in the graph but its dependencies were not explored (`doNotFollow`, depth limit, npm). */
+  /** Kept in the graph but its dependencies were not explored (`doNotFollow`, depth limit, node_modules). */
   readonly notFollowed: boolean;
   /** Dependencies of this module, in source order. */
   readonly dependencies: readonly Dependency[];
@@ -103,7 +103,6 @@ export interface CruiseResultJson {
   summary: {
     error: number;
     warn: number;
-    info: number;
     suppressed: number;
     total_modules: number;
     total_dependencies: number;
@@ -134,7 +133,7 @@ export interface DependencyJson {
 
 export interface ViolationJson {
   rule: string;
-  severity: "error" | "warn" | "info" | "ignore";
+  severity: "error" | "warn";
   kind: "dependency" | "module" | "cycle" | "reachability";
   from: string;
   to?: string;

@@ -1,17 +1,15 @@
 //! Locating and loading the config for a run.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use oxcruise_config::{ConfigLoader, JsConfigLoader, OxcruiseConfig, discover, preset};
+use oxcruise_config::{ConfigLoader, JsConfigLoader, OxcruiseConfig, discover};
 
 pub struct Loaded {
     pub config: OxcruiseConfig,
-    pub path: Option<PathBuf>,
     pub warnings: Vec<String>,
-    pub imported_from_depcruise: bool,
 }
 
-/// `--no-config` and "no file found" both give the recommended preset.
+/// `--no-config` and "no file found" both give the defaults.
 pub fn load(
     cwd: &Path,
     explicit: Option<&Path>,
@@ -19,10 +17,8 @@ pub fn load(
     js: &dyn JsConfigLoader,
 ) -> Result<Loaded, String> {
     let default = || Loaded {
-        config: preset("oxcruise:recommended").expect("built-in preset"),
-        path: None,
+        config: OxcruiseConfig::default(),
         warnings: vec![],
-        imported_from_depcruise: false,
     };
     if no_config {
         return Ok(default());
@@ -49,8 +45,6 @@ pub fn load(
         .map_err(|e| e.to_string())?;
     Ok(Loaded {
         config: loaded.config,
-        path: loaded.path,
         warnings: loaded.warnings,
-        imported_from_depcruise: loaded.imported_from_depcruise,
     })
 }

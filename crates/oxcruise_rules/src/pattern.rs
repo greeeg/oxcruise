@@ -1,15 +1,15 @@
-//! Path patterns for rules: globs and regexes, with captures.
+//! Path patterns for rules: globs with `!` negation and captures.
 //!
 //! * A glob may contain `{name}`, which captures one path segment on the
 //!   `from` side and is substituted on the `to` side: `src/features/{f}/**`.
-//! * A regex may use groups on the `from` side and `$1`..`$9` on the `to`
-//!   side (dependency-cruiser style), which is what the importer produces.
+//! * A leading `!` negates a glob. A list matches a path when some positive glob
+//!   matches and no negated glob does; a list of only negations means "everything
+//!   except". Negated globs may refer to captures too.
 //!
 //! Everything compiles to the `regex` crate, so matching is linear-time.
 
 use std::sync::Mutex;
 
-use oxcruise_config::PathSpec;
 use regex::Regex;
 use rustc_hash::FxHashMap;
 
@@ -25,7 +25,8 @@ pub enum Role {
 
 #[derive(Debug)]
 pub struct PathPatterns {
-    items: Vec<Item>,
+    positive: Vec<Item>,
+    negative: Vec<Item>,
 }
 
 #[derive(Debug)]
@@ -37,106 +38,98 @@ enum Item {
 #[derive(Debug)]
 struct Template {
     source: String,
-    is_regex: bool,
     cache: Mutex<FxHashMap<String, Option<Regex>>>,
 }
 
+impl Item {
+    fn compile(glob: &str, capturing: bool) -> Result<Item, String> {
+        let src = glob.strip_prefix("./").unwrap_or(glob);
+        if !capturing && placeholder_spans(src).next().is_some() {
+            return Ok(Item::Template(Template {
+                source: src.to_string(),
+                cache: Mutex::default(),
+            }));
+        }
+        Regex::new(&glob_to_regex(src, capturing))
+            .map(Item::Static)
+            .map_err(|e| format!("invalid pattern `{glob}`: {e}"))
+    }
+
+    fn is_match(&self, path: &str, caps: &Captures) -> bool {
+        match self {
+            Item::Static(re) => re.is_match(path),
+            Item::Template(t) => t.regex(caps).is_some_and(|re| re.is_match(path)),
+        }
+    }
+}
+
 impl PathPatterns {
-    pub fn new(specs: &[PathSpec], role: Role) -> Result<Self, String> {
-        let mut items = vec![];
-        for s in specs {
-            let (src, is_regex) = match s {
-                PathSpec::Glob(g) => (g.strip_prefix("./").unwrap_or(g).to_string(), false),
-                PathSpec::Regex(r) => (r.regex.clone(), true),
-            };
-            let has_refs = role == Role::Referencing && references(&src, is_regex);
-            if has_refs {
-                items.push(Item::Template(Template {
-                    source: src,
-                    is_regex,
-                    cache: Mutex::default(),
-                }));
-            } else {
-                let re = if is_regex {
-                    src.clone()
-                } else {
-                    glob_to_regex(&src, role == Role::Capturing)
-                };
-                items.push(Item::Static(
-                    Regex::new(&re).map_err(|e| format!("invalid pattern `{src}`: {e}"))?,
-                ));
+    pub fn new(globs: &[String], role: Role) -> Result<Self, String> {
+        let (mut positive, mut negative) = (vec![], vec![]);
+        for g in globs {
+            match g.strip_prefix('!') {
+                Some(neg) => negative.push(Item::compile(neg, false)?),
+                None => positive.push(Item::compile(g, role == Role::Capturing)?),
             }
         }
-        Ok(Self { items })
+        Ok(Self { positive, negative })
     }
 
     pub fn empty() -> Self {
-        Self { items: vec![] }
+        Self {
+            positive: vec![],
+            negative: vec![],
+        }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.positive.is_empty() && self.negative.is_empty()
     }
 
-    /// Does any pattern match `path`? Patterns that refer to captures that
-    /// `caps` lacks never match.
+    /// Does the list match `path`? Patterns that refer to captures that `caps` lacks never
+    /// match, so a negated one then excludes nothing. An empty list matches nothing.
     pub fn is_match(&self, path: &str, caps: &Captures) -> bool {
-        self.items.iter().any(|i| match i {
-            Item::Static(re) => re.is_match(path),
-            Item::Template(t) => t.regex(caps).is_some_and(|re| re.is_match(path)),
-        })
+        if self.is_empty() {
+            return false;
+        }
+        let included =
+            self.positive.is_empty() || self.positive.iter().any(|i| i.is_match(path, caps));
+        included && !self.negative.iter().any(|i| i.is_match(path, caps))
     }
 
-    /// Captures of the first matching pattern, or `None` if none matches.
-    /// An empty pattern list matches everything with no captures.
+    /// Captures of the first matching positive glob, or `None` if the list does not match.
+    /// An empty list matches everything with no captures.
     pub fn capture(&self, path: &str) -> Option<Captures> {
-        if self.items.is_empty() {
+        if self.is_empty() {
             return Some(Captures::default());
         }
-        for i in &self.items {
-            if let Item::Static(re) = i
-                && let Some(c) = re.captures(path)
-            {
-                let mut caps = Captures::default();
-                for (idx, name) in re.capture_names().enumerate().skip(1) {
-                    if let Some(m) = c.get(idx) {
-                        caps.insert(idx.to_string(), m.as_str().to_string());
-                        if let Some(n) = name {
+        let mut caps = Captures::default();
+        if !self.positive.is_empty() {
+            caps = self.positive.iter().find_map(|i| match i {
+                Item::Static(re) => re.captures(path).map(|c| {
+                    let mut caps = Captures::default();
+                    for (idx, name) in re.capture_names().enumerate().skip(1) {
+                        if let (Some(m), Some(n)) = (c.get(idx), name) {
                             caps.insert(n.to_string(), m.as_str().to_string());
                         }
                     }
-                }
-                return Some(caps);
-            }
+                    caps
+                }),
+                Item::Template(_) => None,
+            })?;
         }
-        None
+        (!self.negative.iter().any(|i| i.is_match(path, &caps))).then_some(caps)
     }
 }
 
 impl Template {
     fn regex(&self, caps: &Captures) -> Option<Regex> {
-        let (substituted, key) = substitute(&self.source, self.is_regex, caps)?;
+        let (substituted, key) = substitute(&self.source, caps)?;
         let mut cache = self.cache.lock().expect("poisoned");
         cache
             .entry(key)
-            .or_insert_with(|| {
-                let re = if self.is_regex {
-                    substituted
-                } else {
-                    glob_to_regex(&substituted, false)
-                };
-                Regex::new(&re).ok()
-            })
+            .or_insert_with(|| Regex::new(&glob_to_regex(&substituted, false)).ok())
             .clone()
-    }
-}
-
-fn references(src: &str, is_regex: bool) -> bool {
-    if is_regex {
-        let b = src.as_bytes();
-        b.windows(2).any(|w| w[0] == b'$' && w[1].is_ascii_digit())
-    } else {
-        placeholder_spans(src).next().is_some()
     }
 }
 
@@ -168,40 +161,20 @@ fn is_ident(s: &str) -> bool {
 }
 
 /// Replace references with captured text. Returns the new source and a cache key.
-fn substitute(src: &str, is_regex: bool, caps: &Captures) -> Option<(String, String)> {
+fn substitute(src: &str, caps: &Captures) -> Option<(String, String)> {
     let mut out = String::new();
     let mut key = String::new();
-    if is_regex {
-        let b = src.as_bytes();
-        let mut i = 0;
-        while i < b.len() {
-            if b[i] == b'$' && b.get(i + 1).is_some_and(u8::is_ascii_digit) {
-                let n = (b[i + 1] - b'0').to_string();
-                let v = caps.get(&n)?;
-                out.push_str(&regex::escape(v));
-                key.push_str(v);
-                key.push('\0');
-                i += 2;
-            } else {
-                // push the whole char, not a byte
-                let ch = src[i..].chars().next()?;
-                out.push(ch);
-                i += ch.len_utf8();
-            }
-        }
-    } else {
-        let mut last = 0;
-        for (s, e, name) in placeholder_spans(src) {
-            out.push_str(&src[last..s]);
-            let v = caps.get(name)?;
-            // glob metacharacters in captured text are inert after glob_to_regex only if escaped
-            out.push_str(&escape_glob(v));
-            key.push_str(v);
-            key.push('\0');
-            last = e;
-        }
-        out.push_str(&src[last..]);
+    let mut last = 0;
+    for (s, e, name) in placeholder_spans(src) {
+        out.push_str(&src[last..s]);
+        let v = caps.get(name)?;
+        // glob metacharacters in captured text are inert after glob_to_regex only if escaped
+        out.push_str(&escape_glob(v));
+        key.push_str(v);
+        key.push('\0');
+        last = e;
     }
+    out.push_str(&src[last..]);
     Some((out, key))
 }
 
@@ -304,14 +277,9 @@ pub fn glob_to_regex(glob: &str, capturing: bool) -> String {
 mod tests {
     use super::*;
 
-    fn glob(s: &str) -> PathSpec {
-        PathSpec::glob(s)
-    }
-    fn re(s: &str) -> PathSpec {
-        PathSpec::regex(s)
-    }
-    fn pats(specs: &[PathSpec], role: Role) -> PathPatterns {
-        PathPatterns::new(specs, role).unwrap()
+    fn pats(globs: &[&str], role: Role) -> PathPatterns {
+        let globs: Vec<String> = globs.iter().map(|g| g.to_string()).collect();
+        PathPatterns::new(&globs, role).unwrap()
     }
     fn none() -> Captures {
         Captures::default()
@@ -320,13 +288,7 @@ mod tests {
     #[test]
     fn glob_semantics() {
         let p = pats(
-            &[
-                glob("src/*.ts"),
-                glob("lib"),
-                glob("**/*.test.ts"),
-                glob("a/**/z.ts"),
-                glob("x/**"),
-            ],
+            &["src/*.ts", "lib", "**/*.test.ts", "a/**/z.ts", "x/**"],
             Role::Referencing,
         );
         for yes in [
@@ -355,10 +317,7 @@ mod tests {
 
     #[test]
     fn braces_and_classes() {
-        let p = pats(
-            &[glob("src/*.{ts,tsx}"), glob("[ab]/f.js")],
-            Role::Referencing,
-        );
+        let p = pats(&["src/*.{ts,tsx}", "[ab]/f.js"], Role::Referencing);
         assert!(p.is_match("src/a.ts", &none()) && p.is_match("src/a.tsx", &none()));
         assert!(!p.is_match("src/a.js", &none()));
         assert!(p.is_match("a/f.js", &none()) && !p.is_match("c/f.js", &none()));
@@ -366,12 +325,12 @@ mod tests {
 
     #[test]
     fn named_captures_in_globs() {
-        let from = pats(&[glob("src/features/{feature}/**")], Role::Capturing);
+        let from = pats(&["src/features/{feature}/**"], Role::Capturing);
         let caps = from.capture("src/features/billing/ui/x.ts").unwrap();
         assert_eq!(caps["feature"], "billing");
         assert!(from.capture("src/other/x.ts").is_none());
 
-        let to = pats(&[glob("src/features/{feature}/**")], Role::Referencing);
+        let to = pats(&["src/features/{feature}/**"], Role::Referencing);
         assert!(to.is_match("src/features/billing/api.ts", &caps));
         assert!(!to.is_match("src/features/auth/api.ts", &caps));
         // a placeholder without a capture never matches
@@ -379,20 +338,56 @@ mod tests {
     }
 
     #[test]
-    fn regex_backreferences() {
-        let from = pats(&[re(r"^src/([^/]+)/")], Role::Capturing);
-        let caps = from.capture("src/auth/login.ts").unwrap();
-        assert_eq!(caps["1"], "auth");
-        let to = pats(&[re(r"^src/$1/")], Role::Referencing);
-        assert!(to.is_match("src/auth/x.ts", &caps));
-        assert!(!to.is_match("src/billing/x.ts", &caps));
+    fn negation_excludes_from_the_positive_globs() {
+        let p = pats(
+            &["src/**", "!src/generated/**", "!**/*.d.ts"],
+            Role::Referencing,
+        );
+        assert!(p.is_match("src/a.ts", &none()));
+        assert!(!p.is_match("src/generated/a.ts", &none()));
+        assert!(!p.is_match("src/types.d.ts", &none()));
+        assert!(!p.is_match("lib/a.ts", &none()));
+    }
+
+    #[test]
+    fn only_negations_mean_everything_except() {
+        let p = pats(&["!**/*.spec.ts", "!dist/**"], Role::Referencing);
+        assert!(p.is_match("src/a.ts", &none()));
+        assert!(!p.is_match("src/a.spec.ts", &none()));
+        assert!(!p.is_match("dist/a.js", &none()));
+        // from side: matches without captures, still honours the negations
+        let from = pats(&["!**/*.spec.ts"], Role::Capturing);
+        assert!(from.capture("src/a.ts").unwrap().is_empty());
+        assert!(from.capture("src/a.spec.ts").is_none());
+    }
+
+    #[test]
+    fn negated_globs_refer_to_captures() {
+        let from = pats(&["src/features/{feature}/**"], Role::Capturing);
+        let caps = from.capture("src/features/billing/x.ts").unwrap();
+        let to = pats(
+            &["src/features/**", "!src/features/{feature}/**"],
+            Role::Referencing,
+        );
+        assert!(to.is_match("src/features/auth/api.ts", &caps));
+        assert!(!to.is_match("src/features/billing/api.ts", &caps));
+    }
+
+    #[test]
+    fn negations_on_the_from_side_see_its_captures() {
+        let from = pats(
+            &["src/features/{f}/**", "!src/features/{f}/shared/**"],
+            Role::Capturing,
+        );
+        assert_eq!(from.capture("src/features/a/x.ts").unwrap()["f"], "a");
+        assert!(from.capture("src/features/a/shared/x.ts").is_none());
     }
 
     #[test]
     fn captured_text_is_escaped() {
-        let from = pats(&[glob("pkg/{name}/**")], Role::Capturing);
+        let from = pats(&["pkg/{name}/**"], Role::Capturing);
         let caps = from.capture("pkg/a.b/x.ts").unwrap();
-        let to = pats(&[glob("pkg/{name}/**")], Role::Referencing);
+        let to = pats(&["pkg/{name}/**"], Role::Referencing);
         assert!(to.is_match("pkg/a.b/y.ts", &caps));
         assert!(!to.is_match("pkg/aXb/y.ts", &caps));
     }
@@ -401,6 +396,5 @@ mod tests {
     fn empty_matches_everything_for_capture() {
         assert!(PathPatterns::empty().capture("anything").is_some());
         assert!(!PathPatterns::empty().is_match("anything", &none()));
-        assert!(PathPatterns::new(&[re("(")], Role::Capturing).is_err());
     }
 }

@@ -2,18 +2,17 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use oxcruise_config::{Level, OxcruiseConfig, RuleEntry};
+use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
 use oxcruise_core::{Graph, ModuleId, Severity, Violation};
 use oxcruise_graph::PathMatcher;
-use oxcruise_graph::PathPattern;
 use oxcruise_graph::analyses::BitSet;
 use oxcruise_resolve::WorkspacePackage;
 use rayon::prelude::*;
 
-use crate::declarative::{AllowSet, CompiledRule, NOT_IN_ALLOWED};
+use crate::declarative::CompiledRule;
 use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget};
 use crate::meta::{Analyses, AnalysisCache, RuleCtx, Shared};
-use crate::registry::RuleEnum;
+use crate::registry::{RuleEnum, builtin_rules};
 
 #[derive(Clone)]
 struct Entry {
@@ -24,7 +23,6 @@ struct Entry {
 enum Source {
     Builtin,
     Declarative(Arc<CompiledRule>),
-    AllowSet(Arc<AllowSet>),
     External(ExternalRuleId),
 }
 
@@ -40,7 +38,6 @@ pub struct Engine {
     plans: Vec<Plan>,
     override_files: Vec<PathMatcher>,
     external: Option<Arc<dyn ExternalRules>>,
-    report_dead_rules: bool,
 }
 
 #[derive(Debug, Default)]
@@ -64,8 +61,6 @@ fn rank(s: Severity) -> u8 {
     match s {
         Severity::Error => 0,
         Severity::Warn => 1,
-        Severity::Info => 2,
-        Severity::Ignore => 3,
     }
 }
 
@@ -82,10 +77,30 @@ impl Engine {
     ) -> Result<Engine, Vec<String>> {
         let mut errors = vec![];
         let mut plans: Vec<Plan> = vec![];
-        let ignore_cycles = config.options.cycles.ignore_type_only;
         let mut next_external = 0u32;
 
-        // Built-in and plugin rules from `rules`.
+        // Built-in rules switched on by their category (default options)...
+        let mut levels: BTreeMap<Category, Level> = Category::ALL
+            .into_iter()
+            .map(|c| (c, c.default_level()))
+            .collect();
+        levels.extend(config.categories.clone());
+        for info in builtin_rules() {
+            let level = levels[&info.category];
+            if level != Level::Off {
+                plans.push(Plan {
+                    name: info.name.to_string(),
+                    source: Source::Builtin,
+                    base: Some(Entry {
+                        level,
+                        options: serde_json::Value::Null,
+                    }),
+                    overrides: vec![],
+                });
+            }
+        }
+
+        // ... then `rules`, which win over the category.
         for (name, entry) in &config.rules {
             let entry = match entry_of(name, entry) {
                 Ok(e) => e,
@@ -94,16 +109,6 @@ impl Engine {
                     continue;
                 }
             };
-            let declarative_named = config
-                .forbid
-                .iter()
-                .chain(&config.allow)
-                .any(|r| &r.name == name)
-                || config.require.iter().any(|r| &r.name == name)
-                || name == NOT_IN_ALLOWED;
-            if declarative_named {
-                continue; // severity override for a declarative rule; handled below
-            }
             let source = match RuleEnum::builtin(name, entry.options.clone()) {
                 Some(Ok(_)) => Source::Builtin,
                 Some(Err(e)) => {
@@ -121,82 +126,49 @@ impl Engine {
                     }
                 },
             };
-            plans.push(Plan {
-                name: name.clone(),
-                source,
-                base: Some(entry),
-                overrides: vec![],
-            });
+            match plans.iter_mut().find(|p| &p.name == name) {
+                Some(plan) => plan.base = Some(entry),
+                None => plans.push(Plan {
+                    name: name.clone(),
+                    source,
+                    base: Some(entry),
+                    overrides: vec![],
+                }),
+            }
         }
 
-        // Declarative rules.
-        let level_override = |name: &str, default: Level| -> Level {
-            config
-                .rules
-                .get(name)
-                .and_then(|e| e.parts().ok())
-                .map_or(default, |(l, _)| l)
-        };
+        // Forbidden dependencies. Their level comes only from their own `severity`.
+        let builtin_names: Vec<&str> = builtin_rules().into_iter().map(|r| r.name).collect();
         for r in &config.forbid {
-            match CompiledRule::forbid(r, ignore_cycles) {
+            let taken = builtin_names.contains(&r.name.as_str())
+                || plans
+                    .iter()
+                    .any(|p| p.name == r.name && !matches!(p.source, Source::Builtin));
+            if taken {
+                errors.push(format!(
+                    "forbid rule `{}`: the name is already used by another rule",
+                    r.name
+                ));
+                continue;
+            }
+            match CompiledRule::forbid(r) {
                 Ok(c) => plans.push(Plan {
                     name: r.name.clone(),
                     source: Source::Declarative(Arc::new(c)),
                     base: Some(Entry {
-                        level: level_override(&r.name, r.severity),
+                        level: r.severity,
                         options: serde_json::Value::Null,
                     }),
                     overrides: vec![],
                 }),
                 Err(e) => errors.push(e),
             }
-        }
-        for r in &config.require {
-            match CompiledRule::require(r, ignore_cycles) {
-                Ok(c) => plans.push(Plan {
-                    name: r.name.clone(),
-                    source: Source::Declarative(Arc::new(c)),
-                    base: Some(Entry {
-                        level: level_override(&r.name, r.severity),
-                        options: serde_json::Value::Null,
-                    }),
-                    overrides: vec![],
-                }),
-                Err(e) => errors.push(e),
-            }
-        }
-        if !config.allow.is_empty() {
-            let mut entries = vec![];
-            for r in &config.allow {
-                match CompiledRule::allow(r, ignore_cycles) {
-                    Ok(c) => entries.push(c),
-                    Err(e) => errors.push(e),
-                }
-            }
-            let level = level_override(NOT_IN_ALLOWED, config.allow[0].severity);
-            plans.push(Plan {
-                name: NOT_IN_ALLOWED.into(),
-                source: Source::AllowSet(Arc::new(AllowSet {
-                    entries,
-                    severity: level.to_severity().unwrap_or(Severity::Ignore),
-                })),
-                base: Some(Entry {
-                    level,
-                    options: serde_json::Value::Null,
-                }),
-                overrides: vec![],
-            });
         }
 
         // Overrides.
         let mut override_files = vec![];
         for (i, o) in config.overrides.iter().enumerate() {
-            let pats: Vec<PathPattern> = o
-                .files
-                .iter()
-                .map(|f| PathPattern::Glob(f.clone()))
-                .collect();
-            match PathMatcher::new(&pats) {
+            match PathMatcher::new(&o.files) {
                 Ok(m) => override_files.push(m),
                 Err(e) => {
                     errors.push(format!("overrides[{i}]: {e}"));
@@ -252,7 +224,6 @@ impl Engine {
                 plans,
                 override_files,
                 external,
-                report_dead_rules: config.options.report_dead_rules,
             })
         } else {
             Err(errors)
@@ -364,16 +335,9 @@ impl Engine {
             key(a).cmp(&key(b))
         });
 
-        if self.report_dead_rules {
-            for plan in &self.plans {
-                if let Source::Declarative(c) = &plan.source {
-                    warnings.extend(c.dead_reasons());
-                }
-                if let Source::AllowSet(a) = &plan.source {
-                    for e in &a.entries {
-                        warnings.extend(e.dead_reasons());
-                    }
-                }
+        for plan in &self.plans {
+            if let Source::Declarative(c) = &plan.source {
+                warnings.extend(c.dead_reasons());
             }
         }
         RunResult {
@@ -391,7 +355,6 @@ impl Engine {
             match &plan.source {
                 Source::Builtin => RuleEnum::builtin(&plan.name, opts.clone()).and_then(Result::ok),
                 Source::Declarative(c) => Some(RuleEnum::Declarative(c.clone())),
-                Source::AllowSet(a) => Some(RuleEnum::AllowSet(a.clone())),
                 Source::External(_) => None,
             }
         };

@@ -190,30 +190,7 @@ expression: "rendered(\"json\", &plain())"
           "module_system": "es6",
           "line": 1,
           "col": 27,
-          "circular": true,
-          "cycle": [
-            {
-              "module": "packages/app/src/helpers.ts",
-              "kinds": [
-                "local",
-                "type-only",
-                "import"
-              ]
-            },
-            {
-              "module": "packages/app/src/util.ts",
-              "kinds": [
-                "local",
-                "import"
-              ]
-            }
-          ],
-          "rules": [
-            {
-              "name": "no-circular",
-              "severity": "error"
-            }
-          ]
+          "circular": false
         }
       ],
       "dependents": [
@@ -271,13 +248,7 @@ expression: "rendered(\"json\", &plain())"
           "module_system": "es6",
           "line": 7,
           "col": 22,
-          "circular": false,
-          "rules": [
-            {
-              "name": "optional-deps-used",
-              "severity": "info"
-            }
-          ]
+          "circular": false
         },
         {
           "to": "node_modules/left-pad/index.js",
@@ -294,11 +265,11 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-non-package-json",
+              "name": "no-undeclared-deps",
               "severity": "error"
             },
             {
-              "name": "no-deprecated-npm",
+              "name": "no-deprecated",
               "severity": "warn"
             }
           ]
@@ -327,13 +298,7 @@ expression: "rendered(\"json\", &plain())"
           "module_system": "es6",
           "line": 6,
           "col": 19,
-          "circular": false,
-          "rules": [
-            {
-              "name": "peer-deps-used",
-              "severity": "warn"
-            }
-          ]
+          "circular": false
         },
         {
           "to": "node_modules/vitest/index.js",
@@ -467,7 +432,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-deprecated-core",
+              "name": "no-deprecated",
               "severity": "warn"
             }
           ]
@@ -580,7 +545,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "not-to-test",
+              "name": "no-test-imports",
               "severity": "error"
             }
           ]
@@ -606,30 +571,7 @@ expression: "rendered(\"json\", &plain())"
           "module_system": "es6",
           "line": 1,
           "col": 24,
-          "circular": true,
-          "cycle": [
-            {
-              "module": "packages/app/src/util.ts",
-              "kinds": [
-                "local",
-                "import"
-              ]
-            },
-            {
-              "module": "packages/app/src/helpers.ts",
-              "kinds": [
-                "local",
-                "type-only",
-                "import"
-              ]
-            }
-          ],
-          "rules": [
-            {
-              "name": "no-circular",
-              "severity": "error"
-            }
-          ]
+          "circular": false
         }
       ],
       "dependents": [
@@ -735,34 +677,6 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 11
     },
     {
-      "rule": "no-circular",
-      "severity": "error",
-      "kind": "cycle",
-      "from": "packages/app/src/helpers.ts",
-      "to": "packages/app/src/util.ts",
-      "line": 1,
-      "col": 27,
-      "message": "circular dependency: packages/app/src/helpers.ts → packages/app/src/util.ts → packages/app/src/helpers.ts",
-      "cycle": [
-        {
-          "module": "packages/app/src/helpers.ts",
-          "kinds": [
-            "local",
-            "type-only",
-            "import"
-          ]
-        },
-        {
-          "module": "packages/app/src/util.ts",
-          "kinds": [
-            "local",
-            "import"
-          ]
-        }
-      ],
-      "specifier_len": 8
-    },
-    {
       "rule": "no-dev-deps-in-prod",
       "severity": "error",
       "kind": "dependency",
@@ -774,7 +688,7 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 8
     },
     {
-      "rule": "no-non-package-json",
+      "rule": "no-undeclared-deps",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -807,7 +721,7 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 13
     },
     {
-      "rule": "not-to-test",
+      "rule": "no-test-imports",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/uses-test.ts",
@@ -829,18 +743,7 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 14
     },
     {
-      "rule": "peer-deps-used",
-      "severity": "warn",
-      "kind": "dependency",
-      "from": "packages/app/src/index.ts",
-      "to": "node_modules/react/index.js",
-      "line": 6,
-      "col": 19,
-      "message": "`react` is a peer dependency",
-      "specifier_len": 7
-    },
-    {
-      "rule": "no-deprecated-npm",
+      "rule": "no-deprecated",
       "severity": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -851,7 +754,7 @@ expression: "rendered(\"json\", &plain())"
       "specifier_len": 10
     },
     {
-      "rule": "no-deprecated-core",
+      "rule": "no-deprecated",
       "severity": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -867,23 +770,11 @@ expression: "rendered(\"json\", &plain())"
       "kind": "module",
       "from": "packages/app/src/orphan.ts",
       "message": "this module is not imported by any module and imports nothing"
-    },
-    {
-      "rule": "optional-deps-used",
-      "severity": "info",
-      "kind": "dependency",
-      "from": "packages/app/src/index.ts",
-      "to": "node_modules/fsevents/index.js",
-      "line": 7,
-      "col": 22,
-      "message": "`fsevents` is an optional dependency and may not be installed",
-      "specifier_len": 10
     }
   ],
   "summary": {
-    "error": 8,
-    "warn": 4,
-    "info": 1,
+    "error": 7,
+    "warn": 3,
     "suppressed": 1,
     "total_modules": 25,
     "total_dependencies": 24

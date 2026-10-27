@@ -15,7 +15,7 @@ node tasks/benchmark/generate.mjs /tmp/big 100000 --ts   # a TypeScript repo, ox
 cargo bench
 ```
 
-Both tools get the same config (`no-circular`), the same entries, and JSON output. dependency-cruiser needs no
+Both tools get the same rule (`no-circular`; oxcruise through a small `.oxcruiserc.json`), the same entries, and JSON output. dependency-cruiser needs no
 extra parsers for the generated `.js` files. Results from the last run are in [results.md](results.md).
 
 Not measured here: a large real TypeScript monorepo such as typescript-eslint. That needs a clone and an

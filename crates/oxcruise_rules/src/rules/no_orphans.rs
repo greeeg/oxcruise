@@ -1,4 +1,3 @@
-use oxcruise_config::PathSpec;
 use oxcruise_core::{ModuleId, ModuleKind};
 use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
@@ -7,11 +6,15 @@ use serde::Deserialize;
 use crate::meta::{Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
+/// Files that are legitimately unconnected: dotfiles, declarations, and tool configuration.
+const DEFAULT_IGNORE: &[&str] = &["**/.*", "**/*.d.ts", "**/tsconfig*.json", "**/*.config.*"];
+
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct NoOrphansConfig {
-    /// Modules matching these patterns are never reported (config files, `.d.ts`, ...).
-    pub ignore: Vec<PathSpec>,
+    /// Globs of modules that are never reported, on top of the defaults
+    /// (`**/.*`, `**/*.d.ts`, `**/tsconfig*.json`, `**/*.config.*`).
+    pub ignore: Vec<String>,
 }
 
 declare_rule! {
@@ -25,22 +28,40 @@ declare_rule! {
     ///
     /// ### Options
     ///
-    /// `ignore`: patterns for modules that are legitimately unconnected, such as
-    /// configuration files or type declarations.
-    NoOrphans, category = suspicious, version = "0.1.0", config = NoOrphansConfig, recommended
+    /// `ignore`: globs for modules that are legitimately unconnected. They extend the built-in
+    /// list: dotfiles (`**/.*`), declaration files (`**/*.d.ts`), `**/tsconfig*.json` and tool
+    /// configuration (`**/*.config.*`).
+    NoOrphans, category = suspicious, version = "0.1.0", config = NoOrphansConfig
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct NoOrphans {
-    ignore: Option<PathPatterns>,
+    ignore: PathPatterns,
+}
+
+impl Default for NoOrphans {
+    fn default() -> Self {
+        Self::build(&[]).expect("default ignore globs are valid")
+    }
+}
+
+impl NoOrphans {
+    fn build(extra: &[String]) -> Result<Self, String> {
+        let globs: Vec<String> = DEFAULT_IGNORE
+            .iter()
+            .map(|g| g.to_string())
+            .chain(extra.iter().cloned())
+            .collect();
+        Ok(Self {
+            ignore: PathPatterns::new(&globs, Role::Referencing)?,
+        })
+    }
 }
 
 impl Rule for NoOrphans {
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: NoOrphansConfig = parse_options("no-orphans", value)?;
-        Ok(Self {
-            ignore: Some(PathPatterns::new(&c.ignore, Role::Referencing)?),
-        })
+        Self::build(&c.ignore)
     }
 
     fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
@@ -49,11 +70,7 @@ impl Rule for NoOrphans {
         if module.kind != ModuleKind::Source || g.in_degree(m) != 0 || g.out_degree(m) != 0 {
             return;
         }
-        if self
-            .ignore
-            .as_ref()
-            .is_some_and(|p| p.is_match(&module.path, &Captures::default()))
-        {
+        if self.ignore.is_match(&module.path, &Captures::default()) {
             return;
         }
         cx.report_module(

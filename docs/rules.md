@@ -2,29 +2,27 @@
 
 # Built-in rules
 
-| Rule | Category | Recommended |
+| Rule | Category | Default |
 |---|---|---|
-| [`internal-modules`](#internal-modules) | restriction |  |
-| [`layers`](#layers) | restriction |  |
-| [`no-circular`](#no-circular) | correctness | yes |
-| [`no-cross-package-relative`](#no-cross-package-relative) | correctness |  |
-| [`no-deprecated-core`](#no-deprecated-core) | correctness | yes |
-| [`no-deprecated-npm`](#no-deprecated-npm) | suspicious | yes |
-| [`no-dev-deps-in-prod`](#no-dev-deps-in-prod) | correctness | yes |
-| [`no-duplicate-dep-types`](#no-duplicate-dep-types) | suspicious | yes |
-| [`no-non-package-json`](#no-non-package-json) | correctness | yes |
-| [`no-orphans`](#no-orphans) | suspicious | yes |
-| [`no-unresolvable`](#no-unresolvable) | correctness | yes |
-| [`not-to-spec`](#not-to-spec) | correctness | yes |
-| [`not-to-test`](#not-to-test) | correctness | yes |
-| [`optional-deps-used`](#optional-deps-used) | restriction | yes |
-| [`peer-deps-used`](#peer-deps-used) | restriction | yes |
+| [`internal-modules`](#internal-modules) | restriction | off |
+| [`layers`](#layers) | restriction | off |
+| [`no-circular`](#no-circular) | correctness | error |
+| [`no-cross-package-relative`](#no-cross-package-relative) | correctness | error |
+| [`no-deprecated`](#no-deprecated) | suspicious | warn |
+| [`no-dev-deps-in-prod`](#no-dev-deps-in-prod) | correctness | error |
+| [`no-duplicate-deps`](#no-duplicate-deps) | suspicious | warn |
+| [`no-optional-deps`](#no-optional-deps) | restriction | off |
+| [`no-orphans`](#no-orphans) | suspicious | warn |
+| [`no-peer-deps`](#no-peer-deps) | restriction | off |
+| [`no-test-imports`](#no-test-imports) | correctness | error |
+| [`no-undeclared-deps`](#no-undeclared-deps) | correctness | error |
+| [`no-unresolvable`](#no-unresolvable) | correctness | error |
 
 ## Correctness
 
 ### no-circular
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: correctness, `error` by default. Since 0.1.0._
 
 #### What it does
 
@@ -38,12 +36,16 @@ isolation, and can cause `undefined` values at runtime.
 
 #### Options
 
-`ignoreTypeOnly`: drop type-only imports *before* looking for cycles, so
-a cycle that exists only through `import type` is not reported.
+`includeTypeOnly`: also count type-only imports, which are erased at runtime. Off by
+default, so a cycle that exists only through `import type` is not reported.
+
+`ignore`: globs of modules removed from the graph before cycles are searched, for example
+a barrel file everything legitimately goes through. Use `overrides` to scope the rule to
+some files instead.
 
 ### no-cross-package-relative
 
-_Since 0.1.0._
+_Category: correctness, `error` by default. Since 0.1.0._
 
 #### What it does
 
@@ -54,17 +56,9 @@ Reports relative imports (`../other-package/src/x`) that reach into another work
 Packages should depend on each other through their package name so the dependency is
 declared in `package.json` and the package boundary is respected.
 
-### no-deprecated-core
-
-_In the `oxcruise:recommended` preset. Since 0.1.0._
-
-#### What it does
-
-Reports imports of Node.js built-in modules that Node has deprecated, such as `sys` or `punycode`.
-
 ### no-dev-deps-in-prod
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: correctness, `error` by default. Since 0.1.0._
 
 #### What it does
 
@@ -79,9 +73,22 @@ Type-only imports are fine and are ignored.
 
 `prod` and `test` are path patterns that say which modules are production and which are tests.
 
-### no-non-package-json
+### no-test-imports
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: correctness, `error` by default. Since 0.1.0._
+
+#### What it does
+
+Reports non-test modules importing test files (`*.test.*`, `*.spec.*`) or test
+directories (`test`, `tests`, `__tests__`, `__mocks__`).
+
+#### Why is this bad?
+
+Test code and its dependencies end up in the production bundle, or crash there.
+
+### no-undeclared-deps
+
+_Category: correctness, `error` by default. Since 0.1.0._
 
 #### What it does
 
@@ -94,41 +101,31 @@ breaks when the dependency tree changes.
 
 ### no-unresolvable
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: correctness, `error` by default. Since 0.1.0._
 
 #### What it does
 
 Reports imports that could not be resolved to a file or package.
 
-### not-to-spec
+#### Options
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
-
-#### What it does
-
-Reports non-spec modules importing `*.spec.*` files.
-
-### not-to-test
-
-_In the `oxcruise:recommended` preset. Since 0.1.0._
-
-#### What it does
-
-Reports non-test modules importing test files (`*.test.ts`) or test directories.
+`ignore`: globs matched against the import specifier and the importing module's path,
+for virtual modules and generated code.
 
 ## Suspicious
 
-### no-deprecated-npm
+### no-deprecated
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: suspicious, `warn` by default. Since 0.1.0._
 
 #### What it does
 
-Reports imports of npm packages whose `package.json` marks them as deprecated.
+Reports imports of Node.js built-in modules that Node has deprecated, such as `sys` or
+`punycode`, and of npm packages whose `package.json` marks them as deprecated.
 
-### no-duplicate-dep-types
+### no-duplicate-deps
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: suspicious, `warn` by default. Since 0.1.0._
 
 #### What it does
 
@@ -137,7 +134,7 @@ Reports packages declared in more than one `package.json` section, for example b
 
 ### no-orphans
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: suspicious, `warn` by default. Since 0.1.0._
 
 #### What it does
 
@@ -149,14 +146,15 @@ An orphan is usually dead code left behind by a refactor.
 
 #### Options
 
-`ignore`: patterns for modules that are legitimately unconnected, such as
-configuration files or type declarations.
+`ignore`: globs for modules that are legitimately unconnected. They extend the built-in
+list: dotfiles (`**/.*`), declaration files (`**/*.d.ts`), `**/tsconfig*.json` and tool
+configuration (`**/*.config.*`).
 
 ## Restriction
 
 ### internal-modules
 
-_Since 0.1.0._
+_Category: restriction, off by default. Since 0.1.0._
 
 #### What it does
 
@@ -164,7 +162,7 @@ Go-style `internal` directories: code under `a/b/internal/` may only be imported
 
 ### layers
 
-_Since 0.1.0._
+_Category: restriction, off by default. Since 0.1.0._
 
 #### What it does
 
@@ -177,17 +175,17 @@ Enforces a layered architecture: each layer may import only the layers it lists 
   "allow":  { "ui": ["domain"], "domain": [] } }
 ```
 
-### optional-deps-used
+### no-optional-deps
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: restriction, off by default. Since 0.1.0._
 
 #### What it does
 
 Reports use of optional dependencies, which may not be installed.
 
-### peer-deps-used
+### no-peer-deps
 
-_In the `oxcruise:recommended` preset. Since 0.1.0._
+_Category: restriction, off by default. Since 0.1.0._
 
 #### What it does
 

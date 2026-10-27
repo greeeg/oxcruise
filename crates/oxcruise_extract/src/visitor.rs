@@ -225,9 +225,7 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
             if let Some(spec) = first.and_then(static_string) {
                 let span = first.map_or(it.span, |e| e.span());
                 let opts = self.b.opts;
-                if opts.exotic_require_strings.contains(&name) {
-                    self.push(spec, DepKinds::EXOTIC_REQUIRE, ModuleSystem::Cjs, span);
-                } else if opts.calls.contains(&name) {
+                if opts.calls.contains(&name) {
                     let ms = if name.starts_with("require") {
                         ModuleSystem::Cjs
                     } else {
@@ -265,9 +263,6 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
     }
 
     fn visit_new_expression(&mut self, it: &NewExpression<'a>) {
-        if self.b.opts.skip_urls {
-            return walk::walk_new_expression(self, it);
-        }
         if let Some(t) = url_target(it) {
             let span = it.arguments[0].span();
             self.push(&relative(t), DepKinds::URL, ModuleSystem::Es6, span);

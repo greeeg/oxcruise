@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { cruise } from "../src-js/cruise.ts";
@@ -167,7 +168,7 @@ describe("configs evaluated by the host Node", () => {
   test("a function config and an async one", async () => {
     const dir = project({
       "src/a.ts": "import './a';\n",
-      "oxcruise.config.mjs":
+      "oxcruise.config.ts":
         'export default async () => ({ entries: ["src"], rules: { "no-circular": "error" } });\n',
     });
     expect((await runCli(dir, [])).code).toBe(1);
@@ -175,23 +176,36 @@ describe("configs evaluated by the host Node", () => {
 
   test("a config that throws names the file", async () => {
     const dir = project({
-      "oxcruise.config.mjs": "throw new Error('bad config');\n",
+      "oxcruise.config.ts": "throw new Error('bad config');\n",
       "src/a.ts": "",
     });
     const o = await runCli(dir, []);
     expect(o.code).toBe(2);
-    expect(o.stderr).toMatch(/cannot evaluate .*oxcruise\.config\.mjs: bad config/);
+    expect(o.stderr).toMatch(/cannot evaluate .*oxcruise\.config\.ts: bad config/);
   });
 
-  test("a dependency-cruiser CJS config is imported", async () => {
+  test("a dependency-cruiser config is only read by `migrate`", async () => {
     const dir = project({
-      "src/a.ts": "import './a';\n",
+      "src/a.ts": "export {};\n",
       ".dependency-cruiser.cjs":
-        "module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {}, to: { circular: true } }] };\n",
+        "module.exports = { forbidden: [{ name: 'no-lib', severity: 'error', from: { path: '^src' }, to: { path: '^lib' } }] };\n",
     });
-    const o = await runCli(dir, ["src"]);
-    expect(o.code).toBe(1);
-    expect(o.stderr).toContain("dependency-cruiser importer");
+    // a check never looks at it ...
+    const check = await runCli(dir, ["src"]);
+    expect(check.code).toBe(0);
+    expect(check.stderr).toBe("");
+    // ... and refuses it when asked for explicitly
+    const explicit = await runCli(dir, ["src", "-c", ".dependency-cruiser.cjs"]);
+    expect(explicit.code).toBe(2);
+    expect(explicit.stderr).toContain("unknown field");
+    // `migrate` evaluates the CJS file in the host Node and writes the new shape
+    const migrate = await runCli(dir, ["migrate"]);
+    expect(migrate.stderr).toBe("");
+    expect(migrate.code).toBe(0);
+    const written = readFileSync(join(dir, "oxcruise.config.ts"), "utf8");
+    expect(written).toContain('"name": "no-lib"');
+    expect(written).toContain('"from": "src*"');
+    expect(written).toContain('"to": "lib*"');
   });
 });
 

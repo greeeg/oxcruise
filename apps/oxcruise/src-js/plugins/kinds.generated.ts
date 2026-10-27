@@ -36,7 +36,6 @@ export const DEP_KINDS = [
   "triple-slash-amd-dependency",
   "amd-define",
   "amd-require",
-  "exotic-require",
   "jsdoc",
   "jsdoc-import-tag",
   "jsdoc-bracket-import",

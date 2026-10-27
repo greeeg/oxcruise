@@ -9,7 +9,7 @@ use oxcruise_graph::cruise;
 use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
 use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
-use crate::args::{CheckArgs, Cli, ColorChoice, Command, FmtArgs};
+use crate::args::{CheckArgs, Cli, ColorChoice, Command};
 use crate::result::CliRunResult;
 use crate::{config_io, migrate, options};
 
@@ -86,7 +86,6 @@ impl CliRunner {
         match cli.command {
             None => self.check(&cli.check, out, err),
             Some(Command::Check(a)) => self.check(&a, out, err),
-            Some(Command::Fmt(a)) => self.fmt(&a, out, err),
             Some(Command::Migrate(a)) => {
                 let cwd = self.resolve_cwd(a.cwd.as_deref());
                 migrate::run(&a, &cwd, self.js_loader.as_ref(), out, err)
@@ -123,8 +122,8 @@ impl CliRunner {
                 .into_iter()
                 .map(|r| {
                     serde_json::json!({
-                        "name": r.name, "category": r.category, "version": r.version,
-                        "recommended": r.recommended, "docs": r.docs,
+                        "name": r.name, "category": r.category.as_str(), "version": r.version,
+                        "docs": r.docs,
                     })
                 })
                 .collect();
@@ -157,16 +156,6 @@ impl CliRunner {
         };
         for w in &loaded.warnings {
             let _ = writeln!(err, "warning: {w}");
-        }
-        if loaded.imported_from_depcruise {
-            let _ = writeln!(
-                err,
-                "note: using {} through the dependency-cruiser importer; run `oxcruise migrate` to convert it",
-                loaded
-                    .path
-                    .as_deref()
-                    .map_or_else(String::new, |p| p.display().to_string())
-            );
         }
         let config = loaded.config;
 
@@ -218,13 +207,17 @@ impl CliRunner {
             run.count(oxcruise_core::Severity::Error),
             run.count(oxcruise_core::Severity::Warn),
         );
+        // problems with the config itself (a forbid rule that matches nothing) go to stderr
+        for w in &run.warnings {
+            let _ = writeln!(err, "warning: {w}");
+        }
         let result = CruiseResult::build(
             &output.graph,
             &output.workspace,
             cwd.clone(),
             &run.violations,
             run.suppressed,
-            run.warnings,
+            vec![],
         );
 
         let reporter_opts = ReporterOptions {
@@ -244,7 +237,7 @@ impl CliRunner {
         ) {
             return fail(err, e);
         }
-        if format == OutputFormat::Human || format == OutputFormat::ErrLong {
+        if format == OutputFormat::Human || format == OutputFormat::Long {
             let _ = writeln!(
                 err,
                 "finished in {:.0?} on {} thread(s)",
@@ -254,10 +247,7 @@ impl CliRunner {
         }
 
         if errors > 0 {
-            return CliRunResult::FoundErrors {
-                errors,
-                compat: args.compat,
-            };
+            return CliRunResult::FoundErrors { errors };
         }
         if args.deny_warnings && warnings > 0 {
             let _ = writeln!(
@@ -266,7 +256,7 @@ impl CliRunner {
             );
             return CliRunResult::NoWarningsAllowed { warnings };
         }
-        if let Some(max) = args.max_warnings.or(config.options.max_warnings)
+        if let Some(max) = args.max_warnings
             && warnings > max as usize
         {
             let _ = writeln!(
@@ -276,44 +266,6 @@ impl CliRunner {
             return CliRunResult::MaxWarningsExceeded { warnings, max };
         }
         CliRunResult::Success
-    }
-
-    fn fmt(&self, args: &FmtArgs, out: &mut dyn Write, err: &mut dyn Write) -> CliRunResult {
-        let format: OutputFormat = match args.format.parse() {
-            Ok(f) => f,
-            Err(e) => return fail(err, e),
-        };
-        let cwd = self.resolve_cwd(None);
-        let path = if args.input.is_absolute() {
-            args.input.clone()
-        } else {
-            cwd.join(&args.input)
-        };
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(e) => return fail(err, format!("cannot read {}: {e}", path.display())),
-        };
-        let mut result: CruiseResult = match serde_json::from_str(&text) {
-            Ok(r) => r,
-            Err(e) => {
-                return fail(
-                    err,
-                    format!("{} is not an oxcruise `json` result: {e}", path.display()),
-                );
-            }
-        };
-        result.root = cwd.clone();
-        let opts = ReporterOptions {
-            color: self.color(args.color, args.output.is_some()),
-            rule_docs: builtin_rules()
-                .into_iter()
-                .map(|r| (r.name.to_string(), r.docs.to_string()))
-                .collect(),
-        };
-        match self.write_report(&format, &result, &opts, args.output.as_deref(), &cwd, out) {
-            Ok(()) => CliRunResult::Success,
-            Err(e) => fail(err, e),
-        }
     }
 
     fn write_report(

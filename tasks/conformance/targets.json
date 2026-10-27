@@ -84,7 +84,8 @@
     "entries": [
       "src"
     ],
-    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$"
+    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$",
+    "excludeGlobs": ["**/*.{ts,tsx,mts,cts}", "**/*.css"]
   },
   {
     "name": "depcruise-tools",
@@ -93,6 +94,7 @@
       "tools",
       "bin"
     ],
-    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$"
+    "exclude": "[.](d[.])?(m|c)?tsx?$|[.]css$",
+    "excludeGlobs": ["**/*.{ts,tsx,mts,cts}", "**/*.css"]
   }
 ]

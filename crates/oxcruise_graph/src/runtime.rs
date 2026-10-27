@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, TryRecvError};
 
 use oxc_allocator::Allocator;
-use oxcruise_core::{DepKinds, Edge, Graph, Module, ModuleId, ModuleKind};
+use oxcruise_core::{DepKinds, Edge, Graph, Module, ModuleId, ModuleKind, ModuleSystem};
 use oxcruise_extract::{RawDependency, extract};
 use oxcruise_resolve::{ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
 use rustc_hash::FxHashMap;
@@ -96,10 +96,7 @@ fn process(resolver: &Resolver, opts: &CruiseOptions, path: &Path) -> Processed 
         .into_iter()
         .map(|d| {
             // Node picks `require` vs `import` conditions by how the dependency is written.
-            let mode = if d
-                .kinds
-                .intersects(DepKinds::REQUIRE | DepKinds::EXOTIC_REQUIRE | DepKinds::IMPORT_EQUALS)
-            {
+            let mode = if d.module_system == ModuleSystem::Cjs {
                 ResolveMode::Cjs
             } else {
                 ResolveMode::Esm
@@ -274,10 +271,7 @@ impl Discoverer<'_> {
     /// Node for a resolved dependency, or `None` if the filters drop it.
     fn target_node(&mut self, r: &Resolved) -> Option<usize> {
         let opts = self.opts;
-        let keep = |rel: &str| {
-            !opts.exclude.is_match(rel)
-                && (opts.include_only.is_empty() || opts.include_only.is_match(rel))
-        };
+        let keep = |rel: &str| !opts.ignore.is_match(rel);
         match &r.target {
             Target::Skip => None,
             Target::Core(name) => keep(name)
@@ -300,15 +294,8 @@ impl Discoverer<'_> {
                 if !keep(&rel) {
                     return None;
                 }
-                if opts.follow_npm {
-                    let i = self.node(NodeKey::Path(path.clone()), ModuleKind::Source, rel.clone());
-                    if opts.do_not_follow.is_match(&rel) {
-                        self.nodes[i].not_followed = true;
-                    }
-                    Some(i)
-                } else {
-                    Some(self.node(NodeKey::Path(path.clone()), ModuleKind::Stub, rel))
-                }
+                // node_modules are always leaves
+                Some(self.node(NodeKey::Path(path.clone()), ModuleKind::Stub, rel))
             }
         }
     }
@@ -341,10 +328,7 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
             let to = match (&res.target, target) {
                 (Target::Unresolved(_), _) => {
                     // Unresolved specifiers become leaf modules named after the specifier.
-                    if opts.exclude.is_match(&dep.specifier)
-                        || !(opts.include_only.is_empty()
-                            || opts.include_only.is_match(&dep.specifier))
-                    {
+                    if opts.ignore.is_match(&dep.specifier) {
                         continue;
                     }
                     *spec_nodes.entry(dep.specifier.clone()).or_insert_with(|| {

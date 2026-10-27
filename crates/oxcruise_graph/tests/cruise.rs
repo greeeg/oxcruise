@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use oxcruise_core::{DepKinds, Graph, ModuleKind};
-use oxcruise_graph::{CruiseOptions, PathMatcher, PathPattern, cruise};
+use oxcruise_graph::{CruiseOptions, PathMatcher, cruise};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -86,26 +86,15 @@ fn discovers_the_fixture_monorepo() {
 }
 
 #[test]
-fn exclude_include_and_do_not_follow() {
+fn ignore_and_do_not_follow() {
     let mut o = opts();
-    o.exclude = PathMatcher::new(&[PathPattern::Glob("packages/app/src/internal".into())]).unwrap();
+    o.ignore = PathMatcher::new(&["packages/app/src/internal"]).unwrap();
     let g = cruise(&o).unwrap().graph;
     assert!(g.find("packages/app/src/internal/secret.ts").is_none());
 
-    let mut o = opts();
-    o.include_only = PathMatcher::new(&[PathPattern::Glob("packages/app/**".into())]).unwrap();
-    let g = cruise(&o).unwrap().graph;
-    assert!(
-        g.modules()
-            .iter()
-            .all(|m| m.path.starts_with("packages/app/")),
-        "{:?}",
-        g.modules().iter().map(|m| &m.path).collect::<Vec<_>>()
-    );
-
     // do-not-follow keeps the module but not its dependencies
     let mut o = CruiseOptions::new(fixture(), vec!["packages/app/src/index.ts".into()]);
-    o.do_not_follow = PathMatcher::new(&[PathPattern::Glob("packages/lib/**".into())]).unwrap();
+    o.do_not_follow = PathMatcher::new(&["packages/lib/**"]).unwrap();
     let g = cruise(&o).unwrap().graph;
     let lib = g.find("packages/lib/src/index.ts").unwrap();
     assert!(g.module(lib).not_followed);
@@ -114,8 +103,7 @@ fn exclude_include_and_do_not_follow() {
 
     // ... also when the module is itself an entry
     let mut o = opts();
-    o.do_not_follow =
-        PathMatcher::new(&[PathPattern::Glob("packages/app/src/util.ts".into())]).unwrap();
+    o.do_not_follow = PathMatcher::new(&["packages/app/src/util.ts"]).unwrap();
     let g = cruise(&o).unwrap().graph;
     let util = g.find("packages/app/src/util.ts").unwrap();
     assert!(g.module(util).not_followed);

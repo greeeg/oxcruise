@@ -5,11 +5,12 @@ use oxcruise_extract::{ExtractOptions, extract};
 
 fn opts() -> ExtractOptions {
     ExtractOptions {
-        exotic_require_strings: vec!["need".into(), "window.require".into()],
-        calls: vec!["jest.mock".into(), "require.resolve".into()],
-        jsdoc: true,
-        skip_triple_slash: false,
-        skip_urls: false,
+        calls: vec![
+            "jest.mock".into(),
+            "require.resolve".into(),
+            "need".into(),
+            "window.require".into(),
+        ],
     }
 }
 

@@ -4,7 +4,7 @@
 //! declare_rule! {
 //!     /// ### What it does
 //!     /// Reports circular dependencies.
-//!     NoCircular, category = correctness, version = "0.1.0", config = NoCircularConfig, recommended
+//!     NoCircular, category = correctness, version = "0.1.0", config = NoCircularConfig
 //! }
 //! ```
 //!
@@ -23,7 +23,6 @@ struct Declaration {
     category: Ident,
     version: String,
     config: Option<Type>,
-    recommended: bool,
 }
 
 impl Parse for Declaration {
@@ -44,7 +43,7 @@ impl Parse for Declaration {
             .collect();
         let name: Ident = input.parse()?;
 
-        let (mut category, mut version, mut config, mut recommended) = (None, None, None, false);
+        let (mut category, mut version, mut config) = (None, None, None);
         while input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
             if input.is_empty() {
@@ -52,7 +51,6 @@ impl Parse for Declaration {
             }
             let key: Ident = input.parse()?;
             match key.to_string().as_str() {
-                "recommended" => recommended = true,
                 "category" => {
                     input.parse::<Token![=]>()?;
                     category = Some(input.parse::<Ident>()?);
@@ -68,9 +66,7 @@ impl Parse for Declaration {
                 other => {
                     return Err(syn::Error::new(
                         key.span(),
-                        format!(
-                            "unknown key `{other}`; expected category, version, config or recommended"
-                        ),
+                        format!("unknown key `{other}`; expected category, version or config"),
                     ));
                 }
             }
@@ -98,7 +94,6 @@ impl Parse for Declaration {
             category,
             version,
             config,
-            recommended,
         })
     }
 }
@@ -126,7 +121,6 @@ pub fn declare_rule(input: TokenStream) -> TokenStream {
         category,
         version,
         config,
-        recommended,
     } = parse_macro_input!(input as Declaration);
     let rule_name = kebab(&name.to_string());
     let docs = docs
@@ -159,7 +153,6 @@ pub fn declare_rule(input: TokenStream) -> TokenStream {
             const NAME: &'static str = #rule_name;
             const CATEGORY: crate::meta::Category = crate::meta::Category::#category_variant;
             const VERSION: &'static str = #version;
-            const RECOMMENDED: bool = #recommended;
             const DOCS: &'static str = #docs;
             type Config = #config_ty;
 

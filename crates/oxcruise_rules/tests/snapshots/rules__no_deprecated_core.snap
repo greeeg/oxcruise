@@ -1,5 +1,0 @@
----
-source: crates/oxcruise_rules/tests/rules.rs
-expression: "Tester::rule(\"no-deprecated-core\",\nnone()).fail(&[\"a.ts -> sys [core deprecated]\"])"
----
-error no-deprecated-core a.ts:1:1 -> sys: `sys` is a deprecated Node.js module

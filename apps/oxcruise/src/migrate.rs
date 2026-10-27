@@ -67,7 +67,7 @@ pub fn run(
         return CliRunResult::InvalidOptions;
     }
 
-    let loaded = match ConfigLoader::new(js).load(&source) {
+    let loaded = match ConfigLoader::new(js).import_depcruise(&source) {
         Ok(l) => l,
         Err(e) => {
             let _ = writeln!(err, "error: {e}");

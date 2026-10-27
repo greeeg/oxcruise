@@ -2,4 +2,4 @@
 source: crates/oxcruise_rules/tests/rules.rs
 expression: "dup.fail(&[\"a.ts -> x [npm npm-dev]\"])"
 ---
-error no-duplicate-dep-types a.ts:1:1 -> x: `x` is declared as npm and npm-dev
+error no-duplicate-deps a.ts:1:1 -> x: `x` is declared as npm and npm-dev

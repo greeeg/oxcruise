@@ -1,5 +1,5 @@
 //! Output formats. Every reporter renders one owned [`CruiseResult`], which is also
-//! what the native `json` format serialises, so `oxcruise fmt` can re-render a saved run.
+//! what the native `json` format serialises.
 
 mod format;
 mod model;

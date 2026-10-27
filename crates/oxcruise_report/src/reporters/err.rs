@@ -25,7 +25,6 @@ impl Paint {
         match s {
             Severity::Error => self.wrap("1;31", text),
             Severity::Warn => self.wrap("1;33", text),
-            _ => self.wrap("1;36", text),
         }
     }
 }
@@ -91,7 +90,7 @@ pub fn render(
     }
 
     let s = &result.summary;
-    let total = s.error + s.warn + s.info;
+    let total = s.error + s.warn;
     if total == 0 {
         writeln!(
             out,
@@ -103,14 +102,13 @@ pub fn render(
     } else {
         writeln!(
             out,
-            "{} {total} problem{} ({} error{}, {} warning{}, {} info) in {} modules, {} dependencies",
+            "{} {total} problem{} ({} error{}, {} warning{}) in {} modules, {} dependencies",
             p.wrap("1;31", "✖"),
             if total == 1 { "" } else { "s" },
             s.error,
             if s.error == 1 { "" } else { "s" },
             s.warn,
             if s.warn == 1 { "" } else { "s" },
-            s.info,
             s.total_modules,
             s.total_dependencies,
         )?;

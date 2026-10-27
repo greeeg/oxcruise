@@ -4,288 +4,94 @@ expression: cfg
 ---
 {
   "$schema": null,
-  "extends": [
-    "oxcruise:strict"
-  ],
+  "extends": [],
   "entries": [],
-  "exclude": [
-    {
-      "regex": "^dist"
-    },
-    {
-      "regex": "[.]stories[.]tsx$"
-    }
+  "ignorePatterns": [
+    "dist*",
+    "**/*.stories.tsx"
   ],
-  "includeOnly": [
-    {
-      "regex": "^src"
-    }
+  "doNotFollow": [
+    "**/*node_modules*",
+    "**/*.generated.ts"
   ],
-  "follow": {
-    "npm": false,
-    "doNotFollow": [
-      {
-        "regex": "node_modules"
-      }
-    ],
-    "maxDepth": null
-  },
-  "resolve": {
-    "tsconfig": "tsconfig.json",
-    "conditions": [
-      "import",
-      "types"
-    ],
-    "mainFields": [],
-    "extensions": [
-      ".ts"
-    ],
-    "alias": {},
-    "preferSource": false,
-    "sourceConditions": []
-  },
-  "extract": {
-    "exoticRequireStrings": [
-      "need"
-    ],
-    "calls": [],
-    "jsdoc": true,
-    "skipTripleSlash": false,
-    "skipUrls": false
+  "categories": {
+    "suspicious": "error"
   },
   "rules": {},
   "forbid": [
     {
-      "name": "no-circular",
-      "comment": "cycles are bad",
-      "severity": "warn",
-      "from": {
-        "path": null,
-        "pathNot": null,
-        "orphan": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
+      "name": "feature-isolation",
+      "message": "features must not import each other",
+      "severity": "error",
+      "from": "src/features/{c1}/**",
+      "to": [
+        "src/features/**",
+        "!src/features/{c1}/**"
+      ]
+    },
+    {
+      "name": "no-spec-in-src",
+      "message": null,
+      "severity": "error",
+      "from": [
+        "src*",
+        "!**/*.spec.ts"
+      ],
+      "to": "**/*.spec.ts"
+    },
+    {
+      "name": "no-lazy-node-in-web",
+      "message": null,
+      "severity": "error",
+      "from": "**/web/**",
       "to": {
-        "path": null,
-        "pathNot": null,
-        "relation": null,
-        "orphan": null,
-        "dependencyTypes": [],
-        "dependencyTypesNot": [],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
-        "dynamic": null,
+        "path": "{fs,path}",
+        "kind": null,
         "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": true,
-        "via": null,
-        "viaOnly": null,
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
+        "dynamic": true,
+        "relation": null,
+        "reachable": null
       }
     },
     {
-      "name": "no-orphans",
-      "comment": null,
-      "severity": "info",
-      "from": {
-        "path": null,
-        "pathNot": [
-          {
-            "regex": "(^|/)[.][^/]+[.](js|cjs|mjs|ts|json)$"
-          },
-          {
-            "regex": "[.]d[.]ts$"
-          }
-        ],
-        "orphan": true,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
+      "name": "no-unresolvable",
+      "message": null,
+      "severity": "error",
+      "from": null,
       "to": {
         "path": null,
-        "pathNot": null,
-        "relation": null,
-        "orphan": null,
-        "dependencyTypes": [],
-        "dependencyTypesNot": [],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
-        "dynamic": null,
+        "kind": "unresolved",
         "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": null,
-        "via": null,
-        "viaOnly": null,
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
+        "dynamic": null,
+        "relation": null,
+        "reachable": null
       }
     },
     {
-      "name": "not-to-dev-dep",
-      "comment": null,
+      "name": "ui-never-reaches-db",
+      "message": null,
       "severity": "error",
-      "from": {
-        "path": {
-          "regex": "^src"
-        },
-        "pathNot": {
-          "regex": "[.]test[.]ts$"
-        },
-        "orphan": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
+      "from": "src/ui/**",
       "to": {
-        "path": null,
-        "pathNot": null,
-        "relation": null,
-        "orphan": null,
-        "dependencyTypes": [
-          "npm-dev"
-        ],
-        "dependencyTypesNot": [
-          "type-only"
-        ],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
-        "dynamic": null,
+        "path": "src/db/**",
+        "kind": null,
         "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": null,
-        "via": null,
-        "viaOnly": null,
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      }
-    },
-    {
-      "name": "only-via-index",
-      "comment": null,
-      "severity": "error",
-      "from": {
-        "path": {
-          "regex": "^src/([^/]+)/"
-        },
-        "pathNot": null,
-        "orphan": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
-      "to": {
-        "path": {
-          "regex": "^src/$1/"
-        },
-        "pathNot": null,
-        "relation": null,
-        "orphan": null,
-        "dependencyTypes": [],
-        "dependencyTypesNot": [],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
         "dynamic": null,
-        "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": true,
-        "via": null,
-        "viaOnly": {
-          "path": null,
-          "pathNot": {
-            "regex": "^src/shared"
-          },
-          "dependencyTypes": [],
-          "dependencyTypesNot": [],
-          "typeOnly": null,
-          "dynamic": null
-        },
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      }
-    }
-  ],
-  "allow": [
-    {
-      "name": "not-in-allowed",
-      "comment": null,
-      "severity": "error",
-      "from": {
-        "path": null,
-        "pathNot": null,
-        "orphan": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
-      "to": {
-        "path": null,
-        "pathNot": null,
         "relation": null,
-        "orphan": null,
-        "dependencyTypes": [],
-        "dependencyTypesNot": [],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
-        "dynamic": null,
-        "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": null,
-        "via": null,
-        "viaOnly": null,
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      }
-    }
-  ],
-  "require": [
-    {
-      "name": "pages-use-layout",
-      "comment": null,
-      "severity": "error",
-      "module": {
-        "path": {
-          "regex": "^src/pages/"
-        },
-        "pathNot": null,
-        "orphan": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
-      },
-      "to": {
-        "path": {
-          "regex": "^src/layout/"
-        },
-        "pathNot": null,
-        "relation": null,
-        "orphan": null,
-        "dependencyTypes": [],
-        "dependencyTypesNot": [],
-        "moreThanOneDependencyType": null,
-        "couldNotResolve": null,
-        "dynamic": null,
-        "typeOnly": null,
-        "exoticallyRequired": null,
-        "circular": null,
-        "via": null,
-        "viaOnly": null,
-        "reachable": null,
-        "numberOfDependentsLessThan": null,
-        "numberOfDependentsMoreThan": null
+        "reachable": true
       }
     }
   ],
   "overrides": [],
-  "jsPlugins": [],
-  "options": {
-    "maxWarnings": null,
-    "reportDeadRules": false,
-    "cycles": {
-      "ignoreTypeOnly": false
-    },
-    "respectGitignore": false
-  }
+  "resolve": {
+    "tsconfig": "tsconfig.app.json",
+    "conditions": [
+      "source"
+    ],
+    "alias": {}
+  },
+  "calls": [
+    "need"
+  ],
+  "jsPlugins": []
 }

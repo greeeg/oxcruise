@@ -3,10 +3,10 @@ use std::process::{ExitCode, Termination};
 /// How a run ended, which decides the process exit code.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliRunResult {
-    /// Nothing to report as failure (also `--rules`, `fmt`, `migrate`).
+    /// Nothing to report as failure (also `--rules`, `migrate`).
     Success,
     /// Error-level violations were found.
-    FoundErrors { errors: usize, compat: bool },
+    FoundErrors { errors: usize },
     /// `--deny-warnings` and there are warnings.
     NoWarningsAllowed { warnings: usize },
     /// `--max-warnings N` exceeded.
@@ -25,10 +25,6 @@ impl CliRunResult {
     pub fn code(&self) -> u8 {
         match self {
             Self::Success => 0,
-            Self::FoundErrors {
-                errors,
-                compat: true,
-            } => (*errors).clamp(1, 255) as u8,
             Self::FoundErrors { .. }
             | Self::NoWarningsAllowed { .. }
             | Self::MaxWarningsExceeded { .. } => 1,

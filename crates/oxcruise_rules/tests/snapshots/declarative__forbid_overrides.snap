@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/declarative.rs
+expression: out
+---
+error no-bad src/a.ts:1:1 -> bad.ts: forbidden dependency
+warn no-bad legacy/a.ts:2:1 -> bad.ts: forbidden dependency

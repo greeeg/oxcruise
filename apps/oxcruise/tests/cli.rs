@@ -97,21 +97,8 @@ fn check_subcommand_is_the_default() {
 
 #[test]
 fn filter_flags() {
-    let o = run(&[
-        "packages",
-        "-f",
-        "text",
-        "--exclude",
-        "packages/lib",
-        "--do-not-follow",
-        "packages/app/src/util.ts",
-    ]);
+    let o = run(&["packages", "-f", "text", "--ignore-pattern", "packages/lib"]);
     assert!(!o.stdout.contains("packages/lib"), "{}", o.stdout);
-    assert!(
-        !o.stdout.contains("util.ts -> "),
-        "do-not-follow keeps util.ts as a leaf:\n{}",
-        o.stdout
-    );
     let shallow = run(&[
         "packages/app/src/index.ts",
         "-f",
@@ -129,6 +116,22 @@ fn filter_flags() {
         "{}",
         shallow.stdout
     );
+}
+
+#[test]
+fn do_not_follow_keeps_the_module_but_not_its_imports() {
+    let d = project(&[
+        ("src/a.ts", "import './gen';\n"),
+        ("src/gen.ts", "import './b';\n"),
+        ("src/b.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src/a.ts"], "doNotFollow": ["src/gen.ts"] }"#,
+        ),
+    ]);
+    let o = run_in(d.path(), &["-f", "text"]);
+    assert!(o.stdout.contains("src/a.ts -> src/gen.ts"), "{}", o.stdout);
+    assert!(!o.stdout.contains("gen.ts -> "), "{}", o.stdout);
 }
 
 #[test]
@@ -173,15 +176,23 @@ fn exit_codes() {
     ]);
     let plain = run_in(errors.path(), &[]);
     assert_eq!(plain.result.code(), 1);
-    let compat = run_in(errors.path(), &["--compat"]);
-    assert_eq!(
-        compat.result,
-        CliRunResult::FoundErrors {
-            errors: 1,
-            compat: true
-        }
-    );
-    assert_eq!(compat.result.code(), 1);
+    assert_eq!(plain.result, CliRunResult::FoundErrors { errors: 1 });
+}
+
+#[test]
+fn removed_flags_and_formats_are_rejected() {
+    for args in [
+        &["--compat"][..],
+        &["--include-only", "src"],
+        &["--do-not-follow", "src"],
+        &["--exclude", "src"],
+        &["fmt", "result.json"],
+        &["-f", "err"],
+        &["-f", "err-long"],
+        &["-f", "json-depcruise"],
+    ] {
+        assert_eq!(run(args).result, CliRunResult::InvalidOptions, "{args:?}");
+    }
 }
 
 #[test]
@@ -194,7 +205,7 @@ fn config_discovery_and_no_config() {
         ),
     ]);
     assert_eq!(run_in(d.path(), &[]).result, CliRunResult::Success);
-    // --no-config falls back to the recommended preset, which flags the self-import
+    // --no-config means the defaults, which flag the self-import (correctness: error)
     let o = run_in(d.path(), &["src", "--no-config"]);
     assert_eq!(o.result.code(), 1);
     assert!(o.stdout.contains("no-circular"), "{}", o.stdout);
@@ -224,24 +235,47 @@ fn config_errors_are_reported_together() {
 }
 
 #[test]
-fn dependency_cruiser_config_is_imported_with_a_note() {
+fn dependency_cruiser_config_is_not_discovered() {
+    // only `oxcruise migrate` reads these; a check runs with the defaults and says nothing
     let d = project(&[
         ("src/a.ts", "import './b';\n"),
-        ("src/b.ts", "import './a';\n"),
+        ("src/b.ts", "export {};\n"),
         (
             ".dependency-cruiser.json",
-            r#"{ "forbidden": [{ "name": "no-circular", "severity": "error", "from": {}, "to": { "circular": true } }],
-                 "options": { "includeOnly": "^src" } }"#,
+            r#"{ "forbidden": [{ "name": "no-b", "severity": "error", "from": {}, "to": { "path": "b" } }] }"#,
         ),
     ]);
     let o = run_in(d.path(), &["src", "-f", "text"]);
-    assert_eq!(o.result.code(), 1);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    assert!(o.stderr.is_empty(), "{}", o.stderr);
+    // ... and an explicit --config still goes through the oxcruise loader
+    let explicit = run_in(d.path(), &["src", "-c", ".dependency-cruiser.json"]);
+    assert_eq!(explicit.result, CliRunResult::InvalidOptions);
     assert!(
-        o.stderr.contains("dependency-cruiser importer"),
+        explicit.stderr.contains("unknown field"),
+        "{}",
+        explicit.stderr
+    );
+}
+
+#[test]
+fn dead_forbid_rules_warn_on_stderr() {
+    let d = project(&[
+        ("src/a.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src"], "forbid": [{ "name": "typo", "from": "scr/**", "to": "x" }] }"#,
+        ),
+    ]);
+    let o = run_in(d.path(), &[]);
+    assert_eq!(o.result, CliRunResult::Success);
+    assert!(
+        o.stderr
+            .contains("warning: rule `typo`: its `from` matched no module"),
         "{}",
         o.stderr
     );
-    assert!(o.stderr.contains("oxcruise migrate"), "{}", o.stderr);
+    assert!(!o.stdout.contains("typo"), "{}", o.stdout);
 }
 
 #[test]
@@ -286,7 +320,7 @@ fn js_plugins_need_the_npm_package() {
 }
 
 #[test]
-fn output_file_and_fmt_round_trip() {
+fn output_goes_to_a_file() {
     let d = project(&[
         ("src/a.ts", "import './b';\n"),
         ("src/b.ts", "import './a';\n"),
@@ -296,24 +330,13 @@ fn output_file_and_fmt_round_trip() {
         ),
     ]);
     let p = d.path();
-    assert_eq!(
-        run_in(p, &["-f", "json", "-o", "result.json"]).result,
-        CliRunResult::Success
-    );
-    assert!(p.join("result.json").is_file());
-    let live = run_in(p, &["-f", "dot"]);
-    let fmt = run_in(p, &["fmt", "result.json", "-f", "dot"]);
-    assert_eq!(fmt.result, CliRunResult::Success);
-    assert_eq!(live.stdout, fmt.stdout);
-
-    std::fs::write(p.join("junk.json"), "{}").unwrap();
-    let bad = run_in(p, &["fmt", "junk.json"]);
-    assert_eq!(bad.result, CliRunResult::InvalidOptions);
-    assert!(
-        bad.stderr.contains("not an oxcruise `json` result"),
-        "{}",
-        bad.stderr
-    );
+    let o = run_in(p, &["-f", "json", "-o", "result.json"]);
+    assert_eq!(o.result, CliRunResult::Success);
+    assert!(o.stdout.is_empty(), "{}", o.stdout);
+    let saved: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(p.join("result.json")).unwrap()).unwrap();
+    assert_eq!(saved["summary"]["warn"], 1);
+    assert!(saved["summary"].get("info").is_none(), "{saved}");
 }
 
 #[test]
@@ -323,7 +346,11 @@ fn migrate_writes_a_typescript_config() {
         r#"{
             "forbidden": [
               { "name": "no-circular", "severity": "warn", "from": {}, "to": { "circular": true } },
-              { "name": "needs-license", "severity": "error", "from": {}, "to": { "license": "GPL" } }
+              { "name": "needs-license", "severity": "error", "from": {}, "to": { "license": "GPL" } },
+              { "name": "feature-isolation", "severity": "error", "comment": "features stay apart",
+                "from": { "path": "^src/features/([^/]+)/" },
+                "to": { "path": "^src/features/", "pathNot": "^src/features/$1/" } },
+              { "name": "not-in-prod", "severity": "info", "from": { "path": "^src" }, "to": { "path": "[.]spec[.]ts$" } }
             ],
             "options": { "doNotFollow": { "path": "node_modules" }, "webpackConfig": { "fileName": "webpack.config.js" } }
           }"#,

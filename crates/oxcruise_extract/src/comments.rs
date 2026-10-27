@@ -17,11 +17,11 @@ pub(crate) fn collect(program: &Program<'_>, text: &str, offset: u32, b: &mut Fa
             continue;
         }
 
-        if c.is_line() && !b.opts.skip_triple_slash && first_stmt.is_none_or(|s| c.span.start < s) {
+        if c.is_line() && first_stmt.is_none_or(|s| c.span.start < s) {
             triple_slash(body, content.start + offset, c.span.start + offset, b);
         }
 
-        if b.opts.jsdoc && c.is_jsdoc() {
+        if c.is_jsdoc() {
             jsdoc(body, content.start + offset, c.span.start + offset, b);
         }
     }

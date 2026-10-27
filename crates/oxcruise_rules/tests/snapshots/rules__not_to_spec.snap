@@ -1,5 +1,0 @@
----
-source: crates/oxcruise_rules/tests/rules.rs
-expression: "s.fail(&[\"src/a.ts -> src/a.spec.ts\"])"
----
-error not-to-spec src/a.ts:1:1 -> src/a.spec.ts: production code imports spec file `src/a.spec.ts`

@@ -1,30 +1,33 @@
-//! Importer for `.dependency-cruiser.*` configuration.
+//! `oxcruise migrate`: convert a `.dependency-cruiser.*` configuration.
 //!
-//! The mapping is deliberately conservative: regexes are kept as regexes,
-//! conditions map one-to-one, and anything that cannot be honoured is reported
-//! as a named warning. A rule that uses an unsupported *condition* is skipped
-//! entirely, because dropping the condition would silently widen the rule.
+//! oxcruise's rule language is much smaller than dependency-cruiser's, so the conversion is
+//! conservative: path regexes become globs when they have a common shape, and everything else
+//! is reported as a named warning. A rule that uses a condition oxcruise does not have, or a
+//! regex that does not convert, is dropped entirely, because dropping just the condition would
+//! silently widen the rule.
 
-use std::path::Path;
+use std::collections::BTreeSet;
 
 use serde_json::Value;
 
-use crate::{
-    DeclarativeRule, FromCondition, FromSpec, Level, OneOrMany, OxcruiseConfig, PathSpec,
-    RequireRule, ToCondition, ToSpec, TsconfigSetting, ViaCondition,
-};
+use crate::regex_glob::{placeholders, regex_to_globs};
+use crate::{Category, ForbidRule, Kind, Level, OneOrMany, OxcruiseConfig, ToCondition, ToSpec};
 
-pub fn looks_like_depcruise(path: &Path, v: &Value) -> bool {
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    if name.starts_with(".dependency-cruiser") {
-        return true;
-    }
-    let Some(o) = v.as_object() else { return false };
-    !o.contains_key("rules")
-        && ["forbidden", "allowed", "required"]
-            .iter()
-            .any(|k| o.contains_key(*k))
-}
+/// dependency-cruiser's recommended rule names and the oxcruise built-in that does the same job.
+const BUILTIN_EQUIVALENTS: &[(&str, &str)] = &[
+    ("no-circular", "no-circular"),
+    ("no-orphans", "no-orphans"),
+    ("no-deprecated-core", "no-deprecated"),
+    ("no-deprecated-npm", "no-deprecated"),
+    ("no-non-package-json", "no-undeclared-deps"),
+    ("not-to-unresolvable", "no-unresolvable"),
+    ("no-duplicate-dep-types", "no-duplicate-deps"),
+    ("not-to-test", "no-test-imports"),
+    ("not-to-spec", "no-test-imports"),
+    ("not-to-dev-dep", "no-dev-deps-in-prod"),
+    ("optional-deps-used", "no-optional-deps"),
+    ("peer-deps-used", "no-peer-deps"),
+];
 
 /// Convert a depcruise config object. Returns the config and one warning per
 /// thing that did not map.
@@ -40,32 +43,26 @@ pub fn import(v: &Value) -> (OxcruiseConfig, Vec<String>) {
         match key.as_str() {
             "forbidden" => {
                 for r in val.as_array().into_iter().flatten() {
-                    if let Some(rule) = cx.rule(r, "forbidden") {
+                    if let Some(rule) = cx.rule(r) {
                         cfg.forbid.push(rule);
                     }
                 }
             }
             "allowed" => {
-                let sev = obj
-                    .get("allowedSeverity")
-                    .and_then(Value::as_str)
-                    .map_or(Level::Warn, level);
-                for r in val.as_array().into_iter().flatten() {
-                    if let Some(mut rule) = cx.rule(r, "allowed") {
-                        rule.severity = sev;
-                        if r.get("name").is_none() {
-                            rule.name = "not-in-allowed".into();
-                        }
-                        cfg.allow.push(rule);
-                    }
+                if val.as_array().is_some_and(|a| !a.is_empty()) {
+                    cx.warn(
+                        "`allowed` rules were dropped: oxcruise has no allow-lists. \
+                         Describe the architecture with the `layers` rule, or add `forbid` rules",
+                    );
                 }
             }
             "allowedSeverity" => {}
             "required" => {
-                for r in val.as_array().into_iter().flatten() {
-                    if let Some(rule) = cx.required(r) {
-                        cfg.require.push(rule);
-                    }
+                if val.as_array().is_some_and(|a| !a.is_empty()) {
+                    cx.warn(
+                        "`required` rules were dropped: oxcruise has no `require` rules. \
+                         Write a JS plugin rule if you need this check",
+                    );
                 }
             }
             "options" => cx.options(val, &mut cfg),
@@ -79,12 +76,13 @@ pub fn import(v: &Value) -> (OxcruiseConfig, Vec<String>) {
     (cfg, cx.warnings)
 }
 
-fn level(s: &str) -> Level {
+fn level(s: &str) -> Option<Level> {
     match s {
-        "error" => Level::Error,
-        "warn" => Level::Warn,
-        "info" => Level::Info,
-        _ => Level::Off,
+        "error" => Some(Level::Error),
+        "warn" => Some(Level::Warn),
+        "info" => Some(Level::Warn),
+        "ignore" | "off" => Some(Level::Off),
+        _ => None,
     }
 }
 
@@ -94,10 +92,56 @@ struct Importer {
 
 impl Importer {
     fn warn(&mut self, m: impl Into<String>) {
-        self.warnings.push(m.into());
+        let m = m.into();
+        if !self.warnings.contains(&m) {
+            self.warnings.push(m);
+        }
     }
 
-    fn rule(&mut self, r: &Value, section: &str) -> Option<DeclarativeRule> {
+    fn severity(&mut self, r: &Value, rule: &str) -> Level {
+        match r.get("severity").and_then(Value::as_str) {
+            Some("info") => {
+                self.warn(format!(
+                    "rule `{rule}`: severity `info` does not exist in oxcruise and was mapped to `warn`"
+                ));
+                Level::Warn
+            }
+            Some(s) => level(s).unwrap_or(Level::Warn),
+            None => Level::Warn,
+        }
+    }
+
+    /// Regexes to globs. `None` (after a warning) when one does not convert.
+    fn globs(&mut self, v: &Value, rule: &str) -> Option<Vec<String>> {
+        let mut out = vec![];
+        for re in strings(v) {
+            match regex_to_globs(&re) {
+                Ok(globs) => out.extend(globs),
+                Err(e) => {
+                    self.warn(format!(
+                        "rule `{rule}` was dropped: the regex {e} does not convert to a glob. \
+                         Rewrite it by hand, or write a JS plugin rule"
+                    ));
+                    return None;
+                }
+            }
+        }
+        Some(out)
+    }
+
+    /// `path` plus `pathNot` as one list: negations get a leading `!`.
+    fn path_list(&mut self, o: &serde_json::Map<String, Value>, rule: &str) -> Option<Vec<String>> {
+        let mut list = vec![];
+        if let Some(p) = o.get("path") {
+            list.extend(self.globs(p, rule)?);
+        }
+        if let Some(p) = o.get("pathNot") {
+            list.extend(self.globs(p, rule)?.into_iter().map(|g| format!("!{g}")));
+        }
+        Some(list)
+    }
+
+    fn rule(&mut self, r: &Value) -> Option<ForbidRule> {
         let name = r
             .get("name")
             .and_then(Value::as_str)
@@ -105,156 +149,125 @@ impl Importer {
             .to_string();
         if r.get("scope").and_then(Value::as_str) == Some("folder") {
             self.warn(format!(
-                "{section} rule `{name}` skipped: folder-scope rules are not supported yet"
+                "rule `{name}` was dropped: folder-scope rules are not supported"
             ));
             return None;
         }
-        let from = match r.get("from") {
-            Some(f) => Some(self.from(f, &name)?),
-            None => None,
+
+        let mut unsupported: Vec<String> = vec![];
+        let mut cond = ToCondition::default();
+
+        let from_obj = r.get("from").and_then(Value::as_object);
+        let mut from = vec![];
+        if let Some(o) = from_obj {
+            for k in o.keys() {
+                if !matches!(k.as_str(), "path" | "pathNot") {
+                    unsupported.push(format!("from.{k}"));
+                }
+            }
+            from = self.path_list(o, &name)?;
+        }
+
+        let to_obj = r.get("to").and_then(Value::as_object);
+        let mut to_paths = vec![];
+        if let Some(o) = to_obj {
+            to_paths = self.path_list(o, &name)?;
+            for (k, v) in o {
+                match k.as_str() {
+                    "path" | "pathNot" => {}
+                    "dynamic" => cond.dynamic = v.as_bool(),
+                    "preCompilationOnly" => {
+                        cond.type_only = v.as_bool();
+                        self.warn(format!(
+                            "rule `{name}`: `preCompilationOnly` was mapped to `typeOnly` \
+                             (type-only imports; oxcruise has exact type-only information)"
+                        ));
+                    }
+                    "couldNotResolve" if v.as_bool() == Some(true) => {
+                        cond.kind = Some(OneOrMany::One(Kind::Unresolved));
+                    }
+                    "reachable" if v.as_bool() == Some(true) => cond.reachable = Some(true),
+                    other => unsupported.push(format!("to.{other}")),
+                }
+            }
+        }
+
+        if !unsupported.is_empty() {
+            let conditions = unsupported
+                .iter()
+                .map(|c| format!("`{c}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let hint = match BUILTIN_EQUIVALENTS.iter().find(|(n, _)| *n == name) {
+                Some((_, builtin)) => format!("the built-in rule `{builtin}` covers this"),
+                None => "write a JS plugin rule for it".into(),
+            };
+            self.warn(format!(
+                "rule `{name}` was dropped: {conditions} {} not supported ({hint})",
+                if unsupported.len() == 1 { "is" } else { "are" }
+            ));
+            return None;
+        }
+
+        // `$1` on the `to` side must refer to a capture the `from` side defines.
+        let defined: BTreeSet<String> = from.iter().flat_map(|g| placeholders(g)).collect();
+        if let Some(missing) = to_paths
+            .iter()
+            .flat_map(|g| placeholders(g))
+            .find(|p| !defined.contains(p))
+        {
+            self.warn(format!(
+                "rule `{name}` was dropped: `to` refers to capture group `{}` that `from` does not define as `([^/]+)`",
+                missing.trim_start_matches('c')
+            ));
+            return None;
+        }
+
+        let paths = |list: Vec<String>| match list.len() {
+            0 => None,
+            1 => Some(OneOrMany::One(list.into_iter().next().expect("one"))),
+            _ => Some(OneOrMany::Many(list)),
         };
-        let to = match r.get("to") {
-            Some(t) => Some(self.to(t, &name)?),
-            None => None,
+        let to = {
+            let has_cond = cond != ToCondition::default();
+            match (paths(to_paths), has_cond) {
+                (None, false) => None,
+                (Some(p), false) => Some(ToSpec::Paths(p)),
+                (p, true) => {
+                    cond.path = p;
+                    Some(ToSpec::Cond(cond))
+                }
+            }
         };
-        Some(DeclarativeRule {
+        Some(ForbidRule {
+            severity: self.severity(r, &name),
             name,
-            comment: r.get("comment").and_then(Value::as_str).map(str::to_string),
-            severity: r
-                .get("severity")
-                .and_then(Value::as_str)
-                .map_or(Level::Warn, level),
-            from,
+            message: r.get("comment").and_then(Value::as_str).map(str::to_string),
+            from: paths(from),
             to,
         })
-    }
-
-    fn required(&mut self, r: &Value) -> Option<RequireRule> {
-        let name = r
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or("unnamed")
-            .to_string();
-        let module = self.from(r.get("module")?, &name)?;
-        let to = self.to(r.get("to")?, &name)?;
-        Some(RequireRule {
-            name,
-            comment: r.get("comment").and_then(Value::as_str).map(str::to_string),
-            severity: r
-                .get("severity")
-                .and_then(Value::as_str)
-                .map_or(Level::Warn, level),
-            module,
-            to,
-        })
-    }
-
-    fn from(&mut self, f: &Value, rule: &str) -> Option<FromSpec> {
-        let o = f.as_object()?;
-        let mut c = FromCondition::default();
-        for (k, v) in o {
-            match k.as_str() {
-                "path" => c.path = specs(v),
-                "pathNot" => c.path_not = specs(v),
-                "orphan" => c.orphan = v.as_bool(),
-                "numberOfDependentsLessThan" => c.number_of_dependents_less_than = num(v),
-                "numberOfDependentsMoreThan" => c.number_of_dependents_more_than = num(v),
-                other => {
-                    self.warn(format!("rule `{rule}` skipped: unsupported `from.{other}`"));
-                    return None;
-                }
-            }
-        }
-        Some(FromSpec::Cond(c))
-    }
-
-    fn to(&mut self, t: &Value, rule: &str) -> Option<ToSpec> {
-        let o = t.as_object()?;
-        let mut c = ToCondition::default();
-        for (k, v) in o {
-            match k.as_str() {
-                "path" => c.path = specs(v),
-                "pathNot" => c.path_not = specs(v),
-                "orphan" => c.orphan = v.as_bool(),
-                "dependencyTypes" => c.dependency_types = strings(v),
-                "dependencyTypesNot" => c.dependency_types_not = strings(v),
-                "moreThanOneDependencyType" => c.more_than_one_dependency_type = v.as_bool(),
-                "couldNotResolve" => c.could_not_resolve = v.as_bool(),
-                "dynamic" => c.dynamic = v.as_bool(),
-                "exoticallyRequired" => c.exotically_required = v.as_bool(),
-                "preCompilationOnly" => {
-                    c.type_only = v.as_bool();
-                    self.warn(format!(
-                        "rule `{rule}`: `preCompilationOnly` was mapped to `typeOnly` (type-only imports; \
-                         oxcruise has exact type-only information)"
-                    ));
-                }
-                "circular" => c.circular = v.as_bool(),
-                "via" => c.via = self.via(v),
-                "viaOnly" => c.via_only = self.via(v),
-                "reachable" => c.reachable = v.as_bool(),
-                "numberOfDependentsLessThan" => c.number_of_dependents_less_than = num(v),
-                "numberOfDependentsMoreThan" => c.number_of_dependents_more_than = num(v),
-                other => {
-                    self.warn(format!("rule `{rule}` skipped: unsupported `to.{other}`"));
-                    return None;
-                }
-            }
-        }
-        Some(ToSpec::Cond(Box::new(c)))
-    }
-
-    fn via(&mut self, v: &Value) -> Option<ViaCondition> {
-        // depcruise accepts a bare regex string or array as shorthand for `{ path }`.
-        if v.is_string() || v.is_array() {
-            return Some(ViaCondition {
-                path: specs(v),
-                ..Default::default()
-            });
-        }
-        let o = v.as_object()?;
-        let mut c = ViaCondition::default();
-        for (k, v) in o {
-            match k.as_str() {
-                "path" => c.path = specs(v),
-                "pathNot" => c.path_not = specs(v),
-                "dependencyTypes" => c.dependency_types = strings(v),
-                "dependencyTypesNot" => c.dependency_types_not = strings(v),
-                "dynamic" => c.dynamic = v.as_bool(),
-                other => self.warn(format!("`via.{other}` is not supported and was ignored")),
-            }
-        }
-        Some(c)
     }
 
     fn extends(&mut self, v: &Value, cfg: &mut OxcruiseConfig) {
         for e in strings(v) {
-            let name = e.rsplit('/').next().unwrap_or(&e);
-            let preset = match name {
-                "recommended-strict" | "recommended-strict.js" | "recommended-strict.cjs" => {
-                    "oxcruise:strict"
+            let file = e.rsplit('/').next().unwrap_or(&e);
+            let name = file
+                .strip_suffix(".js")
+                .or_else(|| file.strip_suffix(".cjs"));
+            match name.unwrap_or(file) {
+                // the default categories are what `recommended` stands for
+                "recommended" => {}
+                "recommended-strict" => {
+                    cfg.categories.insert(Category::Suspicious, Level::Error);
                 }
-                "recommended" | "recommended.js" | "recommended.cjs" => "oxcruise:recommended",
-                "recommended-warn-only"
-                | "recommended-warn-only.js"
-                | "recommended-warn-only.cjs" => {
-                    self.warn(format!(
-                        "`extends: {e}` mapped to oxcruise:recommended; severities are not downgraded to warn"
-                    ));
-                    "oxcruise:recommended"
+                "recommended-warn-only" => {
+                    cfg.categories.insert(Category::Correctness, Level::Warn);
                 }
-                _ if e.starts_with('.') => {
-                    cfg.extends.push(e);
-                    continue;
-                }
-                _ => {
-                    self.warn(format!(
-                        "`extends: {e}` is not a known preset or relative path and was ignored"
-                    ));
-                    continue;
-                }
-            };
-            cfg.extends.push(preset.to_string());
+                _ if e.starts_with('.') => cfg.extends.push(e),
+                _ => self.warn(format!(
+                    "`extends: {e}` is not a known preset or relative path and was ignored"
+                )),
+            }
         }
     }
 
@@ -263,11 +276,9 @@ impl Importer {
         for (k, v) in o {
             match k.as_str() {
                 "doNotFollow" => {
-                    for p in path_of(v) {
-                        cfg.follow.do_not_follow.push(p);
-                    }
-                    let types = v.get("dependencyTypes").map(strings).unwrap_or_default();
-                    for t in types {
+                    cfg.do_not_follow.extend(self.option_globs(k, v));
+                    for t in v.get("dependencyTypes").map(strings).unwrap_or_default() {
+                        // node_modules are always leaves in oxcruise
                         if t != "npm" {
                             self.warn(format!(
                                 "`options.doNotFollow.dependencyTypes` entry `{t}` is not supported"
@@ -275,34 +286,51 @@ impl Importer {
                         }
                     }
                 }
-                "exclude" => cfg.exclude.extend(path_of(v)),
-                "includeOnly" => cfg.include_only.extend(path_of(v)),
+                "exclude" => cfg.ignore_patterns.extend(self.option_globs(k, v)),
+                "includeOnly" => self.warn(
+                    "`options.includeOnly` was dropped: oxcruise has no include list. \
+                     Start from the right `entries` and list what to leave out in `ignorePatterns`",
+                ),
                 "maxDepth" => {
-                    // 0 means unlimited in depcruise
-                    cfg.follow.max_depth = num(v).filter(|n| *n > 0);
+                    if num(v).is_some_and(|n| n > 0) {
+                        self.warn("`options.maxDepth` was dropped: use the `--max-depth` flag");
+                    }
                 }
                 "tsConfig" => {
                     if let Some(f) = v.get("fileName").and_then(Value::as_str) {
-                        cfg.resolve.tsconfig = Some(TsconfigSetting::Path(f.to_string()));
+                        cfg.resolve.tsconfig = Some(f.to_string());
                     }
                 }
                 "enhancedResolveOptions" => {
-                    if let Some(oo) = v.as_object() {
-                        for (ek, ev) in oo {
-                            match ek.as_str() {
-                                "conditionNames" => cfg.resolve.conditions = strings(ev),
-                                "extensions" => cfg.resolve.extensions = strings(ev),
-                                "mainFields" => cfg.resolve.main_fields = strings(ev),
-                                "exportsFields" => {}
-                                other => self.warn(format!(
-                                    "`options.enhancedResolveOptions.{other}` is not supported and was ignored"
-                                )),
+                    let Some(oo) = v.as_object() else { continue };
+                    for (ek, ev) in oo {
+                        match ek.as_str() {
+                            // oxcruise always tries import|require, node and default
+                            "conditionNames" => {
+                                cfg.resolve.conditions = strings(ev)
+                                    .into_iter()
+                                    .filter(|c| {
+                                        !matches!(c.as_str(), "import" | "require" | "node" | "default")
+                                    })
+                                    .collect();
                             }
+                            "exportsFields" => {}
+                            "extensions" | "mainFields" => self.warn(format!(
+                                "`options.enhancedResolveOptions.{ek}` was dropped: oxcruise uses the resolver defaults"
+                            )),
+                            other => self.warn(format!(
+                                "`options.enhancedResolveOptions.{other}` is not supported and was ignored"
+                            )),
                         }
                     }
                 }
-                "exoticRequireStrings" => cfg.extract.exotic_require_strings = strings(v),
-                "detectJSDocImports" => cfg.extract.jsdoc = v.as_bool().unwrap_or(false),
+                "exoticRequireStrings" => cfg.calls.extend(strings(v)),
+                "detectJSDocImports" => {
+                    // always on in oxcruise
+                    if v.as_bool() == Some(false) {
+                        self.warn("`options.detectJSDocImports: false` is not supported: JSDoc imports are always detected");
+                    }
+                }
                 "tsPreCompilationDeps" => {
                     if v.as_bool() == Some(false) {
                         self.warn("`options.tsPreCompilationDeps: false` is not supported: oxcruise always sees type-only imports");
@@ -345,6 +373,20 @@ impl Importer {
             }
         }
     }
+
+    /// `exclude` and `doNotFollow` take a regex, an array, or `{ path }`.
+    fn option_globs(&mut self, key: &str, v: &Value) -> Vec<String> {
+        let mut out = vec![];
+        for re in strings(v.get("path").unwrap_or(v)) {
+            match regex_to_globs(&re) {
+                Ok(globs) => out.extend(globs),
+                Err(e) => self.warn(format!(
+                    "`options.{key}` entry dropped: the regex {e} does not convert to a glob. Add it by hand"
+                )),
+            }
+        }
+        out
+    }
 }
 
 fn num(v: &Value) -> Option<u32> {
@@ -360,24 +402,4 @@ fn strings(v: &Value) -> Vec<String> {
             .collect(),
         _ => vec![],
     }
-}
-
-/// depcruise path conditions are regexes, as a string or an array of strings.
-fn specs(v: &Value) -> Option<OneOrMany<PathSpec>> {
-    match v {
-        Value::String(s) => Some(OneOrMany::One(PathSpec::regex(s))),
-        Value::Array(a) => Some(OneOrMany::Many(
-            a.iter()
-                .filter_map(|x| x.as_str())
-                .map(PathSpec::regex)
-                .collect(),
-        )),
-        _ => None,
-    }
-}
-
-/// `exclude`, `includeOnly` and `doNotFollow` take a regex, an array, or `{ path }`.
-fn path_of(v: &Value) -> Vec<PathSpec> {
-    let inner = v.get("path").unwrap_or(v);
-    strings(inner).into_iter().map(PathSpec::regex).collect()
 }

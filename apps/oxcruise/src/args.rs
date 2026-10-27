@@ -20,9 +20,7 @@ pub struct Cli {
 pub enum Command {
     /// Check the dependency graph against the rules (the default)
     Check(CheckArgs),
-    /// Re-render a saved `--format json` result with another format
-    Fmt(FmtArgs),
-    /// Convert a .dependency-cruiser.* config to an oxcruise config
+    /// Convert a .dependency-cruiser.* config to an oxcruise config, with warnings for what does not map
     Migrate(MigrateArgs),
 }
 
@@ -39,30 +37,24 @@ pub struct CheckArgs {
     /// Files, directories or globs to start from (default: `entries` from the config, or `.`)
     pub paths: Vec<String>,
 
-    /// Config file (default: oxcruise.config.ts|mts|js|mjs, .oxcruiserc.json(c), .dependency-cruiser.*)
+    /// Config file (default: oxcruise.config.ts or .oxcruiserc.json in the working directory)
     #[arg(short, long, value_name = "FILE")]
     pub config: Option<PathBuf>,
-    /// Ignore config files and use the recommended preset
+    /// Ignore config files and use the defaults
     #[arg(long)]
     pub no_config: bool,
 
-    /// Output format: err, err-long, json, json-depcruise, github, dot, mermaid, text, or plugin/reporter
-    #[arg(short, long, value_name = "FORMAT", default_value = "err")]
+    /// Output format: default, long, json, github, dot, mermaid, text, or plugin/reporter
+    #[arg(short, long, value_name = "FORMAT", default_value = "default")]
     pub format: String,
     /// Write the report to a file instead of stdout
     #[arg(short, long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
-    /// Only keep modules matching these globs (repeatable)
+    /// Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
     #[arg(long, value_name = "GLOB")]
-    pub include_only: Vec<String>,
-    /// Drop modules matching these globs (repeatable)
-    #[arg(long, value_name = "GLOB")]
-    pub exclude: Vec<String>,
-    /// Keep matching modules but do not follow their dependencies (repeatable)
-    #[arg(long, value_name = "GLOB")]
-    pub do_not_follow: Vec<String>,
-    /// Follow dependencies at most this many hops from the entries
+    pub ignore_pattern: Vec<String>,
+    /// Follow dependencies at most this many hops from the entries (dot and mermaid output)
     #[arg(long, value_name = "N")]
     pub max_depth: Option<u32>,
 
@@ -72,9 +64,6 @@ pub struct CheckArgs {
     /// Exit with an error when there are any warnings
     #[arg(long)]
     pub deny_warnings: bool,
-    /// Exit with the number of errors (dependency-cruiser's behaviour)
-    #[arg(long)]
-    pub compat: bool,
 
     /// Worker threads (default: all cores)
     #[arg(long, value_name = "N")]
@@ -87,18 +76,6 @@ pub struct CheckArgs {
     /// Run as if started in DIR
     #[arg(long, value_name = "DIR")]
     pub cwd: Option<PathBuf>,
-}
-
-#[derive(Debug, Args)]
-pub struct FmtArgs {
-    /// A result saved with `--format json`
-    pub input: PathBuf,
-    #[arg(short, long, value_name = "FORMAT", default_value = "err")]
-    pub format: String,
-    #[arg(short, long, value_name = "FILE")]
-    pub output: Option<PathBuf>,
-    #[arg(long, value_enum, default_value = "auto")]
-    pub color: ColorChoice,
 }
 
 #[derive(Debug, Args)]
