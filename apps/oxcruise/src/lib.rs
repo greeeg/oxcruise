@@ -12,4 +12,4 @@ mod runner;
 
 pub use args::{CheckArgs, Cli, ColorChoice, Command};
 pub use result::CliRunResult;
-pub use runner::CliRunner;
+pub use runner::{Analysis, CliRunner};

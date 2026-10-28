@@ -230,7 +230,21 @@ describe("cruise() programmatic API", () => {
       "src/db/allowed.ts",
       "src/db/query.ts",
     ]);
-    expect(g.module("src/db/query.ts")!.dependents).toEqual(["src/ui/page.ts"]);
+    expect(g.module("src/db/query.ts")!.dependents.map((m) => m.path)).toEqual(["src/ui/page.ts"]);
+  });
+
+  test("module handles are built once and share the plugin graph", async () => {
+    const g = await cruise({
+      cwd: join(fixtures, "plugin-project"),
+      noConfig: true,
+      paths: ["src"],
+    });
+    expect(g.modules).toBe(g.modules);
+    const page = g.module("src/ui/page.ts")!;
+    expect(g.module("src/ui/page.ts")).toBe(page);
+    expect(g.modules).toContain(page);
+    expect(page.module).toBe(g.graph.module("src/ui/page.ts"));
+    expect(g.modules.every((m) => m.kind !== "unresolved")).toBe(true);
   });
 
   test("transitive dependencies follow the graph", async () => {
