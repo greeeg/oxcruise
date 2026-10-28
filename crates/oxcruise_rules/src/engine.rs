@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
-use oxcruise_core::{Graph, ModuleId, Severity, Violation};
+use oxcruise_core::{Graph, Loc, ModuleId, Severity, Violation};
 use oxcruise_graph::PathMatcher;
 use oxcruise_graph::analyses::BitSet;
 use oxcruise_resolve::WorkspacePackage;
@@ -321,19 +321,8 @@ impl Engine {
         let (cycles, suppressed_cycles) = dedupe_cycles(graph, cycle_violations);
         suppressed += suppressed_cycles;
         violations.extend(cycles);
-        violations.sort_by(|a, b| {
-            let key = |v: &Violation| {
-                (
-                    rank(v.severity),
-                    graph.module(v.from).path.clone(),
-                    v.loc,
-                    v.to.map(|t| graph.module(t).path.clone()),
-                    v.rule.clone(),
-                    v.message.clone(),
-                )
-            };
-            key(a).cmp(&key(b))
-        });
+        // module ids follow path order (see `Graph::build`), so comparing ids compares paths
+        violations.sort_by(|a, b| sort_key(a).cmp(&sort_key(b)));
 
         for plan in &self.plans {
             if let Source::Declarative(c) = &plan.source {
@@ -481,6 +470,18 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
         out.extend(cx.into_violations());
     }
     out
+}
+
+#[allow(clippy::type_complexity)]
+fn sort_key(v: &Violation) -> (u8, ModuleId, Option<Loc>, Option<ModuleId>, &str, &str) {
+    (
+        rank(v.severity),
+        v.from,
+        v.loc,
+        v.to,
+        v.rule.as_str(),
+        v.message.as_str(),
+    )
 }
 
 /// A violation on an edge that carries the cycle it belongs to.
