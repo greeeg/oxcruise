@@ -5,7 +5,10 @@
   "type": "object",
   "properties": {
     "$schema": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "default": null
     },
     "calls": {
@@ -110,7 +113,10 @@
         }
       },
       "additionalProperties": false,
-      "required": ["name", "specifier"]
+      "required": [
+        "name",
+        "specifier"
+      ]
     },
     "ForbidRule": {
       "description": "A forbidden dependency: an import from `from` to `to` is a violation.",
@@ -129,7 +135,10 @@
         },
         "message": {
           "description": "Why the dependency is forbidden; shown instead of the generic message.",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "name": {
           "type": "string"
@@ -150,7 +159,9 @@
         }
       },
       "additionalProperties": false,
-      "required": ["name"]
+      "required": [
+        "name"
+      ]
     },
     "JsPlugin": {
       "description": "A JS/TS plugin: a path or package name, or the same with the name its rules are registered under.",
@@ -192,7 +203,11 @@
     "Level": {
       "description": "Severity of a rule. `off` disables it.",
       "type": "string",
-      "enum": ["off", "warn", "error"]
+      "enum": [
+        "off",
+        "warn",
+        "error"
+      ]
     },
     "OneOrMany": {
       "anyOf": [
@@ -252,14 +267,19 @@
         }
       },
       "additionalProperties": false,
-      "required": ["files"]
+      "required": [
+        "files"
+      ]
     },
     "Relation": {
       "description": "How two modules relate, for the `relation` condition.",
       "oneOf": [
         {
           "type": "string",
-          "enum": ["same-package", "cross-package"]
+          "enum": [
+            "same-package",
+            "cross-package"
+          ]
         },
         {
           "description": "`to` is in the same folder as `from`.",
@@ -304,7 +324,10 @@
         },
         "tsconfig": {
           "description": "One tsconfig used for every file. Default: the nearest tsconfig of each file.",
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null
         }
       },
@@ -328,7 +351,10 @@
       "properties": {
         "dynamic": {
           "description": "The dependency is a dynamic `import()`.",
-          "type": ["boolean", "null"],
+          "type": [
+            "boolean",
+            "null"
+          ],
           "default": null
         },
         "kind": {
@@ -356,7 +382,10 @@
         },
         "reachable": {
           "description": "`to` is reachable from `from` through other modules.",
-          "type": ["boolean", "null"],
+          "type": [
+            "boolean",
+            "null"
+          ],
           "default": null
         },
         "relation": {
@@ -373,7 +402,10 @@
         },
         "typeOnly": {
           "description": "The dependency is `import type` / `export type` only.",
-          "type": ["boolean", "null"],
+          "type": [
+            "boolean",
+            "null"
+          ],
           "default": null
         }
       },
