@@ -76,6 +76,54 @@ fn no_circular_ignore_removes_modules_before_searching() {
 }
 
 #[test]
+fn no_circular_caps_searches_per_component() {
+    // a ring of five plus an unrelated two-cycle
+    let lines = [
+        "r0.ts -> r1.ts",
+        "r1.ts -> r2.ts",
+        "r2.ts -> r3.ts",
+        "r3.ts -> r4.ts",
+        "r4.ts -> r0.ts",
+        "x.ts -> y.ts",
+        "y.ts -> x.ts",
+    ];
+    let capped = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 2 }));
+    let r = capped.run(&lines);
+    let messages: Vec<_> = r.violations.iter().map(|v| v.message.as_str()).collect();
+    // the ring is one cycle, found from its first edges; the summary names what was left out
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("3 more dependencies in this group of 5 modules")),
+        "{messages:?}"
+    );
+    // the other component is under the limit and untouched
+    assert!(messages.iter().any(|m| m.contains("x.ts → y.ts → x.ts")));
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|m| m.contains("more dependencies"))
+            .count(),
+        1
+    );
+    insta::assert_snapshot!("no_circular_capped", capped.fail(&lines));
+
+    // the default limit and `0` leave small cycles alone
+    let r = Tester::rule("no-circular", none()).run(&lines);
+    assert!(
+        r.violations
+            .iter()
+            .all(|v| !v.message.contains("more dependencies"))
+    );
+    let r = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 0 })).run(&lines);
+    assert!(
+        r.violations
+            .iter()
+            .all(|v| !v.message.contains("more dependencies"))
+    );
+}
+
+#[test]
 fn no_orphans() {
     // the defaults cover declarations and tool configuration
     let t = Tester::rule("no-orphans", none());

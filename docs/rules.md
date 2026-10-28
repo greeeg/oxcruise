@@ -43,6 +43,12 @@ default, so a cycle that exists only through `import type` is not reported.
 a barrel file everything legitimately goes through. Use `overrides` to scope the rule to
 some files instead.
 
+`maxCyclesPerComponent`: a large tangle of modules has one cycle per dependency, and
+finding each costs a search of the whole tangle. Only this many dependencies per strongly
+connected component (the first ones in graph order, 100 by default) are searched; one
+extra violation on the component's first module says how many were left out. `0` searches
+them all.
+
 ### no-cross-package-relative
 
 _Category: correctness, `error` by default. Since 0.1.0._
