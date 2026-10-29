@@ -1,0 +1,39 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: o.stdout
+---
+Validate and visualise JS/TS dependency graphs
+
+Usage: oxcruise [OPTIONS] [PATHS]...
+
+Arguments:
+  [PATHS]...  Files, directories or globs to start from (default: `entries` from the config, or `.`)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+Mode Options:
+      --init              Write a starter config (default oxcruise.config.ts; -c picks the file and its format)
+      --migrate[=<FILE>]  Convert .dependency-cruiser.* (discovered, or FILE) to the -c target (default oxcruise.config.ts)
+      --rules             List the built-in rules by category; `-f json` prints them as JSON
+      --print-config      Print the resolved config (extends applied, every category with its level) as JSON
+
+Config Options:
+  -c, --config <FILE>  Config to read; with --init or --migrate, the file to write
+
+Input Options:
+      --ignore-pattern <GLOB>  Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
+      --max-depth <N>          Follow dependencies at most this many hops from the entries (dot and mermaid output)
+
+Output Options:
+  -f, --format <FORMAT>  Output format: default, long, json, github, dot, mermaid, text, or plugin/reporter [default: default]
+      --quiet            Report errors only (warnings still count for the warning limits)
+
+Handle Warnings:
+      --max-warnings <N>  Exit with an error when there are more than N warnings
+      --deny-warnings     Exit with an error when there are any warnings
+
+Runtime Options:
+      --threads <N>  Worker threads (default: all cores)
+      --cwd <DIR>    Run as if started in DIR

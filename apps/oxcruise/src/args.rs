@@ -1,97 +1,115 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, Parser};
+
+/// Flags that only make sense for a check; the file-writing modes refuse them.
+const CHECK_ONLY: &[&str] = &[
+    "paths",
+    "format",
+    "quiet",
+    "ignore_pattern",
+    "max_depth",
+    "max_warnings",
+    "deny_warnings",
+    "threads",
+];
 
 #[derive(Debug, Parser)]
 #[command(
     name = "oxcruise",
     version,
     about = "Validate and visualise JS/TS dependency graphs",
-    args_conflicts_with_subcommands = true
+    group(
+        ArgGroup::new("mode")
+            .args(["init", "migrate", "rules", "print_config"])
+            .multiple(false)
+    )
 )]
 pub struct Cli {
-    #[command(subcommand)]
-    pub command: Option<Command>,
-    #[command(flatten)]
-    pub check: CheckArgs,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum Command {
-    /// Check the dependency graph against the rules (the default)
-    Check(CheckArgs),
-    /// Convert a .dependency-cruiser.* config to an oxcruise config, with warnings for what does not map
-    Migrate(MigrateArgs),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
-pub enum ColorChoice {
-    #[default]
-    Auto,
-    Always,
-    Never,
-}
-
-#[derive(Debug, Args, Default)]
-pub struct CheckArgs {
     /// Files, directories or globs to start from (default: `entries` from the config, or `.`)
     pub paths: Vec<String>,
 
-    /// Config file (default: oxcruise.config.ts or .oxcruiserc.json in the working directory)
-    #[arg(short, long, value_name = "FILE")]
-    pub config: Option<PathBuf>,
-    /// Ignore config files and use the defaults
-    #[arg(long)]
-    pub no_config: bool,
+    /// Write a starter config (default oxcruise.config.ts; -c picks the file and its format)
+    #[arg(long, help_heading = "Mode Options", conflicts_with_all = CHECK_ONLY)]
+    pub init: bool,
+    /// Convert .dependency-cruiser.* (discovered, or FILE) to the -c target (default oxcruise.config.ts)
+    #[arg(
+        long,
+        value_name = "FILE",
+        num_args = 0..=1,
+        require_equals = true,
+        help_heading = "Mode Options",
+        conflicts_with_all = CHECK_ONLY
+    )]
+    pub migrate: Option<Option<PathBuf>>,
+    /// List the built-in rules by category; `-f json` prints them as JSON
+    #[arg(long, help_heading = "Mode Options")]
+    pub rules: bool,
+    /// Print the resolved config (extends applied, every category with its level) as JSON
+    #[arg(long, help_heading = "Mode Options")]
+    pub print_config: bool,
 
-    /// Output format: default, long, json, github, dot, mermaid, text, or plugin/reporter
-    #[arg(short, long, value_name = "FORMAT", default_value = "default")]
-    pub format: String,
-    /// Write the report to a file instead of stdout
-    #[arg(short, long, value_name = "FILE")]
-    pub output: Option<PathBuf>,
+    /// Config to read; with --init or --migrate, the file to write
+    #[arg(short, long, value_name = "FILE", help_heading = "Config Options")]
+    pub config: Option<PathBuf>,
 
     /// Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
-    #[arg(long, value_name = "GLOB")]
+    #[arg(long, value_name = "GLOB", help_heading = "Input Options")]
     pub ignore_pattern: Vec<String>,
     /// Follow dependencies at most this many hops from the entries (dot and mermaid output)
-    #[arg(long, value_name = "N")]
+    #[arg(long, value_name = "N", help_heading = "Input Options")]
     pub max_depth: Option<u32>,
 
+    /// Output format: default, long, json, github, dot, mermaid, text, or plugin/reporter
+    #[arg(
+        short,
+        long,
+        value_name = "FORMAT",
+        default_value = "default",
+        help_heading = "Output Options"
+    )]
+    pub format: String,
+    /// Report errors only (warnings still count for the warning limits)
+    #[arg(long, help_heading = "Output Options")]
+    pub quiet: bool,
+
     /// Exit with an error when there are more than N warnings
-    #[arg(long, value_name = "N")]
+    #[arg(long, value_name = "N", help_heading = "Handle Warnings")]
     pub max_warnings: Option<u32>,
     /// Exit with an error when there are any warnings
-    #[arg(long)]
+    #[arg(long, help_heading = "Handle Warnings")]
     pub deny_warnings: bool,
 
     /// Worker threads (default: all cores)
-    #[arg(long, value_name = "N")]
+    #[arg(long, value_name = "N", help_heading = "Runtime Options")]
     pub threads: Option<usize>,
-    /// Print the built-in rules as JSON and exit
-    #[arg(long)]
-    pub rules: bool,
-    #[arg(long, value_enum, default_value = "auto")]
-    pub color: ColorChoice,
     /// Run as if started in DIR
-    #[arg(long, value_name = "DIR")]
+    #[arg(long, value_name = "DIR", help_heading = "Runtime Options")]
     pub cwd: Option<PathBuf>,
 }
 
-#[derive(Debug, Args)]
-pub struct MigrateArgs {
-    /// The dependency-cruiser config to read (default: discover .dependency-cruiser.* in the cwd)
-    #[arg(short, long, value_name = "FILE")]
-    pub config: Option<PathBuf>,
-    /// Where to write (default: oxcruise.config.ts, or .oxcruiserc.json with --json)
-    #[arg(short, long, value_name = "FILE")]
-    pub output: Option<PathBuf>,
-    /// Write a JSON config instead of a TypeScript one
-    #[arg(long)]
-    pub json: bool,
-    /// Overwrite the output file if it exists
-    #[arg(long)]
-    pub force: bool,
-    #[arg(long, value_name = "DIR")]
-    pub cwd: Option<PathBuf>,
+/// What a run was asked to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Init,
+    Migrate,
+    Rules,
+    PrintConfig,
+    Check,
+}
+
+impl Cli {
+    pub fn mode(&self) -> Mode {
+        if self.init {
+            Mode::Init
+        } else if self.migrate.is_some() {
+            Mode::Migrate
+        } else if self.rules {
+            Mode::Rules
+        } else if self.print_config {
+            Mode::PrintConfig
+        } else {
+            Mode::Check
+        }
+    }
 }

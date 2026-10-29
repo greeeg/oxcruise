@@ -1,0 +1,16 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: ts
+---
+import { defineConfig } from "oxcruise";
+
+export default defineConfig({
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "forbid": []
+});

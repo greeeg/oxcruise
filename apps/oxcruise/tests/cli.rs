@@ -89,10 +89,12 @@ fn formats() {
 }
 
 #[test]
-fn check_subcommand_is_the_default() {
-    let a = run(&["packages", "-f", "text"]);
-    let b = run(&["check", "packages", "-f", "text"]);
-    assert_eq!(a.stdout, b.stdout);
+fn subcommand_names_are_just_paths() {
+    // there are no subcommands: `check` and `migrate` are paths that do not exist
+    for word in ["check", "migrate"] {
+        let o = run(&[word]);
+        assert_eq!(o.result, CliRunResult::InvalidOptions, "{word}");
+    }
 }
 
 #[test]
@@ -190,13 +192,19 @@ fn removed_flags_and_formats_are_rejected() {
         &["-f", "err"],
         &["-f", "err-long"],
         &["-f", "json-depcruise"],
+        &["-o", "result.json"],
+        &["--output", "result.json"],
+        &["--color", "never"],
+        &["--no-config"],
+        &["--force"],
+        &["migrate", "--json"],
     ] {
         assert_eq!(run(args).result, CliRunResult::InvalidOptions, "{args:?}");
     }
 }
 
 #[test]
-fn config_discovery_and_no_config() {
+fn config_discovery() {
     let d = project(&[
         ("src/a.ts", "import './a';\n"),
         (
@@ -205,10 +213,6 @@ fn config_discovery_and_no_config() {
         ),
     ]);
     assert_eq!(run_in(d.path(), &[]).result, CliRunResult::Success);
-    // --no-config means the defaults, which flag the self-import (correctness: error)
-    let o = run_in(d.path(), &["src", "--no-config"]);
-    assert_eq!(o.result.code(), 1);
-    assert!(o.stdout.contains("no-circular"), "{}", o.stdout);
     let explicit = run_in(d.path(), &["--config", ".oxcruiserc.json"]);
     assert_eq!(explicit.result, CliRunResult::Success);
     let missing = run_in(d.path(), &["--config", "nope.json"]);
@@ -236,7 +240,7 @@ fn config_errors_are_reported_together() {
 
 #[test]
 fn dependency_cruiser_config_is_not_discovered() {
-    // only `oxcruise migrate` reads these; a check runs with the defaults and says nothing
+    // only `oxcruise --migrate` reads these; a check runs with the defaults and says nothing
     let d = project(&[
         ("src/a.ts", "import './b';\n"),
         ("src/b.ts", "export {};\n"),
@@ -320,26 +324,6 @@ fn js_plugins_need_the_npm_package() {
 }
 
 #[test]
-fn output_goes_to_a_file() {
-    let d = project(&[
-        ("src/a.ts", "import './b';\n"),
-        ("src/b.ts", "import './a';\n"),
-        (
-            ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "warn" } }"#,
-        ),
-    ]);
-    let p = d.path();
-    let o = run_in(p, &["-f", "json", "-o", "result.json"]);
-    assert_eq!(o.result, CliRunResult::Success);
-    assert!(o.stdout.is_empty(), "{}", o.stdout);
-    let saved: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(p.join("result.json")).unwrap()).unwrap();
-    assert_eq!(saved["summary"]["warn"], 1);
-    assert!(saved["summary"].get("info").is_none(), "{saved}");
-}
-
-#[test]
 fn migrate_writes_a_typescript_config() {
     let d = project(&[(
         ".dependency-cruiser.json",
@@ -356,20 +340,18 @@ fn migrate_writes_a_typescript_config() {
           }"#,
     )]);
     let p = d.path();
-    let o = run_in(p, &["migrate"]);
+    let o = run_in(p, &["--migrate"]);
     assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
     let written = std::fs::read_to_string(p.join("oxcruise.config.ts")).unwrap();
     insta::assert_snapshot!("migrate_ts", written);
     insta::assert_snapshot!("migrate_stderr", o.stderr);
 
-    // refuses to clobber, --force overwrites, --json writes JSON with a $schema
-    assert_eq!(run_in(p, &["migrate"]).result, CliRunResult::InvalidOptions);
+    // refuses to clobber; -c with a .json name writes JSON with a $schema
+    let again = run_in(p, &["--migrate"]);
+    assert_eq!(again.result, CliRunResult::InvalidOptions);
+    assert!(again.stderr.contains("already exists"), "{}", again.stderr);
     assert_eq!(
-        run_in(p, &["migrate", "--force"]).result,
-        CliRunResult::Success
-    );
-    assert_eq!(
-        run_in(p, &["migrate", "--json"]).result,
+        run_in(p, &["--migrate", "-c", ".oxcruiserc.json"]).result,
         CliRunResult::Success
     );
     let json = std::fs::read_to_string(p.join(".oxcruiserc.json")).unwrap();
@@ -389,8 +371,131 @@ fn migrate_writes_a_typescript_config() {
         again.stderr
     );
 
-    let none = run_in(tempfile::tempdir().unwrap().path(), &["migrate"]);
+    let none = run_in(tempfile::tempdir().unwrap().path(), &["--migrate"]);
     assert_eq!(none.result, CliRunResult::InvalidOptions);
+    assert!(none.stderr.contains("--migrate=FILE"), "{}", none.stderr);
+
+    // an explicit source, anywhere
+    let q = project(&[(
+        "legacy/dc.json",
+        r#"{ "forbidden": [{ "name": "no-b", "severity": "error", "from": {}, "to": { "path": "b" } }] }"#,
+    )]);
+    let o = run_in(q.path(), &["--migrate=legacy/dc.json"]);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    assert!(q.path().join("oxcruise.config.ts").is_file());
+}
+
+#[test]
+fn init_writes_a_config_that_loads() {
+    let d = project(&[("src/a.ts", "export {};\n")]);
+    let p = d.path();
+    let o = run_in(p, &["--init"]);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    assert!(o.stdout.starts_with("wrote "), "{}", o.stdout);
+    let ts = std::fs::read_to_string(p.join("oxcruise.config.ts")).unwrap();
+    insta::assert_snapshot!("init_ts", ts);
+
+    let again = run_in(p, &["--init"]);
+    assert_eq!(again.result, CliRunResult::InvalidOptions);
+    assert!(again.stderr.contains("already exists"), "{}", again.stderr);
+
+    let o = run_in(p, &["--init", "-c", ".oxcruiserc.json"]);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    let json = std::fs::read_to_string(p.join(".oxcruiserc.json")).unwrap();
+    insta::assert_snapshot!("init_json", json);
+
+    // the written JSON config is picked up and runs (the .ts one needs Node, so go through -c)
+    let ran = run_in(p, &["src", "-c", ".oxcruiserc.json"]);
+    assert_eq!(ran.result, CliRunResult::Success, "{}", ran.stderr);
+}
+
+#[test]
+fn rules_table_and_json() {
+    let table = run(&["--rules"]);
+    assert_eq!(table.result, CliRunResult::Success);
+    insta::assert_snapshot!("rules_table", table.stdout);
+
+    let json = run(&["--rules", "-f", "json"]);
+    assert_eq!(json.result, CliRunResult::Success);
+    let rules: serde_json::Value = serde_json::from_str(&json.stdout).unwrap();
+    assert!(
+        rules
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["name"] == "no-circular" && r["category"] == "correctness")
+    );
+
+    let bad = run(&["--rules", "-f", "dot"]);
+    assert_eq!(bad.result, CliRunResult::InvalidOptions);
+}
+
+#[test]
+fn print_config_fills_categories() {
+    let d = project(&[(
+        ".oxcruiserc.json",
+        r#"{ "entries": ["src"], "categories": { "style": "warn" } }"#,
+    )]);
+    let o = run_in(d.path(), &["--print-config"]);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    let v: serde_json::Value = serde_json::from_str(&o.stdout).unwrap();
+    assert_eq!(v["entries"], serde_json::json!(["src"]));
+    assert_eq!(
+        v["categories"],
+        serde_json::json!({
+            "correctness": "error", "suspicious": "warn", "style": "warn",
+            "restriction": "off", "nursery": "off"
+        })
+    );
+}
+
+#[test]
+fn quiet_hides_warnings_but_keeps_limits() {
+    let d = project(&[
+        ("src/a.ts", "import './b';\n"),
+        ("src/b.ts", "export {};\n"),
+        ("src/lonely.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src"], "rules": { "no-orphans": "warn" } }"#,
+        ),
+    ]);
+    let p = d.path();
+    let loud = run_in(p, &[]);
+    assert!(loud.stdout.contains("no-orphans"), "{}", loud.stdout);
+    let quiet = run_in(p, &["--quiet"]);
+    assert_eq!(quiet.result, CliRunResult::Success);
+    assert!(!quiet.stdout.contains("no-orphans"), "{}", quiet.stdout);
+    // the warning is still counted
+    assert!(matches!(
+        run_in(p, &["--quiet", "--deny-warnings"]).result,
+        CliRunResult::NoWarningsAllowed { warnings: 1 }
+    ));
+    assert!(matches!(
+        run_in(p, &["--quiet", "--max-warnings", "0"]).result,
+        CliRunResult::MaxWarningsExceeded { .. }
+    ));
+}
+
+#[test]
+fn modes_conflict() {
+    for args in [
+        &["--init", "--rules"][..],
+        &["--init", "--migrate"],
+        &["--rules", "--print-config"],
+        &["--init", "src"],
+        &["--migrate", "--quiet"],
+    ] {
+        let o = run(args);
+        assert_eq!(o.result.code(), 2, "{args:?}");
+        assert_eq!(o.result, CliRunResult::InvalidOptions, "{args:?}");
+    }
+}
+
+#[test]
+fn help_lists_the_sections() {
+    let o = run(&["--help"]);
+    insta::assert_snapshot!("help", o.stdout);
 }
 
 #[test]

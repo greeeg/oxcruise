@@ -6,9 +6,9 @@ use oxcruise_config::{OneOrMany, OxcruiseConfig};
 use oxcruise_graph::{CruiseOptions, PathMatcher};
 use oxcruise_resolve::TsconfigMode;
 
-use crate::args::CheckArgs;
+use crate::args::Cli;
 
-pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &CheckArgs) -> Result<CruiseOptions, String> {
+pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &Cli) -> Result<CruiseOptions, String> {
     let entries = if !args.paths.is_empty() {
         args.paths.clone()
     } else if !cfg.entries.is_empty() {

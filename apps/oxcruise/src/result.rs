@@ -3,7 +3,7 @@ use std::process::{ExitCode, Termination};
 /// How a run ended, which decides the process exit code.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliRunResult {
-    /// Nothing to report as failure (also `--rules`, `migrate`).
+    /// Nothing to report as failure (also `--rules`, `--init`, `--migrate`, `--print-config`).
     Success,
     /// Error-level violations were found.
     FoundErrors { errors: usize },

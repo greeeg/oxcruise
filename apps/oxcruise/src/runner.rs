@@ -4,14 +4,15 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use clap::Parser;
-use oxcruise_config::{JsConfigLoader, NodeSubprocessLoader};
+use oxcruise_config::{Category, JsConfigLoader, NodeSubprocessLoader};
+use oxcruise_core::Severity;
 use oxcruise_graph::cruise;
 use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
 use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
-use crate::args::{CheckArgs, Cli, ColorChoice, Command};
+use crate::args::{Cli, Mode};
 use crate::result::CliRunResult;
-use crate::{config_io, migrate, options};
+use crate::{config_io, init, migrate, options, rules_list};
 
 /// What a run found, before it is rendered.
 pub struct Analysis {
@@ -99,13 +100,39 @@ impl CliRunner {
             Ok(c) => c,
             Err(result) => return result,
         };
-        match cli.command {
-            None => self.check(&cli.check, out, err),
-            Some(Command::Check(a)) => self.check(&a, out, err),
-            Some(Command::Migrate(a)) => {
-                let cwd = self.resolve_cwd(a.cwd.as_deref());
-                migrate::run(&a, &cwd, self.js_loader.as_ref(), out, err)
+        match cli.mode() {
+            Mode::Init => {
+                let cwd = self.resolve_cwd(cli.cwd.as_deref());
+                init::run(cli.config.as_deref(), &cwd, out, err)
             }
+            Mode::Migrate => {
+                let cwd = self.resolve_cwd(cli.cwd.as_deref());
+                let source = cli.migrate.as_ref().and_then(|s| s.as_deref());
+                migrate::run(
+                    source,
+                    cli.config.as_deref(),
+                    &cwd,
+                    self.js_loader.as_ref(),
+                    out,
+                    err,
+                )
+            }
+            Mode::Rules => match cli.format.as_str() {
+                "json" => {
+                    rules_list::json(out);
+                    CliRunResult::Success
+                }
+                "default" => {
+                    rules_list::table(out);
+                    CliRunResult::Success
+                }
+                other => fail(
+                    err,
+                    format!("`--rules` supports `-f json`, not `-f {other}`"),
+                ),
+            },
+            Mode::PrintConfig => self.print_config(&cli, out, err),
+            Mode::Check => self.check(&cli, out, err),
         }
     }
 
@@ -113,11 +140,14 @@ impl CliRunner {
     /// Messages go to `err`; `Err` carries the failure that stopped the run.
     pub fn analyze_only(self, err: &mut dyn Write) -> Result<Analysis, CliRunResult> {
         let cli = self.parse(&mut std::io::sink(), err)?;
-        match &cli.command {
-            None => self.analyze(&cli.check, err),
-            Some(Command::Check(a)) => self.analyze(a, err),
-            Some(Command::Migrate(_)) => Err(fail(err, "`migrate` is not a cruise")),
-        }
+        let not_a_cruise = match cli.mode() {
+            Mode::Check => return self.analyze(&cli, err),
+            Mode::Init => "--init",
+            Mode::Migrate => "--migrate",
+            Mode::Rules => "--rules",
+            Mode::PrintConfig => "--print-config",
+        };
+        Err(fail(err, format!("`{not_a_cruise}` is not a cruise")))
     }
 
     fn resolve_cwd(&self, flag: Option<&Path>) -> PathBuf {
@@ -133,35 +163,44 @@ impl CliRunner {
         }
     }
 
-    fn color(&self, choice: ColorChoice, to_file: bool) -> bool {
-        match choice {
-            ColorChoice::Always => true,
-            ColorChoice::Never => false,
-            ColorChoice::Auto => {
-                self.stdout_is_tty && !to_file && std::env::var_os("NO_COLOR").is_none()
-            }
+    /// On for a terminal unless `NO_COLOR` is set; a non-empty `FORCE_COLOR` (not `0`) forces it on.
+    fn color(&self) -> bool {
+        let forced = std::env::var_os("FORCE_COLOR").is_some_and(|v| !v.is_empty() && v != "0");
+        forced || (self.stdout_is_tty && std::env::var_os("NO_COLOR").is_none())
+    }
+
+    fn print_config(&self, args: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> CliRunResult {
+        let cwd = match self.canonical_cwd(args) {
+            Ok(c) => c,
+            Err(e) => return fail(err, e),
+        };
+        let loaded = match config_io::load(&cwd, args.config.as_deref(), self.js_loader.as_ref()) {
+            Ok(l) => l,
+            Err(e) => return fail(err, e),
+        };
+        for w in &loaded.warnings {
+            let _ = writeln!(err, "warning: {w}");
+        }
+        let mut config = loaded.config;
+        for c in Category::ALL {
+            config
+                .categories
+                .entry(c)
+                .or_insert_with(|| c.default_level());
+        }
+        let json = serde_json::to_string_pretty(&config).expect("config serialises");
+        let _ = writeln!(out, "{json}");
+        CliRunResult::Success
+    }
+
+    fn canonical_cwd(&self, args: &Cli) -> Result<PathBuf, String> {
+        match self.resolve_cwd(args.cwd.as_deref()).canonicalize() {
+            Ok(c) => Ok(oxcruise_resolve::simplify_path(&c)),
+            Err(e) => Err(format!("cannot use working directory: {e}")),
         }
     }
 
-    fn check(&self, args: &CheckArgs, out: &mut dyn Write, err: &mut dyn Write) -> CliRunResult {
-        if args.rules {
-            let list: Vec<_> = builtin_rules()
-                .into_iter()
-                .map(|r| {
-                    serde_json::json!({
-                        "name": r.name, "category": r.category.as_str(), "version": r.version,
-                        "docs": r.docs,
-                    })
-                })
-                .collect();
-            let _ = writeln!(
-                out,
-                "{}",
-                serde_json::to_string_pretty(&list).expect("json")
-            );
-            return CliRunResult::Success;
-        }
-
+    fn check(&self, args: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> CliRunResult {
         let format: OutputFormat = match args.format.parse() {
             Ok(f) => f,
             Err(e) => return fail(err, e),
@@ -180,6 +219,15 @@ impl CliRunner {
             errors,
             warnings,
         } = analysis;
+        // the counts above already include the warnings that are not shown
+        let violations = if args.quiet {
+            violations
+                .into_iter()
+                .filter(|v| v.severity == Severity::Error)
+                .collect()
+        } else {
+            violations
+        };
         let result = CruiseResult::build(
             &graph,
             &workspace,
@@ -190,20 +238,13 @@ impl CliRunner {
         );
 
         let reporter_opts = ReporterOptions {
-            color: self.color(args.color, args.output.is_some()),
+            color: self.color(),
             rule_docs: builtin_rules()
                 .into_iter()
                 .map(|r| (r.name.to_string(), r.docs.to_string()))
                 .collect(),
         };
-        if let Err(e) = self.write_report(
-            &format,
-            &result,
-            &reporter_opts,
-            args.output.as_deref(),
-            &cwd,
-            out,
-        ) {
+        if let Err(e) = self.write_report(&format, &result, &reporter_opts, out) {
             return fail(err, e);
         }
         if format == OutputFormat::Human || format == OutputFormat::Long {
@@ -238,18 +279,13 @@ impl CliRunner {
     }
 
     /// Everything up to the report: config, graph, rules.
-    fn analyze(&self, args: &CheckArgs, err: &mut dyn Write) -> Result<Analysis, CliRunResult> {
-        let cwd = match self.resolve_cwd(args.cwd.as_deref()).canonicalize() {
-            Ok(c) => oxcruise_resolve::simplify_path(&c),
-            Err(e) => return Err(fail(err, format!("cannot use working directory: {e}"))),
+    fn analyze(&self, args: &Cli, err: &mut dyn Write) -> Result<Analysis, CliRunResult> {
+        let cwd = match self.canonical_cwd(args) {
+            Ok(c) => c,
+            Err(e) => return Err(fail(err, e)),
         };
 
-        let loaded = match config_io::load(
-            &cwd,
-            args.config.as_deref(),
-            args.no_config,
-            self.js_loader.as_ref(),
-        ) {
+        let loaded = match config_io::load(&cwd, args.config.as_deref(), self.js_loader.as_ref()) {
             Ok(l) => l,
             Err(e) => return Err(fail(err, e)),
         };
@@ -326,27 +362,10 @@ impl CliRunner {
         format: &OutputFormat,
         result: &CruiseResult,
         opts: &ReporterOptions,
-        output: Option<&Path>,
-        cwd: &Path,
-        stdout: &mut dyn Write,
+        out: &mut dyn Write,
     ) -> Result<(), String> {
         let ext = self.external_reporters.as_deref();
-        match output {
-            Some(p) => {
-                let p = if p.is_absolute() {
-                    p.to_path_buf()
-                } else {
-                    cwd.join(p)
-                };
-                let mut file = std::io::BufWriter::new(
-                    std::fs::File::create(&p)
-                        .map_err(|e| format!("cannot create {}: {e}", p.display()))?,
-                );
-                render(format, result, opts, ext, &mut file).map_err(|e| e.to_string())?;
-                file.flush().map_err(|e| e.to_string())
-            }
-            None => render(format, result, opts, ext, stdout).map_err(|e| e.to_string()),
-        }
+        render(format, result, opts, ext, out).map_err(|e| e.to_string())
     }
 }
 

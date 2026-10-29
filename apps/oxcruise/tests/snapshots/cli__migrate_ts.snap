@@ -2,7 +2,7 @@
 source: apps/oxcruise/tests/cli.rs
 expression: written
 ---
-// Migrated from .dependency-cruiser.json by `oxcruise migrate`.
+// Migrated from .dependency-cruiser.json by `oxcruise --migrate`.
 // TODO: rule `no-circular` was dropped: `to.circular` is not supported (the built-in rule `no-circular` covers this)
 // TODO: rule `needs-license` was dropped: `to.license` is not supported (write a JS plugin rule for it)
 // TODO: rule `not-in-prod`: severity `info` does not exist in oxcruise and was mapped to `warn`

@@ -1,0 +1,28 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: table.stdout
+---
+correctness (default: error)
+  no-circular                Reports dependencies that are part of a circular chain of imports and shows the shortest cycle through each of them.
+  no-cross-package-relative  Reports relative imports (`../other-package/src/x`) that reach into another workspace package.
+  no-dev-deps-in-prod        Reports production modules importing packages that are only in `devDependencies`.
+  no-test-imports            Reports non-test modules importing test files (`*.test.*`, `*.spec.*`) or test directories (`test`, `tests`, `__tests__`, `__mocks__`).
+  no-undeclared-deps         Reports imports of installed npm packages that no `package.json` section declares.
+  no-unresolvable            Reports imports that could not be resolved to a file or package.
+
+suspicious (default: warn)
+  no-deprecated              Reports imports of Node.js built-in modules that Node has deprecated, such as `sys` or `punycode`, and of npm packages whose `package.json` marks them as deprecated.
+  no-duplicate-deps          Reports packages declared in more than one `package.json` section, for example both `dependencies` and `devDependencies`.
+  no-orphans                 Reports modules that no other module imports and that import nothing.
+
+style (default: off)
+
+restriction (default: off)
+  internal-modules           Go-style `internal` directories: code under `a/b/internal/` may only be imported from code under `a/b/`.
+  layers                     Enforces a layered architecture: each layer may import only the layers it lists in `allow`.
+  no-optional-deps           Reports use of optional dependencies, which may not be installed.
+  no-peer-deps               Reports use of peer dependencies, which the consuming project must provide.
+
+nursery (default: off)
+
+13 rules
