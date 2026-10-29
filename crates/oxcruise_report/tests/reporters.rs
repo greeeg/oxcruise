@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use oxcruise_config::preset;
+use oxcruise_config::OxcruiseConfig;
 use oxcruise_graph::{CruiseOptions, cruise};
 use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
 use oxcruise_rules::{Engine, builtin_rules};
@@ -15,7 +15,7 @@ fn fixture() -> PathBuf {
 fn result() -> CruiseResult {
     let root = fixture();
     let out = cruise(&CruiseOptions::new(&root, vec!["packages".into()])).unwrap();
-    let config = preset("oxcruise:recommended").unwrap();
+    let config = OxcruiseConfig::default();
     let run = Engine::new(&config, None)
         .unwrap()
         .run(&out.graph, &root, &out.workspace);
@@ -40,18 +40,18 @@ fn plain() -> ReporterOptions {
 }
 
 #[test]
-fn err() {
-    insta::assert_snapshot!(rendered("err", &plain()));
+fn default_format() {
+    insta::assert_snapshot!(rendered("default", &plain()));
 }
 
 #[test]
-fn err_long_adds_rule_docs() {
+fn long_adds_rule_docs() {
     let docs = builtin_rules()
         .into_iter()
         .map(|r| (r.name.to_string(), r.docs.to_string()))
         .collect();
     let out = rendered(
-        "err-long",
+        "long",
         &ReporterOptions {
             rule_docs: docs,
             ..Default::default()
@@ -62,15 +62,15 @@ fn err_long_adds_rule_docs() {
         out.contains("Reports dependencies that are part of a circular chain"),
         "{out}"
     );
-    assert!(!rendered("err", &plain()).contains("About `"));
+    assert!(!rendered("default", &plain()).contains("About `"));
 }
 
 #[test]
-fn err_color_only_when_asked() {
-    assert!(!rendered("err", &plain()).contains('\x1b'));
+fn color_only_when_asked() {
+    assert!(!rendered("default", &plain()).contains('\x1b'));
     assert!(
         rendered(
-            "err",
+            "default",
             &ReporterOptions {
                 color: true,
                 ..Default::default()
@@ -83,14 +83,6 @@ fn err_color_only_when_asked() {
 #[test]
 fn json() {
     insta::assert_snapshot!(rendered("json", &plain()));
-}
-
-#[test]
-fn json_depcruise() {
-    // compact on the wire, pretty in the snapshot so it can be reviewed
-    let value: serde_json::Value =
-        serde_json::from_str(&rendered("json-depcruise", &plain())).unwrap();
-    insta::assert_snapshot!(serde_json::to_string_pretty(&value).unwrap());
 }
 
 #[test]
@@ -109,7 +101,7 @@ fn graph_formats() {
 fn saved_json_renders_the_same_as_a_live_run() {
     let live = result();
     let saved: CruiseResult = serde_json::from_str(&serde_json::to_string(&live).unwrap()).unwrap();
-    for f in ["dot", "mermaid", "text", "github", "json-depcruise"] {
+    for f in ["dot", "mermaid", "text", "github"] {
         let fmt: OutputFormat = f.parse().unwrap();
         let (mut a, mut b) = (vec![], vec![]);
         render(&fmt, &live, &plain(), None, &mut a).unwrap();

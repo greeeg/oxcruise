@@ -18,7 +18,7 @@ error[no-circular]: circular dependency: src/a.ts → src/b.ts → src/a.ts
      ╭─▶ src/a.ts
      ╰── src/b.ts
 
-✖ 1 problem (1 error, 0 warnings, 0 info) in 24 modules, 31 dependencies
+✖ 1 problem (1 error, 0 warnings) in 24 modules, 31 dependencies
 ```
 
 ## Why
@@ -28,21 +28,23 @@ error[no-circular]: circular dependency: src/a.ts → src/b.ts → src/a.ts
 * **One parser, no peer dependencies.** TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro, with exact `type-only` information.
   No `typescript` install needed.
 * **Monorepo-aware.** The nearest tsconfig per file, workspace packages, `#imports`.
-* **Rules that say what you mean.** Layers, `internal/` folders, named captures, relation predicates
-  (`descendant-of-from-parent`), cycles with edge predicates ("only cycles that exist at runtime").
+* **Good defaults, few knobs.** Like oxlint: rules come in categories (`correctness` is on as `error`, `suspicious` as
+  `warn`), globs are the only pattern language, and cycles that exist only through `import type` are not reported.
+* **Rules that say what you mean.** Layers, `internal/` folders, `{name}` captures and `!` negation in globs
+  (`"to": ["src/features/**", "!src/features/{feature}/**"]`), relation predicates (`descendant-of-from-parent`).
 * **Plugins in JS/TS** over the finished graph, plus plugin reporters, plus a programmatic API for architecture tests.
 * **Inline suppression** with `// oxcruise-ignore-next-line no-circular -- reason`.
-* **A migration path.** Reads your `.dependency-cruiser.*` as is; `oxcruise migrate` converts it;
-  `-f json-depcruise` keeps downstream tooling working.
+* **A migration path.** `oxcruise migrate` converts your `.dependency-cruiser.*` and says what it could not carry over.
 
 ## Quick start
 
 ```sh
 npm i -D oxcruise
-npx oxcruise                       # recommended preset, or your config
+npx oxcruise --init                # write a starter oxcruise.config.ts
+npx oxcruise                       # your config, or the defaults
 npx oxcruise src -f dot | dot -Tsvg > graph.svg
 npx oxcruise -f github             # annotations in GitHub Actions
-npx oxcruise --rules               # the built-in rules, as JSON
+npx oxcruise --rules               # the built-in rules by category (-f json for JSON)
 ```
 
 ```ts
@@ -50,18 +52,25 @@ npx oxcruise --rules               # the built-in rules, as JSON
 import { defineConfig } from "oxcruise";
 
 export default defineConfig({
-  extends: ["oxcruise:recommended"],
   entries: ["src"],
+  ignorePatterns: ["src/generated/**"],           // .gitignore is always honoured
+  categories: { correctness: "error", suspicious: "warn" },   // this is the default
   rules: {
-    "no-circular": ["error", { ignoreTypeOnly: true }],
+    "no-circular": "error",
     layers: ["error", { layers: { ui: "src/ui/**", domain: "src/domain/**" }, allow: { ui: ["domain"], domain: [] } }],
   },
   forbid: [
-    { name: "feature-isolation", from: "src/features/{feature}/**",
-      to: { path: "src/features/**", pathNot: "src/features/{feature}/**" } },
+    { name: "feature-isolation", message: "features must not import each other",
+      from: "src/features/{feature}/**",
+      to: ["src/features/**", "!src/features/{feature}/**"] },
+    { name: "no-node-in-browser", from: "src/web/**", to: { kind: "builtin" } },
   ],
+  overrides: [{ files: ["scripts/**"], rules: { "no-dev-deps-in-prod": "off" } }],
 });
 ```
+
+The config is one `oxcruise.config.ts` or `.oxcruiserc.json` (comments allowed), `$schema` for editors. See
+[Configuration](docs/architecture.md#configuration) for every key.
 
 A plugin rule and the programmatic API:
 

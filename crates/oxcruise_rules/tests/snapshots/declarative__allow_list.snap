@@ -1,6 +1,0 @@
----
-source: crates/oxcruise_rules/tests/declarative.rs
-expression: out
----
-warn not-in-allowed src/a.ts:1:1 -> lib/c.ts: src/a.ts → lib/c.ts is not allowed by any `allow` rule
-warn not-in-allowed src/a.ts:2:1 -> lodash: src/a.ts → lodash is not allowed by any `allow` rule

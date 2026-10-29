@@ -1,5 +1,0 @@
----
-source: crates/oxcruise_rules/tests/declarative.rs
-expression: "tester.fail(&[\"src/pages/home.tsx -> src/shared/x.ts\",\n\"src/pages/about.tsx -> src/layout/main.tsx\"])"
----
-error pages-use-layout src/pages/home.tsx: module lacks a required dependency

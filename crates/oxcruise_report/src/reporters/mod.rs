@@ -1,4 +1,3 @@
-mod depcruise;
 mod dot;
 mod err;
 mod github;
@@ -11,9 +10,9 @@ use crate::{CruiseResult, OutputFormat};
 
 #[derive(Debug, Clone, Default)]
 pub struct ReporterOptions {
-    /// ANSI colors in `err` output.
+    /// ANSI colors in `default` output.
     pub color: bool,
-    /// Rule documentation for `err-long`: `(rule name, docs)`.
+    /// Rule documentation for `long`: `(rule name, docs)`.
     pub rule_docs: Vec<(String, String)>,
 }
 
@@ -34,12 +33,11 @@ pub fn render(
 ) -> io::Result<()> {
     match format {
         OutputFormat::Human => err::render(result, opts, false, out),
-        OutputFormat::ErrLong => err::render(result, opts, true, out),
+        OutputFormat::Long => err::render(result, opts, true, out),
         OutputFormat::Json => {
             serde_json::to_writer_pretty(&mut *out, result).map_err(io::Error::other)?;
             writeln!(out)
         }
-        OutputFormat::JsonDepcruise => depcruise::render(result, out),
         OutputFormat::Github => github::render(result, out),
         OutputFormat::Dot => dot::render(result, out),
         OutputFormat::Mermaid => mermaid::render(result, out),

@@ -46,8 +46,6 @@ flowchart LR
   n18 --> n19
   linkStyle 0 stroke:red,stroke-width:2px
   linkStyle 1 stroke:red,stroke-width:2px
-  linkStyle 2 stroke:red,stroke-width:2px
   linkStyle 5 stroke:red,stroke-width:2px
   linkStyle 8 stroke:red,stroke-width:2px
   linkStyle 17 stroke:red,stroke-width:2px
-  linkStyle 18 stroke:red,stroke-width:2px

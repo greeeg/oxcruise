@@ -29,8 +29,9 @@ export async function runCli(cwd: string, args: string[]): Promise<CliOutput> {
   const { runCaptured } = await loadNative();
   const { createHost } = await import("../src-js/host.ts");
   const host = createHost();
+  const argv = ["--cwd", cwd, ...args];
   const r = await runCaptured(
-    ["--cwd", cwd, "--color", "never", ...args],
+    argv,
     (req) => host.loadPlugin(req),
     (req) => host.runRules(req),
     (req) => host.renderReport(req),

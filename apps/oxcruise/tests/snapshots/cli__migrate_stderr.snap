@@ -2,5 +2,7 @@
 source: apps/oxcruise/tests/cli.rs
 expression: o.stderr
 ---
-warning: <cwd>/.dependency-cruiser.json: rule `needs-license` skipped: unsupported `to.license`
+warning: <cwd>/.dependency-cruiser.json: rule `no-circular` was dropped: `to.circular` is not supported (the built-in rule `no-circular` covers this)
+warning: <cwd>/.dependency-cruiser.json: rule `needs-license` was dropped: `to.license` is not supported (write a JS plugin rule for it)
+warning: <cwd>/.dependency-cruiser.json: rule `not-in-prod`: severity `info` does not exist in oxcruise and was mapped to `warn`
 warning: <cwd>/.dependency-cruiser.json: `options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases

@@ -1,32 +1,20 @@
-//! Locating and loading the config for a run.
+//! Locating, loading and writing the config for a run.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use oxcruise_config::{ConfigLoader, JsConfigLoader, OxcruiseConfig, discover, preset};
+use oxcruise_config::{ConfigLoader, JsConfigLoader, OxcruiseConfig, discover};
 
 pub struct Loaded {
     pub config: OxcruiseConfig,
-    pub path: Option<PathBuf>,
     pub warnings: Vec<String>,
-    pub imported_from_depcruise: bool,
 }
 
-/// `--no-config` and "no file found" both give the recommended preset.
+/// "No file found" gives the defaults.
 pub fn load(
     cwd: &Path,
     explicit: Option<&Path>,
-    no_config: bool,
     js: &dyn JsConfigLoader,
 ) -> Result<Loaded, String> {
-    let default = || Loaded {
-        config: preset("oxcruise:recommended").expect("built-in preset"),
-        path: None,
-        warnings: vec![],
-        imported_from_depcruise: false,
-    };
-    if no_config {
-        return Ok(default());
-    }
     let path = match explicit {
         Some(p) => {
             let p = if p.is_absolute() {
@@ -41,7 +29,12 @@ pub fn load(
         }
         None => match discover(cwd) {
             Some(p) => p,
-            None => return Ok(default()),
+            None => {
+                return Ok(Loaded {
+                    config: OxcruiseConfig::default(),
+                    warnings: vec![],
+                });
+            }
         },
     };
     let loaded = ConfigLoader::new(js)
@@ -49,8 +42,47 @@ pub fn load(
         .map_err(|e| e.to_string())?;
     Ok(Loaded {
         config: loaded.config,
-        path: loaded.path,
         warnings: loaded.warnings,
-        imported_from_depcruise: loaded.imported_from_depcruise,
     })
+}
+
+/// Write `json` as a new config file, never over an existing one. A `.json` target gets a
+/// `$schema`; anything else gets `defineConfig(...)` preceded by one `//` line per header line.
+pub fn write_new(target: &Path, json: serde_json::Value, header: &[String]) -> Result<(), String> {
+    if target.exists() {
+        return Err(format!("{} already exists", target.display()));
+    }
+    let is_json = target.extension().is_some_and(|e| e == "json");
+    let body = if is_json {
+        let mut json = json;
+        if let Some(o) = json.as_object_mut() {
+            let mut with_schema = serde_json::Map::new();
+            with_schema.insert(
+                "$schema".into(),
+                "./node_modules/oxcruise/configuration_schema.json".into(),
+            );
+            with_schema.extend(std::mem::take(o));
+            json = with_schema.into();
+        }
+        serde_json::to_string_pretty(&json).expect("json") + "\n"
+    } else {
+        let mut s = String::new();
+        for line in header {
+            s.push_str(&format!("// {line}\n"));
+        }
+        s.push_str("import { defineConfig } from \"oxcruise\";\n\nexport default defineConfig(");
+        s.push_str(&serde_json::to_string_pretty(&json).expect("json"));
+        s.push_str(");\n");
+        s
+    };
+    std::fs::write(target, body).map_err(|e| format!("cannot write {}: {e}", target.display()))
+}
+
+/// `-c FILE` (relative to `cwd`), or `oxcruise.config.ts`: where `--init` and `--migrate` write.
+pub fn write_target(cwd: &Path, config: Option<&Path>) -> std::path::PathBuf {
+    match config {
+        Some(p) if p.is_absolute() => p.to_path_buf(),
+        Some(p) => cwd.join(p),
+        None => cwd.join("oxcruise.config.ts"),
+    }
 }

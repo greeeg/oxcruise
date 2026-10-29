@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/categories.rs
+expression: "run(json!({ \"categories\": {} }))"
+---
+error no-circular a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → a.ts
+warn no-orphans lonely.ts: this module is not imported by any module and imports nothing

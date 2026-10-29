@@ -98,7 +98,6 @@ pub struct ViolationOut {
 pub struct Summary {
     pub error: usize,
     pub warn: usize,
-    pub info: usize,
     pub suppressed: usize,
     pub total_modules: usize,
     pub total_dependencies: usize,
@@ -190,49 +189,60 @@ impl CruiseResult {
             })
             .collect();
 
-        let out: Vec<ViolationOut> = violations
-            .iter()
-            .map(|v| {
-                let kind = match (v.edge, v.path.len()) {
-                    (Some(_), n) if n > 0 => ViolationKind::Cycle,
-                    (Some(_), _) => ViolationKind::Dependency,
-                    (None, n) if n > 0 => ViolationKind::Reachability,
-                    (None, _) => ViolationKind::Module,
-                };
-                ViolationOut {
-                    rule: v.rule.clone(),
-                    severity: v.severity,
-                    kind,
-                    from: name(v.from),
-                    to: v.to.map(name),
-                    line: v.loc.map(|l| l.line),
-                    col: v.loc.map(|l| l.col),
-                    message: v.message.clone(),
-                    cycle: if kind == ViolationKind::Cycle || kind == ViolationKind::Reachability {
-                        hops(graph, &v.path)
-                    } else {
-                        vec![]
-                    },
-                    specifier_len: v.edge.map(|e| graph.edge(e).specifier.len() as u32 + 2),
-                }
-            })
-            .collect();
+        let out = violation_outs(graph, violations);
 
-        let count = |s| violations.iter().filter(|v| v.severity == s).count();
         CruiseResult {
             version: RESULT_VERSION,
             root,
-            summary: Summary {
-                error: count(Severity::Error),
-                warn: count(Severity::Warn),
-                info: count(Severity::Info),
-                suppressed,
-                total_modules: graph.module_count(),
-                total_dependencies: graph.edge_count(),
-            },
+            summary: Summary::new(graph, violations, suppressed),
             modules,
             violations: out,
             warnings,
+        }
+    }
+}
+
+/// The violations of a run in their output form.
+pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationOut> {
+    let name = |m| graph.module(m).path.clone();
+    violations
+        .iter()
+        .map(|v| {
+            let kind = match (v.edge, v.path.len()) {
+                (Some(_), n) if n > 0 => ViolationKind::Cycle,
+                (Some(_), _) => ViolationKind::Dependency,
+                (None, n) if n > 0 => ViolationKind::Reachability,
+                (None, _) => ViolationKind::Module,
+            };
+            ViolationOut {
+                rule: v.rule.clone(),
+                severity: v.severity,
+                kind,
+                from: name(v.from),
+                to: v.to.map(name),
+                line: v.loc.map(|l| l.line),
+                col: v.loc.map(|l| l.col),
+                message: v.message.clone(),
+                cycle: if kind == ViolationKind::Cycle || kind == ViolationKind::Reachability {
+                    hops(graph, &v.path)
+                } else {
+                    vec![]
+                },
+                specifier_len: v.edge.map(|e| graph.edge(e).specifier.len() as u32 + 2),
+            }
+        })
+        .collect()
+}
+
+impl Summary {
+    pub fn new(graph: &Graph, violations: &[Violation], suppressed: usize) -> Summary {
+        let count = |s| violations.iter().filter(|v| v.severity == s).count();
+        Summary {
+            error: count(Severity::Error),
+            warn: count(Severity::Warn),
+            suppressed,
+            total_modules: graph.module_count(),
+            total_dependencies: graph.edge_count(),
         }
     }
 }

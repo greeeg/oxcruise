@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "Tester::rule(\"no-circular\",\njson!({\n    \"ignore\": [\"index.ts\"]\n})).fail(&[\"a.ts -> index.ts\", \"index.ts -> a.ts\", \"x.ts -> y.ts\",\n\"y.ts -> x.ts\",])"
+---
+error no-circular x.ts:3:1 -> y.ts: circular dependency: x.ts → y.ts → x.ts

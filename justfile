@@ -67,7 +67,7 @@ bench:
 
 # Generate docs/rules.md from the built-in rule documentation
 rule-docs:
-    cargo run -q -p oxcruise -- --rules > /tmp/oxcruise-rules.json
+    cargo run -q -p oxcruise -- --rules -f json > /tmp/oxcruise-rules.json
     node tasks/website/rules-md.mjs /tmp/oxcruise-rules.json > docs/rules.md
 
 # Start a new built-in rule: prints where to put it

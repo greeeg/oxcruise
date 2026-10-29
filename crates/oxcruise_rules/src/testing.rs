@@ -29,7 +29,13 @@ impl Tester {
         Self::config(serde_json::json!({ "rules": { name: entry } }))
     }
 
-    pub fn config(json: serde_json::Value) -> Self {
+    /// A config as written by a user, except that no category is on unless the test says so, so
+    /// a test sees only the rules it names.
+    pub fn config(mut json: serde_json::Value) -> Self {
+        if let Some(o) = json.as_object_mut() {
+            o.entry("categories")
+                .or_insert(serde_json::json!({ "correctness": "off", "suspicious": "off" }));
+        }
         let config: OxcruiseConfig = serde_json::from_value(json).expect("valid test config");
         Self {
             config,

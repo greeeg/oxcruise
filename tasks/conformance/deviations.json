@@ -43,9 +43,19 @@
     "reason": "Same as above: non-relative AMD ids are not resolved against the requirejs config."
   },
   {
-    "target": "amd",
-    "kind": "violation-only-in-oxcruise",
-    "match": "local-module-in-drag",
-    "reason": "Consequence of the unresolved non-relative AMD id above (`not-to-unresolvable`, and the file it should have pointed to looks orphaned)."
+    "kind": "jsdoc-import-only-in-oxcruise",
+    "match": ".",
+    "reason": "JSDoc imports (`@import`, `import(\"x\")` in JSDoc comments) are always extracted by oxcruise. dependency-cruiser only detects them with `detectJSDocImports` AND `typescript` installed, and this run has no `typescript`. The module or edge exists in oxcruise only because of a JSDoc import; an import that is also written as a JSDoc import additionally gets the `jsdoc` and `type-only` kinds."
+  },
+  {
+    "target": "exotic-require",
+    "kind": "module-system-differs",
+    "match": "required-with-need",
+    "reason": "`exoticRequireStrings` is merged into `calls`. A callee in `calls` counts as an ES import (`import` condition) unless its name starts with `require`; dependency-cruiser treats exotic require strings as CommonJS requires."
+  },
+  {
+    "kind": "url-dependency-only-in-oxcruise",
+    "match": ".",
+    "reason": "`new URL(\"./x\", import.meta.url)` and `new Worker(new URL(..))` are always dependencies in oxcruise (the `extract.skipUrls` switch is gone); dependency-cruiser has no such dependency. Modules and edges that are reachable only through one are listed under this kind too."
   }
 ]

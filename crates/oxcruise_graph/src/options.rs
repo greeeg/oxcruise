@@ -11,17 +11,13 @@ pub struct CruiseOptions {
     pub root: PathBuf,
     /// Files, directories or globs (relative to `root`) to start from.
     pub entries: Vec<String>,
-    /// Modules matching this are not part of the graph at all.
-    pub exclude: PathMatcher,
-    /// If non-empty, only matching modules are part of the graph.
-    pub include_only: PathMatcher,
+    /// Modules matching this are not part of the graph at all. `.gitignore` is always honoured
+    /// and `node_modules` are always leaves.
+    pub ignore: PathMatcher,
     /// Matching modules are kept as leaves: present, but their dependencies are not explored.
     pub do_not_follow: PathMatcher,
     /// Explore at most this many hops from the entries.
     pub max_depth: Option<u32>,
-    /// Parse files inside `node_modules` instead of keeping them as leaves.
-    pub follow_npm: bool,
-    pub respect_gitignore: bool,
     pub extract: ExtractOptions,
     pub resolve: ResolveConfig,
     /// Worker threads; `None` uses all cores.
@@ -35,12 +31,9 @@ impl CruiseOptions {
             resolve: ResolveConfig::new(root.clone()),
             root,
             entries,
-            exclude: PathMatcher::default(),
-            include_only: PathMatcher::default(),
+            ignore: PathMatcher::default(),
             do_not_follow: PathMatcher::default(),
             max_depth: None,
-            follow_npm: false,
-            respect_gitignore: false,
             extract: ExtractOptions::default(),
             threads: None,
         }

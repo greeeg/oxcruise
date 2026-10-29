@@ -11,7 +11,6 @@ pub enum TsconfigMode {
     Auto,
     /// One explicit tsconfig for every file.
     File(PathBuf),
-    Disabled,
 }
 
 #[derive(Debug, Clone)]
@@ -20,16 +19,9 @@ pub struct ResolveConfig {
     pub root: PathBuf,
     /// `(prefix, targets)` aliases from config.
     pub alias: Vec<(String, Vec<String>)>,
-    /// Extra export/import condition names appended to the defaults.
+    /// Export/import condition names tried before `import`/`require`, `node` and `default`.
     pub conditions: Vec<String>,
-    pub main_fields: Option<Vec<String>>,
-    /// Explicit extension list. Never inferred from installed tooling.
-    pub extensions: Option<Vec<String>>,
     pub tsconfig: TsconfigMode,
-    /// Resolve workspace packages to their source rather than `dist` by
-    /// adding the `source_conditions` first.
-    pub prefer_source: bool,
-    pub source_conditions: Vec<String>,
 }
 
 impl ResolveConfig {
@@ -38,11 +30,7 @@ impl ResolveConfig {
             root: crate::simplify_path(&root.into()),
             alias: vec![],
             conditions: vec![],
-            main_fields: None,
-            extensions: None,
             tsconfig: TsconfigMode::Auto,
-            prefer_source: false,
-            source_conditions: vec!["source".into()],
         }
     }
 }
@@ -63,21 +51,20 @@ pub enum ResolveMode {
 }
 
 pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
-    let mut conditions: Vec<String> = vec![];
-    if c.prefer_source {
-        conditions.extend(c.source_conditions.iter().cloned());
-    }
     let runtime = match mode {
         ResolveMode::Esm => "import",
         ResolveMode::Cjs => "require",
     };
-    for n in [runtime, "node", "default"]
-        .map(String::from)
+    // user conditions first, so `["source"]` beats `import` for workspace packages
+    let mut conditions: Vec<String> = vec![];
+    for n in c
+        .conditions
         .iter()
-        .chain(&c.conditions)
+        .map(String::as_str)
+        .chain([runtime, "node", "default"])
     {
-        if !conditions.contains(n) {
-            conditions.push(n.clone());
+        if !conditions.iter().any(|c| c == n) {
+            conditions.push(n.to_string());
         }
     }
 
@@ -96,7 +83,6 @@ pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
                 config_file: crate::simplify_path(p),
                 references: TsconfigReferences::Auto,
             })),
-            TsconfigMode::Disabled => None,
         },
         alias: c
             .alias
@@ -117,14 +103,11 @@ pub(crate) fn to_oxc(c: &ResolveConfig, mode: ResolveMode) -> ResolveOptions {
             ext_alias(".mjs", &[".mjs", ".mts"]),
             ext_alias(".cjs", &[".cjs", ".cts"]),
         ],
-        extensions: c
-            .extensions
-            .clone()
-            .unwrap_or_else(|| DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect()),
-        main_fields: c.main_fields.clone().unwrap_or_else(|| match mode {
+        extensions: DEFAULT_EXTENSIONS.iter().map(|s| s.to_string()).collect(),
+        main_fields: match mode {
             ResolveMode::Esm => vec!["module".into(), "main".into()],
             ResolveMode::Cjs => vec!["main".into()],
-        }),
+        },
         builtin_modules: true,
         ..ResolveOptions::default()
     }

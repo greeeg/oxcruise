@@ -1,9 +1,9 @@
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use oxcruise_config::{ConfigLoader, JsConfigLoader};
 
-use crate::args::MigrateArgs;
+use crate::config_io;
 use crate::result::CliRunResult;
 
 const DEPCRUISE_NAMES: &[&str] = &[
@@ -13,21 +13,19 @@ const DEPCRUISE_NAMES: &[&str] = &[
     ".dependency-cruiser.mjs",
 ];
 
+/// Convert a dependency-cruiser config. `source` is `--migrate=FILE` (default: discover it in
+/// `cwd`), `target` is `-c FILE` (default `oxcruise.config.ts`).
 pub fn run(
-    args: &MigrateArgs,
+    source: Option<&Path>,
+    target: Option<&Path>,
     cwd: &Path,
     js: &dyn JsConfigLoader,
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> CliRunResult {
-    let source = match &args.config {
-        Some(p) => {
-            if p.is_absolute() {
-                p.clone()
-            } else {
-                cwd.join(p)
-            }
-        }
+    let source = match source {
+        Some(p) if p.is_absolute() => p.to_path_buf(),
+        Some(p) => cwd.join(p),
         None => match DEPCRUISE_NAMES
             .iter()
             .map(|n| cwd.join(n))
@@ -37,78 +35,39 @@ pub fn run(
             None => {
                 let _ = writeln!(
                     err,
-                    "error: no .dependency-cruiser.* config found in {}; pass --config",
+                    "error: no .dependency-cruiser.* config found in {}; pass --migrate=FILE",
                     cwd.display()
                 );
                 return CliRunResult::InvalidOptions;
             }
         },
     };
-    let target: PathBuf = match &args.output {
-        Some(p) => {
-            if p.is_absolute() {
-                p.clone()
-            } else {
-                cwd.join(p)
-            }
-        }
-        None => cwd.join(if args.json {
-            ".oxcruiserc.json"
-        } else {
-            "oxcruise.config.ts"
-        }),
-    };
-    if target.exists() && !args.force {
-        let _ = writeln!(
-            err,
-            "error: {} already exists; use --force to overwrite",
-            target.display()
-        );
+    let target = config_io::write_target(cwd, target);
+    if target.exists() {
+        let _ = writeln!(err, "error: {} already exists", target.display());
         return CliRunResult::InvalidOptions;
     }
 
-    let loaded = match ConfigLoader::new(js).load(&source) {
+    let loaded = match ConfigLoader::new(js).import_depcruise(&source) {
         Ok(l) => l,
         Err(e) => {
             let _ = writeln!(err, "error: {e}");
             return CliRunResult::InvalidOptions;
         }
     };
-    let mut json = loaded.config.to_minimal_json();
-    let body = if args.json {
-        if let Some(o) = json.as_object_mut() {
-            let mut with_schema = serde_json::Map::new();
-            with_schema.insert(
-                "$schema".into(),
-                "./node_modules/oxcruise/configuration_schema.json".into(),
-            );
-            with_schema.extend(std::mem::take(o));
-            json = with_schema.into();
-        }
-        serde_json::to_string_pretty(&json).expect("json") + "\n"
-    } else {
-        let mut s = String::new();
-        s.push_str(&format!(
-            "// Migrated from {} by `oxcruise migrate`.\n",
-            source
-                .file_name()
-                .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
-        ));
-        for w in &loaded.warnings {
-            // the loader prefixes warnings with the file they came from
-            let prefix = format!("{}: ", source.display());
-            s.push_str(&format!(
-                "// TODO: {}\n",
-                w.strip_prefix(&prefix).unwrap_or(w)
-            ));
-        }
-        s.push_str("import { defineConfig } from \"oxcruise\";\n\nexport default defineConfig(");
-        s.push_str(&serde_json::to_string_pretty(&json).expect("json"));
-        s.push_str(");\n");
-        s
-    };
-    if let Err(e) = std::fs::write(&target, body) {
-        let _ = writeln!(err, "error: cannot write {}: {e}", target.display());
+    let mut header = vec![format!(
+        "Migrated from {} by `oxcruise --migrate`.",
+        source
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
+    )];
+    // the loader prefixes warnings with the file they came from
+    let prefix = format!("{}: ", source.display());
+    for w in &loaded.warnings {
+        header.push(format!("TODO: {}", w.strip_prefix(&prefix).unwrap_or(w)));
+    }
+    if let Err(e) = config_io::write_new(&target, loaded.config.to_minimal_json(), &header) {
+        let _ = writeln!(err, "error: {e}");
         return CliRunResult::InvalidOptions;
     }
     for w in &loaded.warnings {

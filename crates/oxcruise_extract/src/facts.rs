@@ -2,19 +2,12 @@ use oxcruise_core::{DepKinds, LineIndex, Loc, ModuleSystem, Span};
 use rustc_hash::FxHashMap;
 use serde::Serialize;
 
-/// What to look for beyond the syntax every file has.
+/// What to look for beyond the syntax every file has. JSDoc imports, triple-slash directives
+/// and `new URL("./x", import.meta.url)` are always extracted.
 #[derive(Debug, Clone, Default)]
 pub struct ExtractOptions {
-    /// Callee names treated like `require` (depcruise `exoticRequireStrings`).
-    pub exotic_require_strings: Vec<String>,
     /// Callee names whose first string argument is a dependency, e.g. `jest.mock`.
     pub calls: Vec<String>,
-    /// Look for `@import` tags and `import("x")` types inside JSDoc comments.
-    pub jsdoc: bool,
-    /// Skip triple-slash directives.
-    pub skip_triple_slash: bool,
-    /// Do not treat `new URL("./x", import.meta.url)` and `new Worker(new URL(..))` as dependencies.
-    pub skip_urls: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

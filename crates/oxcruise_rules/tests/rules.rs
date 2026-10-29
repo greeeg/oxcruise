@@ -34,54 +34,134 @@ fn no_circular() {
 }
 
 #[test]
-fn no_circular_ignore_type_only() {
-    let strict = Tester::rule("no-circular", json!({ "ignoreTypeOnly": true }));
-    strict.pass(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
+fn no_circular_ignores_type_only_cycles_by_default() {
+    let default = Tester::rule("no-circular", none());
+    default.pass(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
     // a runtime cycle is still reported, and the type-only edge that closes a bigger one is ignored
     insta::assert_snapshot!(
         "no_circular_ignore_type_only",
-        strict.fail(&[
+        default.fail(&[
             "a.ts -> b.ts",
             "b.ts -> a.ts",
             "b.ts -> c.ts",
             "c.ts -> b.ts [type-only]"
         ])
     );
-    // without the option the type-only cycle is reported (#695, #305)
-    Tester::rule("no-circular", none()).fail(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
+    // with the option the type-only cycle is reported (#695, #305)
+    Tester::rule("no-circular", json!({ "includeTypeOnly": true }))
+        .fail(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
+}
+
+#[test]
+fn no_circular_ignore_removes_modules_before_searching() {
+    let cycle = [
+        "a.ts -> index.ts",
+        "index.ts -> a.ts",
+        "b.ts -> index.ts",
+        "index.ts -> b.ts",
+    ];
+    Tester::rule("no-circular", none()).fail(&cycle);
+    // a barrel everything goes through is not part of any cycle
+    Tester::rule("no-circular", json!({ "ignore": ["index.ts"] })).pass(&cycle);
+    // other cycles are still found
+    insta::assert_snapshot!(
+        "no_circular_ignore",
+        Tester::rule("no-circular", json!({ "ignore": ["index.ts"] })).fail(&[
+            "a.ts -> index.ts",
+            "index.ts -> a.ts",
+            "x.ts -> y.ts",
+            "y.ts -> x.ts",
+        ])
+    );
+}
+
+#[test]
+fn no_circular_caps_searches_per_component() {
+    // a ring of five plus an unrelated two-cycle
+    let lines = [
+        "r0.ts -> r1.ts",
+        "r1.ts -> r2.ts",
+        "r2.ts -> r3.ts",
+        "r3.ts -> r4.ts",
+        "r4.ts -> r0.ts",
+        "x.ts -> y.ts",
+        "y.ts -> x.ts",
+    ];
+    let capped = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 2 }));
+    let r = capped.run(&lines);
+    let messages: Vec<_> = r.violations.iter().map(|v| v.message.as_str()).collect();
+    // the ring is one cycle, found from its first edges; the summary names what was left out
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("3 more dependencies in this group of 5 modules")),
+        "{messages:?}"
+    );
+    // the other component is under the limit and untouched
+    assert!(messages.iter().any(|m| m.contains("x.ts → y.ts → x.ts")));
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|m| m.contains("more dependencies"))
+            .count(),
+        1
+    );
+    insta::assert_snapshot!("no_circular_capped", capped.fail(&lines));
+
+    // the default limit and `0` leave small cycles alone
+    let r = Tester::rule("no-circular", none()).run(&lines);
+    assert!(
+        r.violations
+            .iter()
+            .all(|v| !v.message.contains("more dependencies"))
+    );
+    let r = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 0 })).run(&lines);
+    assert!(
+        r.violations
+            .iter()
+            .all(|v| !v.message.contains("more dependencies"))
+    );
 }
 
 #[test]
 fn no_orphans() {
-    let t = Tester::rule(
-        "no-orphans",
-        json!({ "ignore": [{ "regex": "[.]d[.]ts$" }, "**/*.config.ts"] }),
-    );
-    t.pass(&["a.ts -> b.ts", "types.d.ts", "vite.config.ts"]);
+    // the defaults cover declarations and tool configuration
+    let t = Tester::rule("no-orphans", none());
+    t.pass(&[
+        "a.ts -> b.ts",
+        "types.d.ts",
+        "vite.config.ts",
+        "eslint.config.mjs",
+        ".eslintrc.js",
+        "sub/tailwind.config.js",
+    ]);
     insta::assert_snapshot!(
         "no_orphans",
         t.fail(&["a.ts -> b.ts", "lonely.ts", "dir/other.ts"])
     );
+
+    // `ignore` extends the defaults instead of replacing them
+    let t = Tester::rule("no-orphans", json!({ "ignore": ["**/*.stories.ts"] }));
+    t.pass(&["a.stories.ts", "types.d.ts"]);
+    t.fail(&["lonely.ts"]);
 }
 
 #[test]
 fn dependency_type_rules() {
-    Tester::rule("no-deprecated-core", none()).pass(&["a.ts -> fs [core]"]);
+    let deprecated = Tester::rule("no-deprecated", none());
+    deprecated.pass(&["a.ts -> fs [core]", "a.ts -> left-pad [npm]"]);
     insta::assert_snapshot!(
-        "no_deprecated_core",
-        Tester::rule("no-deprecated-core", none()).fail(&["a.ts -> sys [core deprecated]"])
+        "no_deprecated",
+        deprecated.fail(&[
+            "a.ts -> sys [core deprecated]",
+            "a.ts -> left-pad [npm deprecated]"
+        ])
     );
 
-    Tester::rule("no-deprecated-npm", none()).pass(&["a.ts -> left-pad [npm]"]);
+    Tester::rule("no-undeclared-deps", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "no_deprecated_npm",
-        Tester::rule("no-deprecated-npm", none()).fail(&["a.ts -> left-pad [npm deprecated]"])
-    );
-
-    Tester::rule("no-non-package-json", none()).pass(&["a.ts -> x [npm]"]);
-    insta::assert_snapshot!(
-        "no_non_package_json",
-        Tester::rule("no-non-package-json", none()).fail(&["a.ts -> x [npm-no-pkg]"])
+        "no_undeclared_deps",
+        Tester::rule("no-undeclared-deps", none()).fail(&["a.ts -> x [npm-no-pkg]"])
     );
 
     Tester::rule("no-unresolvable", none()).pass(&["a.ts -> b.ts"]);
@@ -90,40 +170,52 @@ fn dependency_type_rules() {
         Tester::rule("no-unresolvable", none()).fail(&["a.ts -> ./nope [unknown]"])
     );
 
-    let dup = Tester::rule("no-duplicate-dep-types", none());
+    let dup = Tester::rule("no-duplicate-deps", none());
     dup.pass(&["a.ts -> x [npm-dev]", "a.ts -> y [npm npm-dev type-only]"]);
-    insta::assert_snapshot!(
-        "no_duplicate_dep_types",
-        dup.fail(&["a.ts -> x [npm npm-dev]"])
-    );
+    insta::assert_snapshot!("no_duplicate_deps", dup.fail(&["a.ts -> x [npm npm-dev]"]));
 
-    Tester::rule("optional-deps-used", none()).pass(&["a.ts -> x [npm]"]);
+    Tester::rule("no-optional-deps", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "optional_deps_used",
-        Tester::rule("optional-deps-used", none()).fail(&["a.ts -> x [npm-optional]"])
+        "no_optional_deps",
+        Tester::rule("no-optional-deps", none()).fail(&["a.ts -> x [npm-optional]"])
     );
-    Tester::rule("peer-deps-used", none()).pass(&["a.ts -> x [npm]"]);
+    Tester::rule("no-peer-deps", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "peer_deps_used",
-        Tester::rule("peer-deps-used", none()).fail(&["a.ts -> x [npm-peer]"])
+        "no_peer_deps",
+        Tester::rule("no-peer-deps", none()).fail(&["a.ts -> x [npm-peer]"])
     );
 }
 
 #[test]
-fn not_to_test_and_spec() {
-    let t = Tester::rule("not-to-test", none());
+fn no_unresolvable_ignore() {
+    let t = Tester::rule(
+        "no-unresolvable",
+        json!({ "ignore": ["virtual:*", "src/generated/**"] }),
+    );
+    t.pass(&[
+        "a.ts -> virtual:icons [unknown]",
+        "src/generated/api.ts -> ./missing [unknown]",
+    ]);
+    t.fail(&["a.ts -> ./missing [unknown]"]);
+}
+
+#[test]
+fn no_test_imports() {
+    let t = Tester::rule("no-test-imports", none());
     t.pass(&[
         "src/a.ts -> src/b.ts",
         "src/a.test.ts -> src/a.ts",
         "src/a.test.ts -> src/helpers.test.ts",
+        "src/a.spec.ts -> src/helpers.test.ts",
     ]);
     insta::assert_snapshot!(
-        "not_to_test",
-        t.fail(&["src/a.ts -> src/a.test.ts", "src/a.ts -> test/util.ts"])
+        "no_test_imports",
+        t.fail(&[
+            "src/a.ts -> src/a.test.ts",
+            "src/a.ts -> test/util.ts",
+            "src/a.ts -> src/a.spec.ts"
+        ])
     );
-    let s = Tester::rule("not-to-spec", none());
-    s.pass(&["src/a.ts -> src/a.test.ts"]);
-    insta::assert_snapshot!("not_to_spec", s.fail(&["src/a.ts -> src/a.spec.ts"]));
 }
 
 #[test]
@@ -243,7 +335,7 @@ fn unknown_rule_suggests_a_name() {
 #[test]
 fn every_builtin_documents_itself() {
     let rules = oxcruise_rules::builtin_rules();
-    assert!(rules.len() >= 15);
+    assert_eq!(rules.len(), 13);
     for r in &rules {
         assert!(r.docs.len() > 20, "{} has no docs", r.name);
         assert!(
@@ -257,13 +349,7 @@ fn every_builtin_documents_itself() {
         "rule_list",
         rules
             .iter()
-            .map(|r| format!(
-                "{} {} {}{}",
-                r.name,
-                r.category,
-                r.version,
-                if r.recommended { " recommended" } else { "" }
-            ))
+            .map(|r| format!("{} {} {}", r.name, r.category.as_str(), r.version))
             .collect::<Vec<_>>()
             .join("\n")
     );

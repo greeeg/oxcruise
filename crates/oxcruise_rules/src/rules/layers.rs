@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use oxcruise_config::{OneOrMany, PathSpec};
+use oxcruise_config::Paths;
 use oxcruise_core::{EdgeId, ModuleKind};
 use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
@@ -13,7 +13,7 @@ use crate::pattern::{Captures, PathPatterns, Role};
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct LayersConfig {
     /// Layer name to the paths it contains. Layers should not overlap; if they do the first by name wins.
-    pub layers: BTreeMap<String, OneOrMany<PathSpec>>,
+    pub layers: BTreeMap<String, Paths>,
     /// Layer name to the layers it may import. A layer missing here is unrestricted.
     /// Importing within the same layer is always allowed.
     pub allow: BTreeMap<String, Vec<String>>,

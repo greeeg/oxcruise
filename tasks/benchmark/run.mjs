@@ -9,7 +9,7 @@
 // Peak RSS comes from getrusage(RUSAGE_CHILDREN) via python3 (Linux/macOS). Prints a Markdown table.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { cpus, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -88,7 +88,16 @@ function bench(name, cwd, entries, modules) {
     "-e",
     `require("fs").writeFileSync(${JSON.stringify(cfg)}, JSON.stringify({forbidden:[{name:"no-circular",severity:"error",from:{},to:{circular:true}}],options:{doNotFollow:{path:"node_modules"},tsPreCompilationDeps:false}}))`,
   ]);
-  const ox = measure(oxcruise, ["--config", cfg, "-f", "json-depcruise", ...entries], cwd);
+  const oxCfg = join(tmpdir(), "oxcruise-bench.oxcruiserc.json");
+  writeFileSync(
+    oxCfg,
+    JSON.stringify({
+      categories: { correctness: "off", suspicious: "off" },
+      // runtime cycles only, like the depcruise rule above
+      rules: { "no-circular": "error" },
+    }),
+  );
+  const ox = measure(oxcruise, ["--config", oxCfg, "-f", "json", ...entries], cwd);
   const dc = haveDepcruise
     ? measure("node", [depcruise, "--config", cfg, "-T", "json", ...entries], cwd)
     : null;

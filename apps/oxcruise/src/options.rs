@@ -2,25 +2,13 @@
 
 use std::path::{Path, PathBuf};
 
-use oxcruise_config::{OneOrMany, OxcruiseConfig, PathSpec, TsconfigMode, TsconfigSetting};
-use oxcruise_graph::{CruiseOptions, PathMatcher, PathPattern};
-use oxcruise_resolve::TsconfigMode as ResolveTsconfig;
+use oxcruise_config::{OneOrMany, OxcruiseConfig};
+use oxcruise_graph::{CruiseOptions, PathMatcher};
+use oxcruise_resolve::TsconfigMode;
 
-use crate::args::CheckArgs;
+use crate::args::Cli;
 
-fn patterns(specs: &[PathSpec], extra_globs: &[String]) -> Result<PathMatcher, String> {
-    let mut all: Vec<PathPattern> = specs
-        .iter()
-        .map(|s| match s {
-            PathSpec::Glob(g) => PathPattern::Glob(g.clone()),
-            PathSpec::Regex(r) => PathPattern::Regex(r.regex.clone()),
-        })
-        .collect();
-    all.extend(extra_globs.iter().cloned().map(PathPattern::Glob));
-    PathMatcher::new(&all)
-}
-
-pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &CheckArgs) -> Result<CruiseOptions, String> {
+pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &Cli) -> Result<CruiseOptions, String> {
     let entries = if !args.paths.is_empty() {
         args.paths.clone()
     } else if !cfg.entries.is_empty() {
@@ -30,35 +18,23 @@ pub fn build(root: &Path, cfg: &OxcruiseConfig, args: &CheckArgs) -> Result<Crui
     };
 
     let mut o = CruiseOptions::new(root, entries);
-    o.exclude = patterns(&cfg.exclude, &args.exclude).map_err(|e| format!("exclude: {e}"))?;
-    o.include_only =
-        patterns(&cfg.include_only, &args.include_only).map_err(|e| format!("includeOnly: {e}"))?;
-    o.do_not_follow = patterns(&cfg.follow.do_not_follow, &args.do_not_follow)
-        .map_err(|e| format!("follow.doNotFollow: {e}"))?;
-    o.max_depth = args.max_depth.or(cfg.follow.max_depth);
-    o.follow_npm = cfg.follow.npm;
-    o.respect_gitignore = cfg.options.respect_gitignore;
+    let ignore: Vec<&String> = cfg
+        .ignore_patterns
+        .iter()
+        .chain(&args.ignore_pattern)
+        .collect();
+    o.ignore = PathMatcher::new(&ignore).map_err(|e| format!("ignorePatterns: {e}"))?;
+    o.do_not_follow =
+        PathMatcher::new(&cfg.do_not_follow).map_err(|e| format!("doNotFollow: {e}"))?;
+    o.max_depth = args.max_depth;
     o.threads = args.threads;
-
-    let e = &cfg.extract;
-    o.extract.exotic_require_strings = e.exotic_require_strings.clone();
-    o.extract.calls = e.calls.clone();
-    o.extract.jsdoc = e.jsdoc;
-    o.extract.skip_triple_slash = e.skip_triple_slash;
-    o.extract.skip_urls = e.skip_urls;
+    o.extract.calls = cfg.calls.clone();
 
     let r = &cfg.resolve;
     o.resolve.conditions = r.conditions.clone();
-    o.resolve.main_fields = (!r.main_fields.is_empty()).then(|| r.main_fields.clone());
-    o.resolve.extensions = (!r.extensions.is_empty()).then(|| r.extensions.clone());
-    o.resolve.prefer_source = r.prefer_source;
-    if !r.source_conditions.is_empty() {
-        o.resolve.source_conditions = r.source_conditions.clone();
-    }
     o.resolve.tsconfig = match &r.tsconfig {
-        None | Some(TsconfigSetting::Mode(TsconfigMode::Auto)) => ResolveTsconfig::Auto,
-        Some(TsconfigSetting::Mode(TsconfigMode::Off)) => ResolveTsconfig::Disabled,
-        Some(TsconfigSetting::Path(p)) => ResolveTsconfig::File(root.join(p)),
+        None => TsconfigMode::Auto,
+        Some(p) => TsconfigMode::File(root.join(p)),
     };
     o.resolve.alias = r
         .alias

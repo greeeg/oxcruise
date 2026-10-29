@@ -14,7 +14,6 @@ pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
     let bad: BTreeSet<&str> = result
         .violations
         .iter()
-        .filter(|v| v.severity != Severity::Info)
         .flat_map(|v| [Some(v.from.as_str()), v.to.as_deref()])
         .flatten()
         .collect();

@@ -6,12 +6,10 @@ use std::str::FromStr;
 pub enum OutputFormat {
     /// Human-readable diagnostics with source snippets (default).
     Human,
-    /// `err` plus the rule documentation.
-    ErrLong,
+    /// `default` plus the rule documentation.
+    Long,
     /// Native versioned JSON.
     Json,
-    /// dependency-cruiser's cruise-result JSON.
-    JsonDepcruise,
     /// GitHub Actions workflow annotations.
     Github,
     Dot,
@@ -29,7 +27,7 @@ impl fmt::Display for ParseFormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "unknown output format `{}`; expected err, err-long, json, json-depcruise, github, dot, mermaid, text or plugin/reporter",
+            "unknown output format `{}`; expected default, long, json, github, dot, mermaid, text or plugin/reporter",
             self.0
         )
     }
@@ -42,10 +40,9 @@ impl FromStr for OutputFormat {
 
     fn from_str(s: &str) -> Result<Self, ParseFormatError> {
         Ok(match s {
-            "err" => Self::Human,
-            "err-long" => Self::ErrLong,
+            "default" => Self::Human,
+            "long" => Self::Long,
             "json" => Self::Json,
-            "json-depcruise" => Self::JsonDepcruise,
             "github" => Self::Github,
             "dot" => Self::Dot,
             "mermaid" => Self::Mermaid,
@@ -64,7 +61,11 @@ mod tests {
 
     #[test]
     fn parses() {
-        assert_eq!("err-long".parse(), Ok(OutputFormat::ErrLong));
+        assert_eq!("long".parse(), Ok(OutputFormat::Long));
+        // the old dependency-cruiser names are gone
+        for old in ["err", "err-long", "json-depcruise"] {
+            assert!(old.parse::<OutputFormat>().is_err(), "{old}");
+        }
         assert_eq!(
             "acme/json-lines".parse(),
             Ok(OutputFormat::External("acme/json-lines".into()))

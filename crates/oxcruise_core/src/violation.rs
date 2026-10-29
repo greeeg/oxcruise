@@ -7,8 +7,6 @@ use crate::{EdgeId, Loc, ModuleId};
 pub enum Severity {
     Error,
     Warn,
-    Info,
-    Ignore,
 }
 
 impl Severity {
@@ -16,8 +14,6 @@ impl Severity {
         match self {
             Self::Error => "error",
             Self::Warn => "warn",
-            Self::Info => "info",
-            Self::Ignore => "ignore",
         }
     }
 }

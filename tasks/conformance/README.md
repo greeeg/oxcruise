@@ -15,6 +15,8 @@ node --experimental-strip-types tasks/conformance/run.ts [--only es6] [--verbose
 * `targets.json`: what to run (`dir` is relative to the dependency-cruiser checkout). A target with `needs` is skipped
   unless those packages are installed in `tasks/conformance/node_modules`: dependency-cruiser only parses TypeScript and
   Vue when `typescript` / `@vue/compiler-sfc` are present.
+* `exclude` is the depcruise regex; when it does not convert to a glob, `excludeGlobs` is the hand-written glob list
+  oxcruise gets instead (`oxcruise migrate` warns about the regex).
 * `deviations.json`: intentional differences. `kind` is the diff kind, `match` a regex on `key` (and, for
   `syntax-differs`/`classification-differs`, the detail), `reason` is required reading.
 * `.cache/` holds the checkout, the generated per-target configs and `report.json`; it is git-ignored.

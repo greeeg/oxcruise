@@ -33,11 +33,14 @@ about 1 import in 200 pointing "up" and closing a cycle.
 | freeze a 50k-module / ~300k-edge graph (sort + CSR) | 21 ms |
 | Tarjan SCC, same graph | 3.8 ms |
 | BFS reachability from one module | 2.0 ms |
-| shortest cycle for **every** cyclic edge, same graph (parallel) | 8.3 s |
+| shortest cycle for **every** cyclic edge, same graph (parallel, `oxcruise_graph` primitive) | 8.3 s |
+| `no-circular` rule on the same graph, default `maxCyclesPerComponent` (100) | 33 ms |
+| `no-circular` rule on the same graph, `maxCyclesPerComponent: 0` (no limit) | ~20 s (15-27 s between runs) |
 
-The last row is a deliberately pathological graph: random edges make nearly every module part of one giant strongly
-connected component, so ~300k breadth-first searches run. Real dependency graphs have small components; the
-benchmark exists to show the worst case is bounded, and a bidirectional search would be the next optimisation.
+The last three rows use a deliberately pathological graph: random edges make nearly every module part of one giant
+strongly connected component, so ~300k breadth-first searches run without a limit. Real dependency graphs have small
+components. The rule searches at most `maxCyclesPerComponent` dependencies per component, so its cost on such a graph is
+bounded (`cargo bench -p oxcruise_rules`); the rule rows include the whole engine run, not just the searches.
 
 ## Not measured
 

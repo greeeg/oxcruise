@@ -152,13 +152,16 @@ fn static_string<'a>(e: &'a Expression<'_>) -> Option<&'a str> {
     }
 }
 
-fn callee_name(e: &Expression<'_>) -> Option<String> {
+/// Whether the callee is the identifier or `a.b.c` member chain `name`, compared segment by
+/// segment so no dotted string is built for the (many) calls that are not of interest.
+fn callee_is(e: &Expression<'_>, name: &str) -> bool {
     match e.without_parentheses() {
-        Expression::Identifier(i) => Some(i.name.to_string()),
-        Expression::StaticMemberExpression(m) => {
-            callee_name(&m.object).map(|o| format!("{o}.{}", m.property.name))
-        }
-        _ => None,
+        Expression::Identifier(i) => i.name == name,
+        Expression::StaticMemberExpression(m) => name
+            .strip_suffix(m.property.name.as_str())
+            .and_then(|rest| rest.strip_suffix('.'))
+            .is_some_and(|rest| callee_is(&m.object, rest)),
+        _ => false,
     }
 }
 
@@ -220,24 +223,24 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
             if let Some(v) = lit.value.as_str() {
                 self.push(v, DepKinds::REQUIRE, ModuleSystem::Cjs, lit.span);
             }
-        } else if let Some(name) = callee_name(&it.callee) {
+        } else {
             let first = it.arguments.first().and_then(|a| a.as_expression());
-            if let Some(spec) = first.and_then(static_string) {
+            let opts = self.b.opts;
+            if let Some(spec) = first.and_then(static_string)
+                && let Some(name) = opts.calls.iter().find(|c| callee_is(&it.callee, c))
+            {
                 let span = first.map_or(it.span, |e| e.span());
-                let opts = self.b.opts;
-                if opts.exotic_require_strings.contains(&name) {
-                    self.push(spec, DepKinds::EXOTIC_REQUIRE, ModuleSystem::Cjs, span);
-                } else if opts.calls.contains(&name) {
-                    let ms = if name.starts_with("require") {
-                        ModuleSystem::Cjs
-                    } else {
-                        ModuleSystem::Es6
-                    };
-                    self.push(spec, DepKinds::CALL, ms, span);
-                }
+                let ms = if name.starts_with("require") {
+                    ModuleSystem::Cjs
+                } else {
+                    ModuleSystem::Es6
+                };
+                self.push(spec, DepKinds::CALL, ms, span);
             }
             // AMD: define([...], fn) / define("name", [...], fn) / require([...], fn)
-            if !self.b.has_module_syntax && (name == "define" || name == "require") {
+            if !self.b.has_module_syntax
+                && (callee_is(&it.callee, "define") || callee_is(&it.callee, "require"))
+            {
                 let arr = it.arguments.iter().find_map(|a| {
                     match a.as_expression()?.without_parentheses() {
                         Expression::ArrayExpression(arr) => Some(arr),
@@ -265,9 +268,6 @@ impl<'a> Visit<'a> for AstVisitor<'_, '_> {
     }
 
     fn visit_new_expression(&mut self, it: &NewExpression<'a>) {
-        if self.b.opts.skip_urls {
-            return walk::walk_new_expression(self, it);
-        }
         if let Some(t) = url_target(it) {
             let span = it.arguments[0].span();
             self.push(&relative(t), DepKinds::URL, ModuleSystem::Es6, span);

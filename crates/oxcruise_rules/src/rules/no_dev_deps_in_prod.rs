@@ -1,4 +1,3 @@
-use oxcruise_config::PathSpec;
 use oxcruise_core::{DepKinds, EdgeId};
 use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
@@ -12,9 +11,9 @@ use crate::pattern::{Captures, PathPatterns, Role};
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct NoDevDepsInProdConfig {
     /// Globs of production code. Defaults to `src`, `app`, `lib` and `packages/*/src`.
-    pub prod: Vec<PathSpec>,
+    pub prod: Vec<String>,
     /// Globs of test code, exempt from the rule (on top of `*.test.*`, `*.spec.*` and test directories).
-    pub test: Vec<PathSpec>,
+    pub test: Vec<String>,
 }
 
 declare_rule! {
@@ -30,7 +29,7 @@ declare_rule! {
     /// ### Options
     ///
     /// `prod` and `test` are path patterns that say which modules are production and which are tests.
-    NoDevDepsInProd, category = correctness, version = "0.1.0", config = NoDevDepsInProdConfig, recommended
+    NoDevDepsInProd, category = correctness, version = "0.1.0", config = NoDevDepsInProdConfig
 }
 
 #[derive(Debug, Default)]
@@ -44,7 +43,7 @@ impl Rule for NoDevDepsInProd {
         let mut c: NoDevDepsInProdConfig = parse_options("no-dev-deps-in-prod", value)?;
         if c.prod.is_empty() {
             c.prod = ["src", "app", "lib", "packages/*/src"]
-                .map(PathSpec::glob)
+                .map(String::from)
                 .into();
         }
         Ok(Self {

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::{OxcruiseConfig, depcruise, preset, strip_jsonc};
+use crate::{OxcruiseConfig, strip_jsonc};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -12,12 +12,10 @@ pub enum ConfigError {
     },
     #[error("invalid config {}: {message}", path.display())]
     Invalid { path: PathBuf, message: String },
-    #[error("loading {} needs Node.js, which was not found on PATH. Use a .json/.jsonc config or install node", path.display())]
+    #[error("loading {} needs Node.js, which was not found on PATH. Use a .oxcruiserc.json config or install node", path.display())]
     NodeMissing { path: PathBuf },
     #[error("evaluating {} failed:\n{message}", path.display())]
     Js { path: PathBuf, message: String },
-    #[error("unknown preset `{0}`")]
-    UnknownPreset(String),
     #[error("`extends` cycle through {}", .0.display())]
     ExtendsCycle(PathBuf),
 }
@@ -85,30 +83,14 @@ pub struct LoadedConfig {
     /// The file the config came from, if any.
     pub path: Option<PathBuf>,
     pub warnings: Vec<String>,
-    /// Loaded from a `.dependency-cruiser.*` file through the importer.
-    pub imported_from_depcruise: bool,
 }
 
-const NATIVE_NAMES: &[&str] = &[
-    "oxcruise.config.ts",
-    "oxcruise.config.mts",
-    "oxcruise.config.js",
-    "oxcruise.config.mjs",
-    ".oxcruiserc.json",
-    ".oxcruiserc.jsonc",
-];
-const DEPCRUISE_NAMES: &[&str] = &[
-    ".dependency-cruiser.json",
-    ".dependency-cruiser.js",
-    ".dependency-cruiser.cjs",
-    ".dependency-cruiser.mjs",
-];
+const NATIVE_NAMES: &[&str] = &["oxcruise.config.ts", ".oxcruiserc.json"];
 
 /// Find a config file in `dir` (not its parents).
 pub fn discover(dir: &Path) -> Option<PathBuf> {
     NATIVE_NAMES
         .iter()
-        .chain(DEPCRUISE_NAMES)
         .map(|n| dir.join(n))
         .find(|p| p.is_file())
 }
@@ -123,15 +105,49 @@ impl<'a> ConfigLoader<'a> {
     }
 
     pub fn load(&self, path: &Path) -> Result<LoadedConfig, ConfigError> {
+        let mut stack = vec![];
+        let config = self.load_rec(path, &mut stack)?;
+        Ok(LoadedConfig {
+            config,
+            path: Some(path.to_path_buf()),
+            warnings: vec![],
+        })
+    }
+
+    /// Read a dependency-cruiser config (`.json`, or `.js`/`.cjs`/`.mjs` through Node) and
+    /// convert it. Relative `extends` files are converted and layered underneath.
+    pub fn import_depcruise(&self, path: &Path) -> Result<LoadedConfig, ConfigError> {
         let mut warnings = vec![];
         let mut stack = vec![];
-        let (config, imported) = self.load_rec(path, &mut stack, &mut warnings)?;
+        let config = self.import_depcruise_rec(path, &mut stack, &mut warnings)?;
         Ok(LoadedConfig {
             config,
             path: Some(path.to_path_buf()),
             warnings,
-            imported_from_depcruise: imported,
         })
+    }
+
+    fn import_depcruise_rec(
+        &self,
+        path: &Path,
+        stack: &mut Vec<PathBuf>,
+        warnings: &mut Vec<String>,
+    ) -> Result<OxcruiseConfig, ConfigError> {
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        if stack.contains(&canonical) {
+            return Err(ConfigError::ExtendsCycle(canonical));
+        }
+        stack.push(canonical);
+        let (own, w) = crate::depcruise::import(&self.read_value(path)?);
+        warnings.extend(w.into_iter().map(|w| format!("{}: {w}", path.display())));
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let mut merged = OxcruiseConfig::default();
+        for ext in &own.extends {
+            let base = self.import_depcruise_rec(&dir.join(ext), stack, warnings)?;
+            merged = merged.layered(&base);
+        }
+        stack.pop();
+        Ok(merged.layered(&own))
     }
 
     fn read_value(&self, path: &Path) -> Result<serde_json::Value, ConfigError> {
@@ -154,56 +170,28 @@ impl<'a> ConfigLoader<'a> {
         &self,
         path: &Path,
         stack: &mut Vec<PathBuf>,
-        warnings: &mut Vec<String>,
-    ) -> Result<(OxcruiseConfig, bool), ConfigError> {
+    ) -> Result<OxcruiseConfig, ConfigError> {
         let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         if stack.contains(&canonical) {
             return Err(ConfigError::ExtendsCycle(canonical));
         }
         stack.push(canonical);
 
-        let value = self.read_value(path)?;
-        let is_depcruise = depcruise::looks_like_depcruise(path, &value);
-        let own: OxcruiseConfig = if is_depcruise {
-            let (cfg, w) = depcruise::import(&value);
-            warnings.extend(w.into_iter().map(|w| format!("{}: {w}", path.display())));
-            cfg
-        } else {
-            serde_json::from_value(value).map_err(|e| ConfigError::Invalid {
+        let own: OxcruiseConfig =
+            serde_json::from_value(self.read_value(path)?).map_err(|e| ConfigError::Invalid {
                 path: path.to_path_buf(),
                 message: e.to_string(),
-            })?
-        };
+            })?;
 
         let dir = path.parent().unwrap_or(Path::new("."));
         let mut merged = OxcruiseConfig::default();
         for ext in &own.extends {
-            let base = self.load_extends(ext, dir, stack, warnings)?;
+            let base = self.load_rec(&dir.join(ext), stack)?;
             merged = merged.layered(&base);
         }
         let result = merged.layered(&own);
         stack.pop();
-        Ok((result, is_depcruise))
-    }
-
-    fn load_extends(
-        &self,
-        spec: &str,
-        dir: &Path,
-        stack: &mut Vec<PathBuf>,
-        warnings: &mut Vec<String>,
-    ) -> Result<OxcruiseConfig, ConfigError> {
-        if spec.starts_with("oxcruise:") {
-            let p = preset(spec).ok_or_else(|| ConfigError::UnknownPreset(spec.to_string()))?;
-            // presets may extend other presets
-            let mut merged = OxcruiseConfig::default();
-            for e in &p.extends {
-                merged = merged.layered(&self.load_extends(e, dir, stack, warnings)?);
-            }
-            return Ok(merged.layered(&p));
-        }
-        let path = dir.join(spec);
-        Ok(self.load_rec(&path, stack, warnings)?.0)
+        Ok(result)
     }
 }
 
@@ -219,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn json_with_extends_and_preset() {
+    fn json_with_extends() {
         let d = tempfile::tempdir().unwrap();
         std::fs::write(
             d.path().join("base.json"),
@@ -227,26 +215,41 @@ mod tests {
         )
         .unwrap();
         std::fs::write(
-            d.path().join(".oxcruiserc.jsonc"),
+            d.path().join(".oxcruiserc.json"),
             r#"{
               // comment
-              "extends": ["oxcruise:recommended", "./base.json"],
+              "extends": ["./base.json"],
               "rules": { "no-orphans": "off", },
             }"#,
         )
         .unwrap();
         let found = discover(d.path()).unwrap();
-        assert!(found.ends_with(".oxcruiserc.jsonc"));
-        let loaded = ConfigLoader::new(&NoJs).load(&found).unwrap();
-        let c = loaded.config;
+        assert!(found.ends_with(".oxcruiserc.json"));
+        let c = ConfigLoader::new(&NoJs).load(&found).unwrap().config;
         assert_eq!(c.entries, ["src"]);
-        // base.json overrides the preset's no-circular; own config turns orphans off
         assert_eq!(
             c.rules["no-circular"].parts().unwrap().0,
             crate::Level::Warn
         );
         assert_eq!(c.rules["no-orphans"].parts().unwrap().0, crate::Level::Off);
-        assert!(c.rules.contains_key("no-unresolvable"));
+    }
+
+    #[test]
+    fn only_the_two_native_names_are_discovered() {
+        let d = tempfile::tempdir().unwrap();
+        for name in [
+            ".oxcruiserc.jsonc",
+            "oxcruise.config.mts",
+            "oxcruise.config.js",
+            "oxcruise.config.mjs",
+            ".dependency-cruiser.json",
+            ".dependency-cruiser.cjs",
+        ] {
+            std::fs::write(d.path().join(name), "{}").unwrap();
+        }
+        assert!(discover(d.path()).is_none());
+        std::fs::write(d.path().join("oxcruise.config.ts"), "").unwrap();
+        assert!(discover(d.path()).unwrap().ends_with("oxcruise.config.ts"));
     }
 
     #[test]
@@ -260,10 +263,11 @@ mod tests {
             "{err}"
         );
 
-        std::fs::write(&p, r#"{ "extends": ["oxcruise:nope"] }"#).unwrap();
+        // presets are gone: `extends` takes file paths only
+        std::fs::write(&p, r#"{ "extends": ["oxcruise:recommended"] }"#).unwrap();
         assert!(matches!(
             ConfigLoader::new(&NoJs).load(&p),
-            Err(ConfigError::UnknownPreset(_))
+            Err(ConfigError::Io { .. })
         ));
 
         std::fs::write(&p, r#"{ "extends": ["./c.json"] }"#).unwrap();
@@ -286,11 +290,8 @@ mod tests {
             "const entries: string[] = ['src'];\nexport default { entries, rules: { 'no-circular': 'error' as const } };\n",
         )
         .unwrap();
-        let cjs = d.path().join("x.config.cjs");
-        std::fs::write(&cjs, "module.exports = { entries: ['lib'] };\n").unwrap();
         let l = ConfigLoader::new(&NodeSubprocessLoader);
         assert_eq!(l.load(&ts).unwrap().config.entries, ["src"]);
-        assert_eq!(l.load(&cjs).unwrap().config.entries, ["lib"]);
 
         let bad = d.path().join("bad.config.mjs");
         std::fs::write(&bad, "throw new Error('boom');\n").unwrap();

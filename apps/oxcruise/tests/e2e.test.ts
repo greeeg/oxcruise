@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { cruise } from "../src-js/cruise.ts";
@@ -167,7 +168,7 @@ describe("configs evaluated by the host Node", () => {
   test("a function config and an async one", async () => {
     const dir = project({
       "src/a.ts": "import './a';\n",
-      "oxcruise.config.mjs":
+      "oxcruise.config.ts":
         'export default async () => ({ entries: ["src"], rules: { "no-circular": "error" } });\n',
     });
     expect((await runCli(dir, [])).code).toBe(1);
@@ -175,23 +176,36 @@ describe("configs evaluated by the host Node", () => {
 
   test("a config that throws names the file", async () => {
     const dir = project({
-      "oxcruise.config.mjs": "throw new Error('bad config');\n",
+      "oxcruise.config.ts": "throw new Error('bad config');\n",
       "src/a.ts": "",
     });
     const o = await runCli(dir, []);
     expect(o.code).toBe(2);
-    expect(o.stderr).toMatch(/cannot evaluate .*oxcruise\.config\.mjs: bad config/);
+    expect(o.stderr).toMatch(/cannot evaluate .*oxcruise\.config\.ts: bad config/);
   });
 
-  test("a dependency-cruiser CJS config is imported", async () => {
+  test("a dependency-cruiser config is only read by `migrate`", async () => {
     const dir = project({
-      "src/a.ts": "import './a';\n",
+      "src/a.ts": "export {};\n",
       ".dependency-cruiser.cjs":
-        "module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {}, to: { circular: true } }] };\n",
+        "module.exports = { forbidden: [{ name: 'no-lib', severity: 'error', from: { path: '^src' }, to: { path: '^lib' } }] };\n",
     });
-    const o = await runCli(dir, ["src"]);
-    expect(o.code).toBe(1);
-    expect(o.stderr).toContain("dependency-cruiser importer");
+    // a check never looks at it ...
+    const check = await runCli(dir, ["src"]);
+    expect(check.code).toBe(0);
+    expect(check.stderr).toBe("");
+    // ... and refuses it when asked for explicitly
+    const explicit = await runCli(dir, ["src", "-c", ".dependency-cruiser.cjs"]);
+    expect(explicit.code).toBe(2);
+    expect(explicit.stderr).toContain("unknown field");
+    // `--migrate` evaluates the CJS file in the host Node and writes the new shape
+    const migrate = await runCli(dir, ["--migrate"]);
+    expect(migrate.stderr).toBe("");
+    expect(migrate.code).toBe(0);
+    const written = readFileSync(join(dir, "oxcruise.config.ts"), "utf8");
+    expect(written).toContain('"name": "no-lib"');
+    expect(written).toContain('"from": "src*"');
+    expect(written).toContain('"to": "lib*"');
   });
 });
 
@@ -199,7 +213,6 @@ describe("cruise() programmatic API", () => {
   test("answers architecture questions about a result", async () => {
     const g = await cruise({
       cwd: join(fixtures, "plugin-project"),
-      noConfig: true,
       paths: ["src"],
     });
     expect(g.summary.total_modules).toBeGreaterThan(5);
@@ -216,7 +229,20 @@ describe("cruise() programmatic API", () => {
       "src/db/allowed.ts",
       "src/db/query.ts",
     ]);
-    expect(g.module("src/db/query.ts")!.dependents).toEqual(["src/ui/page.ts"]);
+    expect(g.module("src/db/query.ts")!.dependents.map((m) => m.path)).toEqual(["src/ui/page.ts"]);
+  });
+
+  test("module handles are built once and share the plugin graph", async () => {
+    const g = await cruise({
+      cwd: join(fixtures, "plugin-project"),
+      paths: ["src"],
+    });
+    expect(g.modules).toBe(g.modules);
+    const page = g.module("src/ui/page.ts")!;
+    expect(g.module("src/ui/page.ts")).toBe(page);
+    expect(g.modules).toContain(page);
+    expect(page.module).toBe(g.graph.module("src/ui/page.ts"));
+    expect(g.modules.every((m) => m.kind !== "unresolved")).toBe(true);
   });
 
   test("transitive dependencies follow the graph", async () => {
@@ -225,14 +251,14 @@ describe("cruise() programmatic API", () => {
       "src/domain.ts": "import './db';\n",
       "src/db.ts": "export {};\n",
     });
-    const g = await cruise({ cwd: dir, noConfig: true, paths: ["src"] });
+    const g = await cruise({ cwd: dir, paths: ["src"] });
     expect(g.module("src/ui.ts")!.dependsOn("src/db.ts")).toBe(false);
     expect(g.module("src/ui.ts")!.dependsOnTransitively("src/db.ts")).toBe(true);
   });
 
   test("a result with errors is still a result; a failing run throws", async () => {
     const dir = project({ "src/a.ts": "import './a';\n" });
-    const g = await cruise({ cwd: dir, noConfig: true, paths: ["src"] });
+    const g = await cruise({ cwd: dir, paths: ["src"] });
     expect(g.violations.map((v) => v.rule)).toContain("no-circular");
     expect(g.module("src/a.ts")!.violations).toHaveLength(1);
     await expect(cruise({ cwd: dir, config: "nope.json" })).rejects.toThrow(/does not exist/);

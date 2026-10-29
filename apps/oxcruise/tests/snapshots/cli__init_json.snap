@@ -1,0 +1,15 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: json
+---
+{
+  "$schema": "./node_modules/oxcruise/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "forbid": []
+}

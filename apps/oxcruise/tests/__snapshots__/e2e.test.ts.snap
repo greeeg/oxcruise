@@ -11,7 +11,7 @@ exports[`plugin rules through the CLI > module, dependency and options-driven ru
 warn[acme/max-fan-out]: fan-out 4 is greater than 3
   --> src/index.ts
 
-✖ 2 problems (1 error, 1 warning, 0 info) in 8 modules, 6 dependencies
+✖ 2 problems (1 error, 1 warning) in 8 modules, 6 dependencies
   1 suppressed by comments
 "
 `;

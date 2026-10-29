@@ -1,6 +1,0 @@
----
-source: crates/oxcruise_rules/tests/rules.rs
-expression: "t.fail(&[\"src/a.ts -> src/a.test.ts\", \"src/a.ts -> test/util.ts\"])"
----
-error not-to-test src/a.ts:1:1 -> src/a.test.ts: production code imports test code `src/a.test.ts`
-error not-to-test src/a.ts:2:1 -> test/util.ts: production code imports test code `test/util.ts`

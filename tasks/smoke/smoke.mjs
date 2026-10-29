@@ -101,7 +101,7 @@ try {
   write("src/c.ts", "export {};\n");
   write(
     "oxcruise.config.ts",
-    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "no-circular": "warn", "smoke/where": "info" },\n});\n`,
+    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "no-circular": "warn", "smoke/where": "warn" },\n});\n`,
   );
   write(
     "plugin.ts",
@@ -117,9 +117,9 @@ try {
   );
 
   // 3. run it the way users do
-  const plain = attempt("npx", ["--no-install", "oxcruise", "--color", "never"], { cwd: proj });
+  const plain = attempt("npx", ["--no-install", "oxcruise"], { cwd: proj });
   check(
-    "exits 0: only warnings and infos",
+    "exits 0: only warnings",
     plain.code === 0,
     `${plain.code}\n${plain.stdout}\n${plain.stderr}`,
   );
@@ -130,10 +130,31 @@ try {
   );
   check("TS plugin rule ran with the whole graph", plain.stdout.includes("deps=3"), plain.stdout);
   check("native rule still works alongside", plain.stdout.includes("no-circular"), plain.stdout);
+
+  // no config at all: the default categories must fire correctness errors
+  const bare = join(work, "bare");
+  mkdirSync(join(bare, "src"), { recursive: true });
+  writeFileSync(join(bare, "package.json"), JSON.stringify({ name: "bare", private: true }));
+  writeFileSync(join(bare, "src/index.ts"), 'import "./gone";\nimport "./a";\n');
+  writeFileSync(join(bare, "src/a.ts"), 'import "./index";\n');
+  writeFileSync(join(bare, "src/lonely.ts"), "export {};\n");
+  const defaults = attempt("npx", ["--no-install", "oxcruise", "--cwd", bare, "-f", "text"], {
+    cwd: proj,
+  });
   check(
-    "no dependency-cruiser importer note for a native config",
-    !plain.stderr.includes("importer"),
-    plain.stderr,
+    "no config: the defaults exit 1 on correctness errors",
+    defaults.code === 1 && defaults.stderr === "",
+    `${defaults.code}\n${defaults.stdout}\n${defaults.stderr}`,
+  );
+  const rulesHit = attempt("npx", ["--no-install", "oxcruise", "--cwd", bare], {
+    cwd: proj,
+  });
+  check(
+    "no config: no-unresolvable and no-circular (errors) and no-orphans (warning) fire",
+    ["error[no-unresolvable]", "error[no-circular]", "warn[no-orphans]"].every((r) =>
+      rulesHit.stdout.includes(r),
+    ),
+    rulesHit.stdout,
   );
 
   const lines = attempt("npx", ["--no-install", "oxcruise", "-f", "smoke/json-lines"], {

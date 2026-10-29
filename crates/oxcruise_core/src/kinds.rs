@@ -40,14 +40,13 @@ bitflags! {
         const TRIPLE_SLASH_AMD_DEPENDENCY = 1 << 31;
         const AMD_DEFINE                 = 1 << 32;
         const AMD_REQUIRE                = 1 << 33;
-        const EXOTIC_REQUIRE             = 1 << 34;
-        const JSDOC                      = 1 << 35;
-        const JSDOC_IMPORT_TAG           = 1 << 36;
-        const JSDOC_BRACKET_IMPORT       = 1 << 37;
+        const JSDOC                      = 1 << 34;
+        const JSDOC_IMPORT_TAG           = 1 << 35;
+        const JSDOC_BRACKET_IMPORT       = 1 << 36;
         // oxcruise additions
-        const URL                        = 1 << 38;
-        const WORKER                     = 1 << 39;
-        const CALL                       = 1 << 40;
+        const URL                        = 1 << 37;
+        const WORKER                     = 1 << 38;
+        const CALL                       = 1 << 39;
     }
 }
 
@@ -100,7 +99,6 @@ pub const KIND_NAMES: &[(DepKinds, &str)] = &[
     ),
     (DepKinds::AMD_DEFINE, "amd-define"),
     (DepKinds::AMD_REQUIRE, "amd-require"),
-    (DepKinds::EXOTIC_REQUIRE, "exotic-require"),
     (DepKinds::JSDOC, "jsdoc"),
     (DepKinds::JSDOC_IMPORT_TAG, "jsdoc-import-tag"),
     (DepKinds::JSDOC_BRACKET_IMPORT, "jsdoc-bracket-import"),
@@ -170,7 +168,6 @@ impl DepKinds {
         .union(DepKinds::TYPE_IMPORT)
         .union(DepKinds::AMD_DEFINE)
         .union(DepKinds::AMD_REQUIRE)
-        .union(DepKinds::EXOTIC_REQUIRE)
         .union(DepKinds::URL)
         .union(DepKinds::WORKER)
         .union(DepKinds::CALL);

@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/categories.rs
+expression: out
+---
+error no-orphans lonely.ts: this module is not imported by any module and imports nothing
+warn no-peer-deps c.ts:4:1 -> react: `react` is a peer dependency

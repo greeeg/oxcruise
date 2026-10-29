@@ -7,9 +7,9 @@ expression: "run(\"exotic.js\")"
     {
       "specifier": "./exotic",
       "kinds": [
-        "exotic-require"
+        "call"
       ],
-      "module_system": "cjs",
+      "module_system": "es6",
       "span": {
         "start": 15,
         "end": 25
@@ -23,9 +23,9 @@ expression: "run(\"exotic.js\")"
     {
       "specifier": "./member-exotic",
       "kinds": [
-        "exotic-require"
+        "call"
       ],
-      "module_system": "cjs",
+      "module_system": "es6",
       "span": {
         "start": 53,
         "end": 70
