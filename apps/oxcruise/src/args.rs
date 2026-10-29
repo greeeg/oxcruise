@@ -14,6 +14,17 @@ const CHECK_ONLY: &[&str] = &[
     "threads",
 ];
 
+/// What the language server refuses: all of the above except `--threads`.
+const LSP_CONFLICTS: &[&str] = &[
+    "paths",
+    "format",
+    "quiet",
+    "ignore_pattern",
+    "max_depth",
+    "max_warnings",
+    "deny_warnings",
+];
+
 #[derive(Debug, Parser)]
 #[command(
     name = "oxcruise",
@@ -21,7 +32,7 @@ const CHECK_ONLY: &[&str] = &[
     about = "Validate and visualise JS/TS dependency graphs",
     group(
         ArgGroup::new("mode")
-            .args(["init", "migrate", "rules", "print_config"])
+            .args(["init", "migrate", "rules", "print_config", "lsp"])
             .multiple(false)
     )
 )]
@@ -48,6 +59,9 @@ pub struct Cli {
     /// Print the resolved config (extends applied, every category with its level) as JSON
     #[arg(long, help_heading = "Mode Options")]
     pub print_config: bool,
+    /// Run the language server on stdio: violations as editor diagnostics, refreshed on save
+    #[arg(long, help_heading = "Mode Options", conflicts_with_all = LSP_CONFLICTS)]
+    pub lsp: bool,
 
     /// Config to read; with --init or --migrate, the file to write
     #[arg(short, long, value_name = "FILE", help_heading = "Config Options")]
@@ -95,6 +109,7 @@ pub enum Mode {
     Migrate,
     Rules,
     PrintConfig,
+    Lsp,
     Check,
 }
 
@@ -108,6 +123,8 @@ impl Cli {
             Mode::Rules
         } else if self.print_config {
             Mode::PrintConfig
+        } else if self.lsp {
+            Mode::Lsp
         } else {
             Mode::Check
         }

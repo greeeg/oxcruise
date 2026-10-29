@@ -98,6 +98,22 @@ fn subcommand_names_are_just_paths() {
 }
 
 #[test]
+fn lsp_refuses_check_flags_but_takes_config_and_threads() {
+    for flags in [
+        &["--lsp", "-f", "json"][..],
+        &["--lsp", "src"],
+        &["--lsp", "--init"],
+    ] {
+        let o = run(flags);
+        assert_eq!(o.result, CliRunResult::InvalidOptions, "{flags:?}");
+        assert!(o.stderr.contains("cannot be used with"), "{}", o.stderr);
+    }
+    // the flags it does take parse (and fail only for lack of a client)
+    let o = run(&["--lsp", "--help"]);
+    assert!(o.stdout.contains("--lsp"), "{}", o.stdout);
+}
+
+#[test]
 fn filter_flags() {
     let o = run(&["packages", "-f", "text", "--ignore-pattern", "packages/lib"]);
     assert!(!o.stdout.contains("packages/lib"), "{}", o.stdout);

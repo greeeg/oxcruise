@@ -52,6 +52,16 @@ node-test:
     pnpm -C apps/oxcruise run typecheck
     pnpm -C apps/oxcruise run test
 
+# Build the VS Code extension with this machine's native server bundled in (F5 it from npm/vscode-extension)
+vscode:
+    cargo build -p oxcruise --release
+    cp target/release/oxcruise "npm/vscode-extension/bin/oxcruise-$(node -p "process.platform + '-' + process.arch")"
+    pnpm -C npm/vscode-extension run build
+
+# Package that as a .vsix for this platform (vsce wants its own platform name: linux-x64, darwin-arm64, ...)
+vscode-package target: vscode
+    pnpm -C npm/vscode-extension exec vsce package --no-dependencies --target {{target}}
+
 # Pack the npm packages, install them into a fresh project and run npx oxcruise there
 smoke: oxcruise-node-debug
     node tasks/smoke/smoke.mjs

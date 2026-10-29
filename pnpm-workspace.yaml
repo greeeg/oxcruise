@@ -1,6 +1,7 @@
 packages:
   - apps/oxcruise
   - npm/oxcruise
+  - npm/vscode-extension
 allowBuilds:
   esbuild: true
   lefthook: true

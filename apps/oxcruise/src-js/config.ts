@@ -2,10 +2,17 @@
 
 import { pathToFileURL } from "node:url";
 
+// The language server evaluates the same config again after every edit; a query makes `import()`
+// skip its module cache (the config's own imports stay cached).
+const longLived = process.argv.includes("--lsp");
+let evaluations = 0;
+
 export async function loadJsConfig(path: string): Promise<string> {
   let mod: { default?: unknown };
   try {
-    mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
+    const url = pathToFileURL(path);
+    if (longLived) url.search = `?run=${++evaluations}`;
+    mod = (await import(url.href)) as { default?: unknown };
   } catch (e) {
     const hint = /\.[cm]?ts$/.test(path) ? " (TypeScript configs need Node >= 22.18)" : "";
     throw new Error(
