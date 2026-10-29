@@ -20,7 +20,7 @@ Each row is a problem in dependency-cruiser (with the issues that report it) and
 | No relationship predicates | #1067, #624, #628, #960, #986 | `relation` conditions, `internal-modules`, `layers` | done |
 | Regex-only paths; unsafe-regex guard; silent dead rules | #472, #651, #980, #806 | globs only, matched by the linear-time `regex` crate; rules that match nothing are reported | done |
 | All-or-nothing cache that relies on git | #715, #1071 | per-file content-hash cache | post-MVP |
-| No editor/LSP integration | #529, #272 | LSP with a resident incremental graph | post-MVP |
+| No editor/LSP integration | #529, #272 | `oxcruise --lsp` and a VS Code extension ([editor.md](editor.md)); each save re-runs the whole check instead of updating a resident graph | partly done |
 | No unused exports/dependencies | #674, #468, #638, #340 | symbol-level analysis (export/import names are already extracted) | post-MVP |
 | Missing dependency forms | #971, #966, #1007 | `new URL()`/workers, SFC splitter for Vue/Svelte/Astro; CSS `@import`: post-MVP | partly done |
 
@@ -246,11 +246,12 @@ Honest list, so the plan and the code are not confused:
 * The plugin protocol passes one object per callback (`{ graph, rules }`, `{ name, resultJson }`) because napi
   expands tuples into one array argument. `loadPlugin` is an extra callback, and `jsPlugins` accepts aliases.
 * Capture templates are cached in a `Mutex<HashMap>` per pattern, not `papaya`.
-* There is **no `RuntimeFileSystem` abstraction** yet (it was groundwork for the LSP).
+* There is **no `RuntimeFileSystem` abstraction**; the language server reads from disk and refreshes on save, not on
+  unsaved buffers.
 * The rule language is deliberately smaller than dependency-cruiser's (`forbid` only, globs only; no `allow`,
   `require`, `orphan`, `numberOf…`, `dependencyTypes`, `circular`/`via`, `license`, folder scope, `reachable: false`).
   `oxcruise --migrate` drops rules that use such conditions with a named warning instead of silently widening them.
-* Not built: baseline, cache, LSP/`--watch`, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
+* Not built: baseline, cache, `--watch`, live (unsaved-buffer) diagnostics, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
   unused-exports, CSS `@import`.
 * The release workflow is drafted but has never run, and nothing has been published.
 * Only Linux/arm64 was built and tested while developing; the other platform targets are untested.

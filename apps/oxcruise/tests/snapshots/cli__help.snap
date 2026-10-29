@@ -18,6 +18,7 @@ Mode Options:
       --migrate[=<FILE>]  Convert .dependency-cruiser.* (discovered, or FILE) to the -c target (default oxcruise.config.ts)
       --rules             List the built-in rules by category; `-f json` prints them as JSON
       --print-config      Print the resolved config (extends applied, every category with its level) as JSON
+      --lsp               Run the language server on stdio: violations as editor diagnostics, refreshed on save
 
 Config Options:
   -c, --config <FILE>  Config to read; with --init or --migrate, the file to write

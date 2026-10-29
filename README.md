@@ -45,6 +45,7 @@ npx oxcruise                       # your config, or the defaults
 npx oxcruise src -f dot | dot -Tsvg > graph.svg
 npx oxcruise -f github             # annotations in GitHub Actions
 npx oxcruise --rules               # the built-in rules by category (-f json for JSON)
+npx oxcruise --lsp                 # language server on stdio, for the editor extension
 ```
 
 ```ts
@@ -92,13 +93,14 @@ expect(g.module("src/ui/page.ts")?.dependsOn("src/db/**")).toBe(false);
 * [Architecture and design](docs/architecture.md): the gaps it closes, how it works, the plugin API, and where the
   implementation differs from the original plan.
 * [Rules](docs/rules.md)
+* [Editor integration](docs/editor.md): `oxcruise --lsp` and the VS Code extension.
 * [Migrating from dependency-cruiser](docs/migrating-from-depcruise.md)
 * [Conformance with dependency-cruiser 18.7](docs/conformance.md)
 
 ## Status
 
 Early. The core, rules, reporters, CLI, JS plugins and npm packaging are implemented and tested on Linux/arm64. Nothing
-is published, the release workflow has not run, and other platforms are untested. Not built yet: baseline, cache, LSP and
+is published, the release workflow has not run, and other platforms are untested. Not built yet: baseline, cache,
 `--watch`, SARIF and other CI reporters, unused-export detection. [Details](docs/architecture.md#where-this-differs-from-the-original-plan).
 
 ## Development

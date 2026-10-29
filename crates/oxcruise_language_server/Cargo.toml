@@ -1,0 +1,24 @@
+[package]
+name = "oxcruise_language_server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Language server for oxcruise: shows violations in the editor"
+
+[lints]
+workspace = true
+
+[dependencies]
+oxcruise_core = { workspace = true }
+oxcruise_report = { workspace = true }
+oxcruise_rules = { workspace = true }
+crossbeam-channel = { workspace = true }
+lsp-server = { workspace = true }
+lsp-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+oxc_allocator = { workspace = true }
+oxcruise_extract = { workspace = true }
+tempfile = { workspace = true }

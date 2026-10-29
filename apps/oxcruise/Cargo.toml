@@ -29,6 +29,7 @@ workspace = true
 oxcruise_core = { workspace = true }
 oxcruise_config = { workspace = true }
 oxcruise_graph = { workspace = true }
+oxcruise_language_server = { workspace = true }
 oxcruise_report = { workspace = true }
 oxcruise_resolve = { workspace = true }
 oxcruise_rules = { workspace = true }
@@ -43,5 +44,6 @@ mimalloc = { version = "0.1", optional = true }
 napi-build = { workspace = true, optional = true }
 
 [dev-dependencies]
+lsp-server = { workspace = true }
 insta = { workspace = true }
 tempfile = { workspace = true }

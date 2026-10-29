@@ -7,7 +7,10 @@ use clap::Parser;
 use oxcruise_config::{Category, JsConfigLoader, NodeSubprocessLoader};
 use oxcruise_core::Severity;
 use oxcruise_graph::cruise;
-use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
+use oxcruise_language_server::{AnalyzeOutcome, Connection, LspAnalysis};
+use oxcruise_report::{
+    CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render, violation_outs,
+};
 use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
 use crate::args::{Cli, Mode};
@@ -28,7 +31,7 @@ pub struct Analysis {
 
 pub struct CliRunner {
     args: Vec<String>,
-    js_loader: Box<dyn JsConfigLoader>,
+    js_loader: Arc<dyn JsConfigLoader>,
     external_rules: Option<Arc<dyn ExternalRules>>,
     external_reporters: Option<Arc<dyn ExternalReporters>>,
     cwd: Option<PathBuf>,
@@ -39,7 +42,7 @@ impl CliRunner {
     pub fn new(args: Vec<String>) -> Self {
         Self {
             args,
-            js_loader: Box::new(NodeSubprocessLoader),
+            js_loader: Arc::new(NodeSubprocessLoader),
             external_rules: None,
             external_reporters: None,
             cwd: None,
@@ -50,7 +53,7 @@ impl CliRunner {
     /// Replace how JS/TS configs are evaluated (the napi build calls back into the host Node).
     #[must_use]
     pub fn with_js_config_loader(mut self, loader: Box<dyn JsConfigLoader>) -> Self {
-        self.js_loader = loader;
+        self.js_loader = Arc::from(loader);
         self
     }
 
@@ -74,9 +77,9 @@ impl CliRunner {
 
     pub fn run_stdio(mut self) -> CliRunResult {
         self.stdout_is_tty = std::io::stdout().is_terminal();
-        let (stdout, stderr) = (std::io::stdout(), std::io::stderr());
-        let mut out = std::io::BufWriter::new(stdout.lock());
-        let result = self.run(&mut out, &mut stderr.lock());
+        // No locks held across the run: `--lsp` writes the protocol to stdout from another thread.
+        let mut out = std::io::BufWriter::new(std::io::stdout());
+        let result = self.run(&mut out, &mut std::io::stderr());
         let _ = out.flush();
         result
     }
@@ -132,6 +135,12 @@ impl CliRunner {
                 ),
             },
             Mode::PrintConfig => self.print_config(&cli, out, err),
+            Mode::Lsp => {
+                let (conn, io) = Connection::stdio();
+                let result = self.serve_lsp(&cli, conn, err);
+                let _ = io.join();
+                result
+            }
             Mode::Check => self.check(&cli, out, err),
         }
     }
@@ -146,8 +155,61 @@ impl CliRunner {
             Mode::Migrate => "--migrate",
             Mode::Rules => "--rules",
             Mode::PrintConfig => "--print-config",
+            Mode::Lsp => "--lsp",
         };
         Err(fail(err, format!("`{not_a_cruise}` is not a cruise")))
+    }
+
+    /// Run the language server over `conn`, analysing each workspace root with this runner's
+    /// config loader and plugins. Needs `--lsp` among the arguments.
+    pub fn serve_lsp_on(self, conn: Connection) -> CliRunResult {
+        let err = &mut std::io::stderr();
+        let cli = match self.parse(&mut std::io::sink(), err) {
+            Ok(cli) if cli.mode() == Mode::Lsp => cli,
+            Ok(_) => return fail(err, "`serve_lsp_on` needs `--lsp`"),
+            Err(result) => return result,
+        };
+        self.serve_lsp(&cli, conn, err)
+    }
+
+    fn serve_lsp(self, cli: &Cli, conn: Connection, err: &mut dyn Write) -> CliRunResult {
+        // flags every analysis gets on top of `--cwd <root>`
+        let mut base_args = vec![];
+        if let Some(config) = &cli.config {
+            base_args.extend(["--config".to_string(), config.display().to_string()]);
+        }
+        if let Some(threads) = cli.threads {
+            base_args.extend(["--threads".to_string(), threads.to_string()]);
+        }
+        let analyze = Box::new(move |root: &Path| {
+            let mut args = vec!["--cwd".to_string(), root.display().to_string()];
+            args.extend(base_args.iter().cloned());
+            let runner = CliRunner {
+                args,
+                js_loader: self.js_loader.clone(),
+                external_rules: self.external_rules.clone(),
+                external_reporters: self.external_reporters.clone(),
+                cwd: None,
+                stdout_is_tty: false,
+            };
+            let mut log = Vec::new();
+            let analysis = runner
+                .analyze_only(&mut log)
+                .map(|a| LspAnalysis {
+                    violations: violation_outs(&a.graph, &a.violations),
+                    graph: a.graph,
+                    cwd: a.cwd,
+                })
+                .map_err(|_| failure_message(&log));
+            AnalyzeOutcome {
+                analysis,
+                log: String::from_utf8_lossy(&log).into_owned(),
+            }
+        });
+        match oxcruise_language_server::serve(conn, analyze) {
+            Ok(()) => CliRunResult::Success,
+            Err(e) => fail(err, format!("language server: {e}")),
+        }
     }
 
     fn resolve_cwd(&self, flag: Option<&Path>) -> PathBuf {
@@ -366,6 +428,20 @@ impl CliRunner {
     ) -> Result<(), String> {
         let ext = self.external_reporters.as_deref();
         render(format, result, opts, ext, out).map_err(|e| e.to_string())
+    }
+}
+
+/// The last `error:` line a failed run wrote (or all of it), without the prefix.
+fn failure_message(log: &[u8]) -> String {
+    let text = String::from_utf8_lossy(log);
+    let errors: Vec<&str> = text
+        .lines()
+        .filter_map(|l| l.strip_prefix("error: "))
+        .collect();
+    if errors.is_empty() {
+        text.trim().to_string()
+    } else {
+        errors.join("\n")
     }
 }
 

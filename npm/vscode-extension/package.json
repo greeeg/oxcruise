@@ -1,0 +1,75 @@
+{
+  "name": "oxcruise-vscode",
+  "displayName": "oxcruise",
+  "description": "Dependency-graph violations from oxcruise in the editor: on the import, with cycle paths, quick fixes and rule docs.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "greeeg",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/greeeg/oxcruise.git",
+    "directory": "npm/vscode-extension"
+  },
+  "homepage": "https://github.com/greeeg/oxcruise#readme",
+  "bugs": "https://github.com/greeeg/oxcruise/issues",
+  "type": "module",
+  "categories": ["Linters"],
+  "keywords": ["dependencies", "imports", "circular", "architecture", "oxc"],
+  "engines": { "vscode": "^1.90.0" },
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:vue",
+    "onLanguage:svelte",
+    "onLanguage:astro",
+    "workspaceContains:**/oxcruise.config.*",
+    "workspaceContains:**/.oxcruiserc.json"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "oxcruise",
+      "properties": {
+        "oxcruise.enable": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show oxcruise violations in the editor."
+        },
+        "oxcruise.path.server": {
+          "type": "string",
+          "markdownDescription": "Path to the `oxcruise` executable to run as the language server. Default: the project's `node_modules/oxcruise` (which supports `jsPlugins`), else the binary bundled with this extension (which does not)."
+        },
+        "oxcruise.configPath": {
+          "type": "string",
+          "markdownDescription": "Config file to use instead of the one oxcruise discovers. Relative paths are resolved from each workspace folder; `${workspaceFolder}` is replaced."
+        },
+        "oxcruise.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "markdownDescription": "Trace the messages between VS Code and the server in the oxcruise output channel."
+        }
+      }
+    },
+    "commands": [
+      { "command": "oxcruise.restartServer", "title": "Restart Server", "category": "oxcruise" },
+      { "command": "oxcruise.showOutputChannel", "title": "Show Output", "category": "oxcruise" }
+    ]
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/vsce": "^3.6.0",
+    "tsdown": "0.23.2",
+    "typescript": "^5.9.0",
+    "vscode-languageclient": "^9.0.1"
+  }
+}

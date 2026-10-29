@@ -101,14 +101,18 @@ expression: "rendered(\"json\", &plain())"
               "kinds": [
                 "local",
                 "import"
-              ]
+              ],
+              "line": 1,
+              "col": 19
             },
             {
               "module": "packages/app/src/cycle-b.ts",
               "kinds": [
                 "local",
                 "import"
-              ]
+              ],
+              "line": 1,
+              "col": 19
             }
           ],
           "rules": [
@@ -149,14 +153,18 @@ expression: "rendered(\"json\", &plain())"
               "kinds": [
                 "local",
                 "import"
-              ]
+              ],
+              "line": 1,
+              "col": 19
             },
             {
               "module": "packages/app/src/cycle-a.ts",
               "kinds": [
                 "local",
                 "import"
-              ]
+              ],
+              "line": 1,
+              "col": 19
             }
           ],
           "rules": [
@@ -664,14 +672,18 @@ expression: "rendered(\"json\", &plain())"
           "kinds": [
             "local",
             "import"
-          ]
+          ],
+          "line": 1,
+          "col": 19
         },
         {
           "module": "packages/app/src/cycle-b.ts",
           "kinds": [
             "local",
             "import"
-          ]
+          ],
+          "line": 1,
+          "col": 19
         }
       ],
       "specifier_len": 11

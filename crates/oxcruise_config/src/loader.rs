@@ -24,7 +24,7 @@ pub enum ConfigError {
 ///
 /// The standalone binary uses [`NodeSubprocessLoader`]; the napi build plugs in
 /// a callback into the host Node process instead.
-pub trait JsConfigLoader: Sync {
+pub trait JsConfigLoader: Send + Sync {
     fn load(&self, path: &Path) -> Result<serde_json::Value, ConfigError>;
 }
 

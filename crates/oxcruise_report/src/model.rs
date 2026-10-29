@@ -57,6 +57,11 @@ pub struct CycleHop {
     pub module: String,
     /// Kinds of the edge leaving this module towards the next hop.
     pub kinds: DepKinds,
+    /// Where the edge leaving this module is written.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub line: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub col: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -249,9 +254,15 @@ impl Summary {
 
 fn hops(graph: &Graph, path: &[oxcruise_core::CycleStep]) -> Vec<CycleHop> {
     path.iter()
-        .map(|s| CycleHop {
-            module: graph.module(s.module).path.clone(),
-            kinds: s.edge.map_or(DepKinds::empty(), |e| graph.edge(e).kinds),
+        .map(|s| {
+            let edge = s.edge.map(|e| graph.edge(e));
+            let loc = edge.and_then(|e| e.loc);
+            CycleHop {
+                module: graph.module(s.module).path.clone(),
+                kinds: edge.map_or(DepKinds::empty(), |e| e.kinds),
+                line: loc.map(|l| l.line),
+                col: loc.map(|l| l.col),
+            }
         })
         .collect()
 }

@@ -105,6 +105,8 @@ jobs:
         run: |
           for dir in npm/*/; do
             [ "$dir" = "npm/oxcruise/" ] && continue
+            # private packages (the VS Code extension) are not npm packages
+            [ "$(node -p "require('./${dir}package.json').private === true")" = "true" ] && continue
             name="$(node -p "require('./${dir}package.json').name")"
             version="$(node -p "require('./${dir}package.json').version")"
             if npm view "$name@$version" version >/dev/null 2>&1; then echo "skip $name@$version"; continue; fi
@@ -114,3 +116,67 @@ jobs:
           version="$(node -p "require('./npm/oxcruise/package.json').version")"
           if npm view "$name@$version" version >/dev/null 2>&1; then echo "skip $name@$version"; exit 0; fi
           pnpm -C npm/oxcruise publish --provenance --access public --no-git-checks
+
+  # The VS Code extension: one .vsix per platform, each with that platform's native server (no jsPlugins;
+  # with `oxcruise` installed in the project the extension runs that instead). Built on every release;
+  # published to the Marketplace only when the repository variable PUBLISH_VSCODE is "true" and the `publish`
+  # environment provides the VSCE_PAT secret.
+  vscode-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, vsce: linux-x64, node: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, vsce: linux-arm64, node: linux-arm64 }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, vsce: darwin-x64, node: darwin-x64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, vsce: darwin-arm64, node: darwin-arm64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, vsce: win32-x64, node: win32-x64, exe: .exe }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, vsce: win32-arm64, node: win32-arm64, exe: .exe }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter oxcruise-vscode
+      - run: cargo build -p oxcruise --release --target ${{ matrix.target }}
+      - run: cp target/${{ matrix.target }}/release/oxcruise${{ matrix.exe }} npm/vscode-extension/bin/oxcruise-${{ matrix.node }}${{ matrix.exe }}
+      - run: pnpm -C npm/vscode-extension run build
+      - run: pnpm -C npm/vscode-extension exec vsce package --no-dependencies --target ${{ matrix.vsce }} --out oxcruise-${{ matrix.vsce }}.vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.vsce }}
+          path: npm/vscode-extension/oxcruise-${{ matrix.vsce }}.vsix
+          if-no-files-found: error
+
+  vscode-publish:
+    needs: vscode-build
+    if: vars.PUBLISH_VSCODE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter oxcruise-vscode
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          path: vsix
+          merge-multiple: true
+      - run: pnpm -C npm/vscode-extension exec vsce publish --packagePath ../../vsix/*.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
