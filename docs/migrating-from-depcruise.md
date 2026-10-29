@@ -1,13 +1,16 @@
 # Migrating from dependency-cruiser
 
 oxcruise's config is much smaller than dependency-cruiser's, and it does not read `.dependency-cruiser.*` files when it
-checks. `oxcruise migrate` converts one, and tells you what it could not carry over:
+checks. `oxcruise --migrate` converts one, and tells you what it could not carry over:
 
 ```sh
-npx oxcruise migrate          # reads .dependency-cruiser.{json,js,cjs,mjs}; writes oxcruise.config.ts
-npx oxcruise migrate --json   # writes .oxcruiserc.json instead
-npx oxcruise migrate -c config/.dependency-cruiser.cjs -o config/oxcruise.config.ts --force
+npx oxcruise --migrate                  # reads .dependency-cruiser.{json,js,cjs,mjs}; writes oxcruise.config.ts
+npx oxcruise --migrate -c .oxcruiserc.json   # -c names the file to write; a .json name gives JSON
+npx oxcruise --migrate=config/.dependency-cruiser.cjs -c config/oxcruise.config.ts
 ```
+
+`--migrate` never overwrites: if the target exists it stops with "already exists" (delete the file, or pick another with
+`-c`). The `migrate` subcommand and its `--json`, `--force` and `-o/--output` flags are gone.
 
 The conversion is deliberately conservative. A path regex becomes a glob only when it has a common shape (below).
 A rule that uses a condition oxcruise does not have, or a regex that does not convert, is **dropped entirely** with a
@@ -110,7 +113,7 @@ dependency-cruiser's recommended config is the default of oxcruise: its rules ar
 ## Checking your migration
 
 ```sh
-npx oxcruise migrate --json -o .oxcruiserc.json
+npx oxcruise --migrate -c .oxcruiserc.json
 npx depcruise src -T json > before.json
 npx oxcruise src -f json > after.json
 ```

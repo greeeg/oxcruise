@@ -23,8 +23,6 @@ export interface CruiseOptions {
   paths?: string[];
   /** Config file; default: discovered in `cwd`. */
   config?: string;
-  /** Ignore config files and use the defaults. */
-  noConfig?: boolean;
   /** Globs of modules to leave out of the graph, on top of the config's `ignorePatterns`. */
   ignorePatterns?: string[];
   maxDepth?: number;
@@ -141,7 +139,6 @@ export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult>
     values?.forEach((v) => args.push(name, v));
   if (options.cwd) args.push("--cwd", options.cwd);
   if (options.config) args.push("--config", options.config);
-  if (options.noConfig) args.push("--no-config");
   if (options.maxDepth !== undefined) args.push("--max-depth", String(options.maxDepth));
   if (options.threads !== undefined) args.push("--threads", String(options.threads));
   flag("--ignore-pattern", options.ignorePatterns);

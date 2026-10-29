@@ -29,11 +29,7 @@ export async function runCli(cwd: string, args: string[]): Promise<CliOutput> {
   const { runCaptured } = await loadNative();
   const { createHost } = await import("../src-js/host.ts");
   const host = createHost();
-  // `migrate` is a subcommand, so it goes first and takes no --color
-  const argv =
-    args[0] === "migrate"
-      ? ["migrate", "--cwd", cwd, ...args.slice(1)]
-      : ["--cwd", cwd, "--color", "never", ...args];
+  const argv = ["--cwd", cwd, ...args];
   const r = await runCaptured(
     argv,
     (req) => host.loadPlugin(req),

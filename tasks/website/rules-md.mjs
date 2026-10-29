@@ -1,4 +1,4 @@
-// Renders `oxcruise --rules` (JSON) as docs/rules.md. Usage: node rules-md.mjs rules.json > docs/rules.md
+// Renders `oxcruise --rules -f json` as docs/rules.md. Usage: node rules-md.mjs rules.json > docs/rules.md
 import { readFileSync } from "node:fs";
 
 const rules = JSON.parse(readFileSync(process.argv[2], "utf8"));

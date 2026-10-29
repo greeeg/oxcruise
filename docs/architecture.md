@@ -106,8 +106,8 @@ is parsed separately and its offsets are mapped back to the file.
 ## Configuration
 
 One file, found in the working directory: `oxcruise.config.ts` or `.oxcruiserc.json` (comments and trailing commas
-allowed). `--config` names another. dependency-cruiser configs are not read by `check`; `oxcruise migrate` converts
-one. `--no-config` means the defaults.
+allowed). `--config` names another. dependency-cruiser configs are not read by a check; `oxcruise --migrate` converts
+one, and `oxcruise --init` writes a starter config. With neither file, the defaults apply.
 
 ```ts
 // oxcruise.config.ts
@@ -230,8 +230,10 @@ configs are evaluated by spawning `node`.
 `default` (source snippets, underlined specifiers, cycles drawn as loops), `long` (adds rule docs), `json`
 (native, versioned), `github` (annotations), `dot`, `mermaid`, `text`, and plugin reporters (`-f plugin/reporter`).
 
-`oxcruise [check] [paths…]` and `oxcruise migrate`. Flags: `-c`, `--no-config`, `-f`, `-o`, `--ignore-pattern`,
-`--max-depth`, `--max-warnings`, `--deny-warnings`, `--threads`, `--rules`, `--color`, `--cwd`. Exit code 1 for
+`oxcruise [paths…]`, plus mode flags that replace it: `--init`, `--migrate[=FILE]`, `--rules` and `--print-config`
+(one at a time; `--init` and `--migrate` never overwrite). Flags: `-c`, `-f`, `--quiet`, `--ignore-pattern`,
+`--max-depth`, `--max-warnings`, `--deny-warnings`, `--threads`, `--cwd`. Color follows the terminal, `NO_COLOR` and
+`FORCE_COLOR`. Exit code 1 for
 errors, 2 for a bad invocation or config.
 
 ## Where this differs from the original plan
@@ -247,8 +249,8 @@ Honest list, so the plan and the code are not confused:
 * There is **no `RuntimeFileSystem` abstraction** yet (it was groundwork for the LSP).
 * The rule language is deliberately smaller than dependency-cruiser's (`forbid` only, globs only; no `allow`,
   `require`, `orphan`, `numberOf…`, `dependencyTypes`, `circular`/`via`, `license`, folder scope, `reachable: false`).
-  `oxcruise migrate` drops rules that use such conditions with a named warning instead of silently widening them.
-* Not built: baseline, cache, LSP/`--watch`, `init`, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
+  `oxcruise --migrate` drops rules that use such conditions with a named warning instead of silently widening them.
+* Not built: baseline, cache, LSP/`--watch`, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
   unused-exports, CSS `@import`.
 * The release workflow is drafted but has never run, and nothing has been published.
 * Only Linux/arm64 was built and tested while developing; the other platform targets are untested.

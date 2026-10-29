@@ -3,7 +3,7 @@
 `just conformance` (`tasks/conformance/run.ts`) generates a dependency-cruiser config per target and runs
 
 1. dependency-cruiser 18.7.0 on it, and
-2. `oxcruise migrate --json` on it, then `oxcruise -f json` with the migrated config (so migration is exercised
+2. `oxcruise --migrate` (to a `.json` file) on it, then `oxcruise -f json` with the migrated config (so migration is exercised
    too), with oxcruise's output mapped to dependency-cruiser's shape in the script,
 
 and diffs

@@ -40,10 +40,11 @@ error[no-circular]: circular dependency: src/a.ts → src/b.ts → src/a.ts
 
 ```sh
 npm i -D oxcruise
+npx oxcruise --init                # write a starter oxcruise.config.ts
 npx oxcruise                       # your config, or the defaults
 npx oxcruise src -f dot | dot -Tsvg > graph.svg
 npx oxcruise -f github             # annotations in GitHub Actions
-npx oxcruise --rules               # the built-in rules, as JSON
+npx oxcruise --rules               # the built-in rules by category (-f json for JSON)
 ```
 
 ```ts

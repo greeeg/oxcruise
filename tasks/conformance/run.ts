@@ -10,7 +10,7 @@
 // Known, intentional differences live in deviations.json.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -241,11 +241,10 @@ for (const t of targets.filter((t) => !only || t.name === only)) {
 
   // oxcruise gets what `migrate` makes of the very same config
   const oxCfgPath = join(cache, "configs", `${t.name}.oxcruiserc.json`);
-  const migrated = spawnSync(
-    oxcruiseBin,
-    ["migrate", "--json", "--force", "--config", cfgPath, "--output", oxCfgPath, "--cwd", cwd],
-    { encoding: "utf8" },
-  );
+  rmSync(oxCfgPath, { force: true }); // --migrate never overwrites
+  const migrated = spawnSync(oxcruiseBin, [`--migrate=${cfgPath}`, "-c", oxCfgPath, "--cwd", cwd], {
+    encoding: "utf8",
+  });
   if (migrated.status !== 0) throw new Error(`migrate failed for ${t.name}:\n${migrated.stderr}`);
   const warnings = migrated.stderr.split("\n").filter((l) => l.startsWith("warning:"));
   if (t.excludeGlobs) {

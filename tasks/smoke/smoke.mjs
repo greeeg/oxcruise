@@ -117,7 +117,7 @@ try {
   );
 
   // 3. run it the way users do
-  const plain = attempt("npx", ["--no-install", "oxcruise", "--color", "never"], { cwd: proj });
+  const plain = attempt("npx", ["--no-install", "oxcruise"], { cwd: proj });
   check(
     "exits 0: only warnings",
     plain.code === 0,
@@ -138,17 +138,15 @@ try {
   writeFileSync(join(bare, "src/index.ts"), 'import "./gone";\nimport "./a";\n');
   writeFileSync(join(bare, "src/a.ts"), 'import "./index";\n');
   writeFileSync(join(bare, "src/lonely.ts"), "export {};\n");
-  const defaults = attempt(
-    "npx",
-    ["--no-install", "oxcruise", "--cwd", bare, "--color", "never", "-f", "text"],
-    { cwd: proj },
-  );
+  const defaults = attempt("npx", ["--no-install", "oxcruise", "--cwd", bare, "-f", "text"], {
+    cwd: proj,
+  });
   check(
     "no config: the defaults exit 1 on correctness errors",
     defaults.code === 1 && defaults.stderr === "",
     `${defaults.code}\n${defaults.stdout}\n${defaults.stderr}`,
   );
-  const rulesHit = attempt("npx", ["--no-install", "oxcruise", "--cwd", bare, "--color", "never"], {
+  const rulesHit = attempt("npx", ["--no-install", "oxcruise", "--cwd", bare], {
     cwd: proj,
   });
   check(

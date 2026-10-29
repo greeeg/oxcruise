@@ -198,8 +198,8 @@ describe("configs evaluated by the host Node", () => {
     const explicit = await runCli(dir, ["src", "-c", ".dependency-cruiser.cjs"]);
     expect(explicit.code).toBe(2);
     expect(explicit.stderr).toContain("unknown field");
-    // `migrate` evaluates the CJS file in the host Node and writes the new shape
-    const migrate = await runCli(dir, ["migrate"]);
+    // `--migrate` evaluates the CJS file in the host Node and writes the new shape
+    const migrate = await runCli(dir, ["--migrate"]);
     expect(migrate.stderr).toBe("");
     expect(migrate.code).toBe(0);
     const written = readFileSync(join(dir, "oxcruise.config.ts"), "utf8");
@@ -213,7 +213,6 @@ describe("cruise() programmatic API", () => {
   test("answers architecture questions about a result", async () => {
     const g = await cruise({
       cwd: join(fixtures, "plugin-project"),
-      noConfig: true,
       paths: ["src"],
     });
     expect(g.summary.total_modules).toBeGreaterThan(5);
@@ -236,7 +235,6 @@ describe("cruise() programmatic API", () => {
   test("module handles are built once and share the plugin graph", async () => {
     const g = await cruise({
       cwd: join(fixtures, "plugin-project"),
-      noConfig: true,
       paths: ["src"],
     });
     expect(g.modules).toBe(g.modules);
@@ -253,14 +251,14 @@ describe("cruise() programmatic API", () => {
       "src/domain.ts": "import './db';\n",
       "src/db.ts": "export {};\n",
     });
-    const g = await cruise({ cwd: dir, noConfig: true, paths: ["src"] });
+    const g = await cruise({ cwd: dir, paths: ["src"] });
     expect(g.module("src/ui.ts")!.dependsOn("src/db.ts")).toBe(false);
     expect(g.module("src/ui.ts")!.dependsOnTransitively("src/db.ts")).toBe(true);
   });
 
   test("a result with errors is still a result; a failing run throws", async () => {
     const dir = project({ "src/a.ts": "import './a';\n" });
-    const g = await cruise({ cwd: dir, noConfig: true, paths: ["src"] });
+    const g = await cruise({ cwd: dir, paths: ["src"] });
     expect(g.violations.map((v) => v.rule)).toContain("no-circular");
     expect(g.module("src/a.ts")!.violations).toHaveLength(1);
     await expect(cruise({ cwd: dir, config: "nope.json" })).rejects.toThrow(/does not exist/);
