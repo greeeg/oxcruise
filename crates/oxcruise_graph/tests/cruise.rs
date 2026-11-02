@@ -210,7 +210,8 @@ fn a_reexport_reads_from_the_es_resolution_of_its_specifier() {
         "src/index.ts",
         "const legacy = require(\"dual\");\nexport { a } from \"dual\";\n",
     );
-    let mut o = CruiseOptions::new(d.path(), vec!["src".into()]);
+    // the resolver follows symlinks (macOS temp dirs live under the `/var` link), so the root must too
+    let mut o = CruiseOptions::new(d.path().canonicalize().unwrap(), vec!["src".into()]);
     o.extract.symbols = true;
     let out = cruise(&o).unwrap();
     let g = &out.graph;

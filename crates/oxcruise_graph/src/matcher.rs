@@ -45,6 +45,8 @@ impl PathMatcher {
             for pat in pats {
                 let glob = GlobBuilder::new(&pat)
                     .literal_separator(true)
+                    // globs use `/`; `\` escapes on every platform (globset's Windows default is off)
+                    .backslash_escape(true)
                     .build()
                     .map_err(|e| format!("invalid glob `{g}`: {e}"))?;
                 set.add(glob);
