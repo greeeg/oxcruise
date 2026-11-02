@@ -5,7 +5,7 @@
 //! `Uint32Array` views without copying:
 //!
 //! ```text
-//! header   24 x u32   magic, version, counts, section offsets (bytes)
+//! header   26 x u32   magic, version, counts, section offsets (bytes)
 //! strings  (n_strings + 1) x u32 offsets, then UTF-8 bytes padded to 4
 //! modules  n_modules x 4 x u32   path, flags, package, distinct dependents
 //! edges    n_edges   x 8 x u32   from, to, specifier, kinds lo, kinds hi, line, col, flags
@@ -18,14 +18,18 @@
 //! exports  n_exports x 6 x u32     name, flags, line, col, from module, imported name
 //! name_off (n_edges + 1) x u32     used names of each edge, indexing `names`
 //! names    n_names x u32           string index of each used name (`ns.a` is a member of `ns`)
+//! mem_off  (n_exports + 1) x u32   used members of each export, indexing `members`
+//! members  n_members x u32         string index of each member read (sorted by name)
 //! ```
 //!
 //! Header: words 0-1 magic and version, 2-5 module, edge, string and package counts, 6-14 the byte
 //! offsets of strings, string bytes, modules, edges, out_off, in_off, in_edges, scc and packages,
 //! 15 the total size, 16-17 export and name counts, 18-21 the offsets of exp_off, exports,
-//! name_off and names. Word 22 is 1 when symbols were extracted, word 23 is reserved.
+//! name_off and names. Word 22 is 1 when symbols were extracted, 23-24 are the offsets of mem_off and
+//! members, word 25 is reserved.
 //!
-//! Export flags: bits 0-1 kind (0 local, 1 re-export, 2 star, 3 namespace), bit 2 type, bit 3 used.
+//! Export flags: bits 0-1 kind (0 local, 1 re-export, 2 star, 3 namespace), bit 2 type, bit 3 used,
+//! bit 4 every member is used (`E.A` for any `A`; the export's member list is then empty).
 //! `from` is `NO_MODULE` and `imported` `NO_STRING` when they do not apply.
 //!
 //! Module flags: bits 0-3 kind (0 local, 1 package, 2 builtin, 3 unresolved), bit 4 not followed,
@@ -33,17 +37,17 @@
 //! bit 3 uses any name (`Dependency.names === "*"`; the edge's name list is then empty).
 
 use oxcruise_core::{Edge, ExportKind, Graph, ModuleId, ModuleKind, UsedNames};
-use oxcruise_graph::analyses::{ExportUsage, distinct_dependents, strongly_connected};
+use oxcruise_graph::analyses::{ExportUsage, Use, distinct_dependents, strongly_connected};
 use oxcruise_resolve::WorkspacePackage;
 use oxcruise_rules::AnalysisCache;
 use string_table::StringTable;
 
 pub const MAGIC: u32 = 0x5247_584F; // "OXGR" little-endian
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 pub const NO_PACKAGE: u32 = u32::MAX;
 pub const NO_MODULE: u32 = u32::MAX;
 pub const NO_STRING: u32 = u32::MAX;
-const HEADER_WORDS: usize = 24;
+const HEADER_WORDS: usize = 26;
 
 mod string_table {
     use std::collections::HashMap;
@@ -139,6 +143,8 @@ pub fn encode_with(
     // exports, grouped by module, and the used names of each edge
     let mut exp_off: Vec<u32> = Vec::with_capacity(n_mod + 1);
     let mut exports: Vec<u32> = vec![];
+    let mut mem_off: Vec<u32> = vec![];
+    let mut members: Vec<u32> = vec![];
     for id in graph.module_ids() {
         exp_off.push((exports.len() / 6) as u32);
         for x in &graph.module(id).exports {
@@ -149,9 +155,23 @@ pub fn encode_with(
                 ExportKind::Namespace => 3,
             };
             let used = usage.is_some_and(|u| u.is_used(id, &x.name));
+            let all_members = usage.is_some_and(|u| {
+                u.all.contains(id.idx())
+                    || matches!(u.used[id.idx()].get(&*x.name), Some(Use::Whole))
+            });
+            mem_off.push(members.len() as u32);
+            if let Some(Use::Members(set)) = usage.and_then(|u| u.used[id.idx()].get(&*x.name))
+                && !all_members
+            {
+                let mut sorted: Vec<&str> = set.iter().map(|m| &**m).collect();
+                sorted.sort_unstable();
+                members.extend(sorted.into_iter().map(|m| strings.intern(m)));
+            }
             exports.extend([
                 strings.intern(&x.name),
-                kind | u32::from(x.is_type) << 2 | u32::from(used) << 3,
+                kind | u32::from(x.is_type) << 2
+                    | u32::from(used) << 3
+                    | u32::from(all_members) << 4,
                 x.loc.line,
                 x.loc.col,
                 x.from.map_or(NO_MODULE, |ModuleId(m)| m),
@@ -162,6 +182,7 @@ pub fn encode_with(
         }
     }
     exp_off.push((exports.len() / 6) as u32);
+    mem_off.push(members.len() as u32);
     let mut name_off: Vec<u32> = Vec::with_capacity(n_edge + 1);
     let mut names: Vec<u32> = vec![];
     for e in graph.edges() {
@@ -209,6 +230,8 @@ pub fn encode_with(
     let off_exports = place(exports.len() * 4);
     let off_name_off = place(name_off.len() * 4);
     let off_names = place(names.len() * 4);
+    let off_mem_off = place(mem_off.len() * 4);
+    let off_members = place(members.len() * 4);
     let total = offset;
 
     let header: [u32; HEADER_WORDS] = [
@@ -235,6 +258,8 @@ pub fn encode_with(
         off_name_off,
         off_names,
         u32::from(usage.is_some()),
+        off_mem_off,
+        off_members,
         0,
     ];
 
@@ -257,6 +282,8 @@ pub fn encode_with(
     words(&mut out, &exports);
     words(&mut out, &name_off);
     words(&mut out, &names);
+    words(&mut out, &mem_off);
+    words(&mut out, &members);
     debug_assert_eq!(out.len(), total);
     out
 }
@@ -339,6 +366,14 @@ pub(crate) mod decode {
                         (imported != u32::MAX).then(|| self.string(imported as usize)),
                     )
                 })
+                .collect()
+        }
+        /// The used members of the `i`-th export in the whole buffer (exports are grouped by
+        /// module in order).
+        pub fn members(&self, i: usize) -> Vec<&'a str> {
+            let off = |i: usize| self.word(self.header(23) as usize + i * 4) as usize;
+            (off(i)..off(i + 1))
+                .map(|j| self.string(self.word(self.header(24) as usize + j * 4) as usize))
                 .collect()
         }
         /// The used names of edge `e`.
@@ -516,6 +551,59 @@ mod tests {
     }
 
     #[test]
+    fn used_members_are_listed_unless_every_member_is_used() {
+        let export = |name: &str| oxcruise_core::Export {
+            name: name.into(),
+            kind: ExportKind::Local,
+            is_type: false,
+            from: None,
+            imported: None,
+            loc: Loc { line: 1, col: 1 },
+            suppressed: vec![],
+            members: vec![],
+            used_in_file: false,
+            duplicate_of: None,
+            fix: None,
+        };
+        let mut lib = Module::new("lib.ts", ModuleKind::Local);
+        lib.exports = vec![export("E"), export("F"), export("G")];
+        let importer = |names: UsedNames| Edge {
+            from: ModuleId(0),
+            to: ModuleId(1),
+            specifier: "./lib".into(),
+            kinds: DepKinds::LOCAL | DepKinds::IMPORT,
+            module_system: ModuleSystem::Es6,
+            loc: Some(Loc { line: 1, col: 1 }),
+            suppressed: vec![],
+            used: names,
+        };
+        let g = Graph::build(
+            vec![Module::new("main.ts", ModuleKind::Local), lib],
+            vec![
+                importer(UsedNames::Names(
+                    ["E.B".into(), "E.A".into(), "F".into()].into(),
+                )),
+                importer(UsedNames::Names(["G.x".into(), "G".into()].into())),
+            ],
+        );
+        let usage = oxcruise_graph::analyses::export_usage(
+            &g,
+            &oxcruise_graph::analyses::BitSet::new(g.module_count()),
+            &|_| false,
+        );
+        let buf = encode(&g, &[], Some(&usage));
+        let d = Decoded(&buf);
+        let lib = g.find("lib.ts").unwrap();
+        let listed = d.exports(lib.idx());
+        // the module's first export in the buffer-wide numbering of `members`
+        let first = d.word(d.header(18) as usize + lib.idx() * 4) as usize;
+        let at = |i: usize| (listed[i].1 >> 3 & 3, d.members(first + i));
+        assert_eq!(at(0), (1, vec!["A", "B"]), "E: only A and B are read");
+        assert_eq!(at(1), (3, vec![]), "F: used whole");
+        assert_eq!(at(2), (3, vec![]), "G: a whole use covers its members");
+    }
+
+    #[test]
     fn empty_graph_encodes() {
         let buf = encode(&Graph::build(vec![], vec![]), &[], None);
         let d = Decoded(&buf);
@@ -537,6 +625,20 @@ mod fixtures {
 
     fn fixture_dir() -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src-js/__fixtures__")
+    }
+
+    /// `"*"` when any member may be read, else the members that are, sorted.
+    fn used_members(usage: &ExportUsage, m: ModuleId, name: &str) -> serde_json::Value {
+        match usage.used[m.idx()].get(name) {
+            _ if usage.all.contains(m.idx()) => serde_json::json!("*"),
+            Some(Use::Whole) => serde_json::json!("*"),
+            Some(Use::Members(set)) => {
+                let mut sorted: Vec<&str> = set.iter().map(|s| &**s).collect();
+                sorted.sort_unstable();
+                serde_json::json!(sorted)
+            }
+            None => serde_json::json!([]),
+        }
     }
 
     /// The facts the JS test checks, in plain JSON.
@@ -568,6 +670,7 @@ mod fixtures {
                     "from": x.from.map(|f| g.module(f).path.clone()),
                     "imported": x.imported,
                     "used": usage.is_used(oxcruise_core::ModuleId(i as u32), &x.name),
+                    "usedMembers": used_members(usage, oxcruise_core::ModuleId(i as u32), &x.name),
                 })).collect::<Vec<_>>(),
             })).collect::<Vec<_>>(),
             "edges": g.edges().iter().enumerate().map(|(i, e)| serde_json::json!({

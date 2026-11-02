@@ -341,6 +341,12 @@ describe("cruise() with symbols", () => {
     expect(db.unusedExports().map((x) => x.name)).toEqual(["dead"]);
     expect(db.isUsed("helper")).toBe(true);
     expect(db.isUsed("dead")).toBe(false);
+    // members: `Color.Red` is read, `Color.Green` is not, and `helper` is used whole
+    expect(db.exports.find((x) => x.name === "Color")!.usedMembers).toEqual(["Red"]);
+    expect(db.exports.find((x) => x.name === "helper")!.usedMembers).toBe("*");
+    expect(db.isUsed("Color.Red")).toBe(true);
+    expect(db.isUsed("Color.Green")).toBe(false);
+    expect(db.isUsed("dead.x")).toBe(false);
     expect(db.importersOf("helper").map((m) => m.path)).toEqual([
       "src/api.ts",
       "src/repo/other.ts",

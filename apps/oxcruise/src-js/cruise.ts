@@ -95,9 +95,21 @@ export class ModuleHandle {
     return this.exports.filter((x) => !x.used && x.kind !== "star");
   }
 
-  /** Is export `name` used by some module, or part of an entry point's interface? Needs `symbols: true`. */
+  /**
+   * Is export `name` used by some module, or part of an entry point's interface? A dotted name
+   * `E.A` asks about a member: `E` is used and `A` is read, or `E` is used whole (like
+   * `no-unused-exports` does for enum members). Needs `symbols: true`.
+   */
   isUsed(name: string): boolean {
-    return this.exports.some((x) => x.name === name && x.used);
+    const dot = name.indexOf(".");
+    if (dot <= 0) return this.exports.some((x) => x.name === name && x.used);
+    const [exportName, member] = [name.slice(0, dot), name.slice(dot + 1)];
+    return this.exports.some(
+      (x) =>
+        x.name === exportName &&
+        x.used &&
+        (x.usedMembers === "*" || x.usedMembers.includes(member)),
+    );
   }
 
   /** Modules that use export `name`, directly or through re-exports. Needs `symbols: true`. */
@@ -206,7 +218,8 @@ export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult>
   if (options.symbols) args.push("--symbols");
   if (options.production) args.push("--production");
   flag("--ignore-pattern", options.ignorePatterns);
-  args.push(...(options.paths ?? []));
+  // after `--`, so that a path starting with a dash is not taken for a flag
+  if (options.paths?.length) args.push("--", ...options.paths);
 
   const host = createHost();
   const outcome = await runCruise(

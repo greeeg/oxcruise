@@ -304,6 +304,49 @@ fn dead_rules_are_always_reported() {
 }
 
 #[test]
+fn an_engine_keeps_nothing_from_one_run_to_the_next() {
+    let config = || {
+        json!({
+            "categories": { "correctness": "off", "suspicious": "off" },
+            "forbid": [{
+                "name": "ui-must-not-reach-db", "from": "src/ui/**",
+                "to": { "path": "src/db/**", "reachable": true }
+            }]
+        })
+    };
+    let new_engine =
+        || oxcruise_rules::Engine::new(&serde_json::from_value(config()).unwrap(), None).unwrap();
+    let engine = new_engine();
+    let tester = t(config());
+    let run = |e: &oxcruise_rules::Engine, lines: &[&str]| {
+        let r = e.run(
+            &tester.graph(lines),
+            std::path::Path::new("/"),
+            &[],
+            &[],
+            false,
+        );
+        (r.violations.len(), r.warnings)
+    };
+
+    let a = ["src/ui/a.ts -> src/mid.ts", "src/mid.ts -> src/db/x.ts"];
+    // the rule has nothing to match here: `from` hits and the reachability shortcut of graph A
+    // must not leak into this run
+    let b = [
+        "src/other/b.ts -> src/db/x.ts",
+        "src/db/y.ts",
+        "src/z.ts",
+        "src/w.ts",
+    ];
+    assert_eq!(run(&engine, &a).0, 1);
+    let second = run(&engine, &b);
+    let fresh = run(&new_engine(), &b);
+    assert_eq!(second, fresh);
+    assert_eq!(second.0, 0);
+    assert_eq!(second.1.len(), 1, "{:?}", second.1);
+}
+
+#[test]
 fn bad_glob_names_the_rule() {
     let err = oxcruise_rules::Engine::new(
         &serde_json::from_value(json!({ "forbid": [{ "name": "broken", "from": "src/{a,/**" }] }))

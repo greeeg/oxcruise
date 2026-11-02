@@ -21,6 +21,7 @@ const expected = JSON.parse(readFileSync(new URL("monorepo.graph.json", dir), "u
       from: string | null;
       imported: string | null;
       used: boolean;
+      usedMembers: "*" | string[];
     }[];
   }[];
   edges: {
@@ -62,6 +63,7 @@ describe("graph buffer written by Rust", () => {
       m.exports.forEach((x, j) => {
         const w = want[j]!;
         expect([x.kind, x.isType, x.used]).toEqual([w.kind, w.type, w.used]);
+        expect(x.usedMembers).toEqual(w.usedMembers);
         expect(x.loc).toEqual({ line: w.line, col: w.col });
         expect(x.from?.path ?? null).toBe(w.from);
         expect(x.imported ?? null).toBe(w.imported);

@@ -404,8 +404,8 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, mut d: Discovered) -> Cruis
     let mut spec_nodes: FxHashMap<String, u32> = FxHashMap::default();
     // `package_of` scans every workspace package, and a folder's files share the answer
     let mut package_of_dir: FxHashMap<&Path, Option<u32>> = FxHashMap::default();
-    for n in &d.nodes {
-        let mut m = Module::new(n.rel.clone(), n.kind);
+    for n in &mut d.nodes {
+        let mut m = Module::new(std::mem::take(&mut n.rel), n.kind);
         if let NodeKey::Path(p) = &n.key {
             m.package = match p.parent() {
                 Some(dir) => *package_of_dir
@@ -415,9 +415,9 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, mut d: Discovered) -> Cruis
             };
         }
         m.not_followed = n.not_followed || (n.kind == ModuleKind::Local && n.processed.is_none());
-        if let Some(p) = &n.processed {
+        if let Some(p) = &mut n.processed {
             m.parse_error = p.parse_error.clone();
-            m.suppressed = p.file_suppressions.clone();
+            m.suppressed = std::mem::take(&mut p.file_suppressions);
         }
         modules.push(m);
     }

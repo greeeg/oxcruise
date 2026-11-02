@@ -11,6 +11,7 @@ use oxcruise_graph::analyses::{
     ExportUsage, Scc, distinct_dependents, export_usage, strongly_connected,
 };
 use oxcruise_resolve::WorkspacePackage;
+use rayon::prelude::*;
 
 use crate::conventions::ConventionFilter;
 use crate::entries::{self, EntryInputs, EntrySet};
@@ -102,9 +103,9 @@ impl AnalysisCache {
                     },
                     || {
                         wanted.contains(Analyses::DEPENDENTS).then(|| {
-                            graph
-                                .module_ids()
-                                .map(|m| distinct_dependents(graph, m))
+                            (0..graph.module_count() as u32)
+                                .into_par_iter()
+                                .map(|m| distinct_dependents(graph, ModuleId(m)))
                                 .collect::<Vec<_>>()
                         })
                     },

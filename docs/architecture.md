@@ -199,6 +199,8 @@ export default defineConfig({
   `rules` and `resolve.alias` merge by key (the child wins), `forbid`/`overrides`/`calls`/`jsPlugins` concatenate.
 * **Overrides** can change a rule's severity and options for importing modules matching `files`; the engine runs
   one variant of the rule per distinct effective setting, limited to the modules it applies to.
+  A whole-graph finding (`no-unused-deps`) belongs to the module it is reported on: the first module of the
+  package that declares the dependency.
 * **CLI-only**: `--max-warnings`, `--deny-warnings`, `--max-depth` (deeper modules are not in the graph, so every output and rule leaves them out), `--ignore-pattern`,
   `--production` and `--fix` (for the `no-unused-*` rules; `--fix` is refused with `--init`, `--migrate`, `--rules`
   and `--print-config`, and does not chase cascades: run again).
@@ -294,7 +296,8 @@ The `json` result (and what plugin reporters receive) uses camelCase names, like
 **Version 2 renamed these from snake_case**, and renamed the module kinds `source | stub | core | unresolved`
 (`kind`, `toKind`) to `local | package | builtin | unresolved`, the names `forbid[].to.kind` and the JS API use; check
 `version` before reading older saved results. A dependency's `circular` is true when it lies on an import cycle of the
-whole graph, type-only imports included, whether or not a rule reports it; its `cycle` and `rules` are what the rules
+whole graph, type-only imports included, whether or not a rule reports it (`no-circular` ignores type-only
+imports by default: `includeTypeOnly`); its `cycle` and `rules` are what the rules
 reported. `--quiet` hides warnings but `summary.warn` still counts them. An export has `line`/`col` only when its
 location is known, and `from`/`imported` when it re-exports. A violation's `kind`
 is `dependency`, `module`, `cycle`, `reachability`, `export` (`from` is the module) or `file` (`from` is the path of a

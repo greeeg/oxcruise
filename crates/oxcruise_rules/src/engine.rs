@@ -10,7 +10,7 @@ use oxcruise_resolve::WorkspacePackage;
 use rayon::prelude::*;
 
 use crate::conventions::ConventionFilter;
-use crate::declarative::CompiledRule;
+use crate::declarative::{CompiledRule, ForbidSpec};
 use crate::entries::EntryInputs;
 use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget};
 use crate::meta::{Analyses, AnalysisCache, Hooks, RuleCtx, Shared};
@@ -24,7 +24,7 @@ struct Entry {
 
 enum Source {
     Builtin,
-    Declarative(Arc<CompiledRule>),
+    Declarative(Arc<ForbidSpec>),
     External(ExternalRuleId),
 }
 
@@ -158,7 +158,7 @@ impl Engine {
                 ));
                 continue;
             }
-            match CompiledRule::forbid(r) {
+            match ForbidSpec::forbid(r) {
                 Ok(c) => plans.push(Plan {
                     name: r.name.clone(),
                     source: Source::Declarative(Arc::new(c)),
@@ -331,7 +331,37 @@ impl Engine {
         let mut resolved: Vec<Resolved> = vec![];
         let mut externals: Vec<ExternalRuleSpec> = vec![];
 
-        for plan in &self.plans {
+        // which modules each `overrides[].files` matches, once for all plans
+        let override_sets: Vec<BitSet> = if self.plans.iter().any(|p| !p.overrides.is_empty()) {
+            self.override_files
+                .iter()
+                .map(|matcher| {
+                    let hits: Vec<u32> = (0..graph.module_count() as u32)
+                        .into_par_iter()
+                        .filter(|&i| matcher.is_match(&graph.module(ModuleId(i)).path))
+                        .collect();
+                    let mut set = BitSet::new(graph.module_count());
+                    for i in hits {
+                        set.insert(i as usize);
+                    }
+                    set
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        // what each `forbid` rule saw in this run only, not in earlier runs of the engine
+        let runs: Vec<Option<Arc<CompiledRule>>> = self
+            .plans
+            .iter()
+            .map(|p| match &p.source {
+                Source::Declarative(spec) => Some(Arc::new(CompiledRule::new(spec))),
+                _ => None,
+            })
+            .collect();
+
+        for (plan, run) in self.plans.iter().zip(&runs) {
             if let Source::External(id) = &plan.source {
                 let base = plan
                     .base
@@ -347,7 +377,7 @@ impl Engine {
                 }
                 continue;
             }
-            self.resolve_plan(plan, graph, &mut resolved);
+            self.resolve_plan(plan, run.as_ref(), graph, &override_sets, &mut resolved);
         }
 
         let mut wanted = resolved
@@ -455,10 +485,8 @@ impl Engine {
         // module ids follow path order (see `Graph::build`), so comparing ids compares paths
         violations.sort_by(|a, b| sort_key(a).cmp(&sort_key(b)));
 
-        for plan in &self.plans {
-            if let Source::Declarative(c) = &plan.source {
-                warnings.extend(c.dead_reasons());
-            }
+        for run in runs.iter().flatten() {
+            warnings.extend(run.dead_reasons());
         }
         RunResult {
             violations,
@@ -471,11 +499,18 @@ impl Engine {
 
     /// Turn a plan into runnable rules: one per distinct effective (severity, options),
     /// each limited to the modules it applies to.
-    fn resolve_plan(&self, plan: &Plan, graph: &Graph, out: &mut Vec<Resolved>) {
+    fn resolve_plan(
+        &self,
+        plan: &Plan,
+        run: Option<&Arc<CompiledRule>>,
+        graph: &Graph,
+        override_sets: &[BitSet],
+        out: &mut Vec<Resolved>,
+    ) {
         let make = |opts: &serde_json::Value| -> Option<RuleEnum> {
             match &plan.source {
                 Source::Builtin => RuleEnum::builtin(&plan.name, opts.clone()).and_then(Result::ok),
-                Source::Declarative(c) => Some(RuleEnum::Declarative(c.clone())),
+                Source::Declarative(_) => run.map(|c| RuleEnum::Declarative(c.clone())),
                 Source::External(_) => None,
             }
         };
@@ -501,11 +536,10 @@ impl Engine {
             .map(|e| (e.filter(|e| e.level != Level::Off), BitSet::new(n)))
             .collect();
         for i in 0..n {
-            let path = &graph.module(ModuleId(i as u32)).path;
             let slot = plan
                 .overrides
                 .iter()
-                .rposition(|(oi, _)| self.override_files[*oi].is_match(path))
+                .rposition(|(oi, _)| override_sets[*oi].contains(i))
                 .map_or(0, |p| p + 1);
             if by_slot[slot].0.is_some() {
                 by_slot[slot].1.insert(i);
@@ -616,10 +650,15 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
         out.extend(edges);
     }
 
-    if hooks.contains(Hooks::GRAPH) && r.modules.is_none() {
+    if hooks.contains(Hooks::GRAPH) {
+        // Whole-graph findings belong to the module they are reported on.
         let cx = new_cx();
         r.rule.check_graph(&cx);
-        out.extend(cx.into_violations());
+        out.extend(
+            cx.into_violations()
+                .into_iter()
+                .filter(|v| in_scope(v.from)),
+        );
     }
     out
 }

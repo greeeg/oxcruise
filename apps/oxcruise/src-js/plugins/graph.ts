@@ -6,10 +6,10 @@ import { DEP_KINDS, type DepKind } from "./kinds.generated.ts";
 import type { Dependency, Export, ExportKind, Graph, Loc, Module, ModuleKind } from "./types.ts";
 
 const MAGIC = 0x5247584f;
-const VERSION = 2;
+const VERSION = 3;
 const NO_PACKAGE = 0xffffffff;
 const MODULE_KINDS: ModuleKind[] = ["local", "package", "builtin", "unresolved"];
-const HEADER_WORDS = 24;
+const HEADER_WORDS = 26;
 const NO_REF = 0xffffffff;
 const EXPORT_KINDS: ExportKind[] = ["local", "reexport", "star", "namespace"];
 
@@ -32,6 +32,8 @@ export class GraphBuffer {
   private readonly exports: Uint32Array;
   private readonly nameOffsets: Uint32Array;
   private readonly names: Uint32Array;
+  private readonly memberOffsets: Uint32Array;
+  private readonly members: Uint32Array;
   /** Exports and used names were extracted (`cruise({ symbols: true })`, or a symbol rule/plugin). */
   readonly symbols: boolean;
   private readonly decoder = new TextDecoder();
@@ -71,6 +73,8 @@ export class GraphBuffer {
     this.nameOffsets = view(h[20]!, this.edgeCount + 1);
     this.names = view(h[21]!, h[17]!);
     this.symbols = h[22] === 1;
+    this.memberOffsets = view(h[23]!, h[16]! + 1);
+    this.members = view(h[24]!, this.memberOffsets[h[16]!]!);
     this.strings = new Array(stringCount);
     this.nameLists = new Array(this.edgeCount);
   }
@@ -90,6 +94,17 @@ export class GraphBuffer {
   }
   exportCol(x: number): number {
     return this.exports[x * 6 + 3]!;
+  }
+  /** Every member of the export is used (`E.A` for any `A`); `exportMembers` is then empty. */
+  exportUsesAllMembers(x: number): boolean {
+    return (this.exportFlags(x) & 16) !== 0;
+  }
+  /** The members of the export that are read, sorted; empty when it is unused or used whole. */
+  exportMembers(x: number): string[] {
+    const out: string[] = [];
+    for (let i = this.memberOffsets[x]!; i < this.memberOffsets[x + 1]!; i++)
+      out.push(this.string(this.members[i]!));
+    return out;
   }
   /** Module a re-export reads from, or undefined. */
   exportFrom(x: number): number | undefined {
@@ -233,6 +248,7 @@ class ModuleFacade implements Module {
           kind: EXPORT_KINDS[flags & 3]!,
           isType: (flags & 4) !== 0,
           used: (flags & 8) !== 0,
+          usedMembers: (flags & 16) !== 0 ? "*" : buf.exportMembers(x),
           loc: line === 0 ? undefined : { line, col: buf.exportCol(x) },
           from: from === undefined ? undefined : this.g.module_(from),
           imported: buf.exportImported(x),

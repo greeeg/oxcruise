@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use oxcruise_core::{DeclaredDep, DeclaredManifest, DepKinds, DepSection, LineIndex, strip_jsonc};
 use rustc_hash::FxHashMap;
@@ -106,18 +106,20 @@ impl Manifest {
 /// `package.json` files by directory, shared by all worker threads.
 #[derive(Default)]
 pub(crate) struct ManifestCache {
-    by_dir: Mutex<FxHashMap<PathBuf, Option<Arc<Manifest>>>>,
+    by_dir: RwLock<FxHashMap<PathBuf, Option<Arc<Manifest>>>>,
+    /// `nearest` answers, so a repeated lookup is one read lock instead of one per ancestor.
+    nearest: RwLock<FxHashMap<PathBuf, Option<Arc<Manifest>>>>,
 }
 
 impl ManifestCache {
     /// Manifest in `dir` itself (cached).
     pub fn at(&self, dir: &Path) -> Option<Arc<Manifest>> {
-        if let Some(hit) = self.by_dir.lock().expect("poisoned").get(dir) {
+        if let Some(hit) = self.by_dir.read().expect("poisoned").get(dir) {
             return hit.clone();
         }
         let loaded = Manifest::read(dir).map(Arc::new);
         self.by_dir
-            .lock()
+            .write()
             .expect("poisoned")
             .insert(dir.to_path_buf(), loaded.clone());
         loaded
@@ -125,7 +127,23 @@ impl ManifestCache {
 
     /// Nearest manifest in `dir` or an ancestor.
     pub fn nearest(&self, dir: &Path) -> Option<Arc<Manifest>> {
-        dir.ancestors().find_map(|d| self.at(d))
+        if let Some(hit) = self.nearest.read().expect("poisoned").get(dir) {
+            return hit.clone();
+        }
+        let mut visited = vec![];
+        let mut found = None;
+        for d in dir.ancestors() {
+            visited.push(d);
+            found = self.at(d);
+            if found.is_some() {
+                break;
+            }
+        }
+        let mut memo = self.nearest.write().expect("poisoned");
+        for d in visited {
+            memo.insert(d.to_path_buf(), found.clone());
+        }
+        found
     }
 }
 
@@ -418,6 +436,23 @@ mod tests {
 
     fn some(s: &str) -> Option<String> {
         Some(s.to_string())
+    }
+
+    #[test]
+    fn nearest_is_memoized_for_every_directory_it_walked() {
+        let d = tree(&[
+            ("pkg/package.json", r#"{ "name": "pkg" }"#),
+            ("pkg/src/a/x.ts", ""),
+            ("pkg/src/b/y.ts", ""),
+        ]);
+        let cache = ManifestCache::default();
+        let a = cache.nearest(&d.path().join("pkg/src/a")).unwrap();
+        let b = cache.nearest(&d.path().join("pkg/src/b")).unwrap();
+        assert!(Arc::ptr_eq(&a, &b));
+        // the walk from `a` filled the shared ancestors, whatever happens on disk afterwards
+        std::fs::remove_file(d.path().join("pkg/package.json")).unwrap();
+        let src = cache.nearest(&d.path().join("pkg/src")).unwrap();
+        assert!(Arc::ptr_eq(&a, &src));
     }
 
     #[test]

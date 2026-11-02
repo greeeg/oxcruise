@@ -1,8 +1,8 @@
 //! Compiles `forbid` rules from config into checks over the graph.
 
 use std::cell::RefCell;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use oxcruise_config::{ForbidRule, Kind, OneOrMany, Relation, ToCondition, ToSpec};
 use oxcruise_core::{DepKinds, EdgeId, Module, ModuleId, ModuleKind};
@@ -11,12 +11,20 @@ use oxcruise_graph::analyses::{BitSet, Reach, can_reach};
 use crate::meta::{Analyses, Hooks, RuleCtx};
 use crate::pattern::{Captures, PathPatterns, Role};
 
+/// A `forbid` rule as configured: immutable, so an engine can run it on any number of graphs.
 #[derive(Debug)]
-pub struct CompiledRule {
+pub struct ForbidSpec {
     pub name: String,
     message: Option<String>,
     from: Option<PathPatterns>,
     to: To,
+}
+
+/// One run of a [`ForbidSpec`]: what the run has seen, for the warnings about dead rules and
+/// the reachability shortcut.
+#[derive(Debug)]
+pub struct CompiledRule {
+    spec: Arc<ForbidSpec>,
     from_hits: AtomicBool,
     to_path_hits: AtomicBool,
     /// For `reachable` rules whose `to` does not refer to `from` captures: the modules that
@@ -80,7 +88,7 @@ fn compile_to(spec: &Option<ToSpec>, rule: &str) -> Result<To, String> {
     })
 }
 
-impl CompiledRule {
+impl ForbidSpec {
     pub fn forbid(r: &ForbidRule) -> Result<Self, String> {
         let err = |e: String| {
             if e.starts_with("rule `") {
@@ -99,10 +107,19 @@ impl CompiledRule {
                 .transpose()
                 .map_err(err)?,
             to: compile_to(&r.to, &r.name).map_err(err)?,
+        })
+    }
+}
+
+impl CompiledRule {
+    /// A fresh run of `spec`, with nothing seen yet.
+    pub fn new(spec: &Arc<ForbidSpec>) -> Self {
+        Self {
+            spec: spec.clone(),
             from_hits: AtomicBool::new(false),
             to_path_hits: AtomicBool::new(false),
             can_reach_target: OnceLock::new(),
-        })
+        }
     }
 
     pub fn requirements(&self) -> Analyses {
@@ -119,7 +136,7 @@ impl CompiledRule {
 
     /// The captures of `from` on `m`, or `None` if `m` is not a source of this rule.
     fn match_from(&self, m: ModuleId, cx: &RuleCtx<'_>) -> Option<Captures> {
-        match &self.from {
+        match &self.spec.from {
             Some(p) => p.capture(&cx.module(m).path),
             None => Some(Captures::default()),
         }
@@ -139,7 +156,7 @@ impl CompiledRule {
         let edge = cx.edge(e);
         let to = cx.module(edge.to);
         let from = cx.module(edge.from);
-        let t = &self.to;
+        let t = &self.spec.to;
 
         if let Some(p) = &t.path {
             if !p.is_match(&to.path, caps) {
@@ -165,7 +182,7 @@ impl CompiledRule {
     // ---- entry points used by the engine ---------------------------------------------------
 
     pub fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
-        if self.to.reachable {
+        if self.spec.to.reachable {
             if cx.module(m).kind == ModuleKind::Local {
                 self.check_reachable(m, cx);
             }
@@ -189,13 +206,14 @@ impl CompiledRule {
     /// Does `t` count as a target of a `reachable` rule, given the captures of `from`?
     fn is_target(&self, t: &Module, caps: &Captures) -> bool {
         let kind = t.kind;
-        let wanted = match &self.to.kinds {
+        let wanted = match &self.spec.to.kinds {
             Some(kinds) => kinds.contains(&kind),
             // like a plain dependency target: project files and packages, not built-ins
             None => matches!(kind, Kind::Local | Kind::Package),
         };
         wanted
             && self
+                .spec
                 .to
                 .path
                 .as_ref()
@@ -207,6 +225,7 @@ impl CompiledRule {
         self.can_reach_target
             .get_or_init(|| {
                 if self
+                    .spec
                     .to
                     .path
                     .as_ref()
@@ -258,6 +277,7 @@ impl CompiledRule {
                 }
                 Self::hit(&self.to_path_hits);
                 let msg = self
+                    .spec
                     .message
                     .clone()
                     .unwrap_or_else(|| format!("`{}` is reachable from here", to.path));
@@ -272,21 +292,24 @@ impl CompiledRule {
     /// What is wrong, in words. The reporter already prints `from -> to`, so the
     /// message is the rule's own `message` when it has one.
     fn message(&self, what: &str) -> String {
-        self.message.clone().unwrap_or_else(|| what.to_string())
+        self.spec
+            .message
+            .clone()
+            .unwrap_or_else(|| what.to_string())
     }
 
     /// Reasons this rule can never fire: a typo in a glob, or a path that does not exist.
     pub fn dead_reasons(&self) -> Vec<String> {
         let mut out = vec![];
-        if self.from.is_some() && !self.from_hits.load(Ordering::Relaxed) {
+        if self.spec.from.is_some() && !self.from_hits.load(Ordering::Relaxed) {
             out.push(format!(
                 "rule `{}`: its `from` matched no module",
-                self.name
+                self.spec.name
             ));
-        } else if self.to.path.is_some() && !self.to_path_hits.load(Ordering::Relaxed) {
+        } else if self.spec.to.path.is_some() && !self.to_path_hits.load(Ordering::Relaxed) {
             out.push(format!(
                 "rule `{}`: its `to.path` matched no dependency of the modules matching `from`",
-                self.name
+                self.spec.name
             ));
         }
         out

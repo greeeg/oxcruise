@@ -61,7 +61,7 @@ impl Resolver {
             };
         }
         // oxc_resolver's tsconfig discovery does not recognise `\\?\` paths.
-        let from_file = &simplify_path(from_file);
+        let from_file = &*plain(from_file);
         match self.oxc(mode).resolve_file(from_file, specifier) {
             Ok(res) => classify::resolved(self, from_file, specifier, res.path()),
             Err(ResolveError::Builtin { resolved, .. }) => classify::core(&resolved),

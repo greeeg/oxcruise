@@ -6,6 +6,7 @@
 
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use napi::Status;
 use napi::bindgen_prelude::{Buffer, Promise, block_on};
@@ -77,6 +78,8 @@ pub struct Host {
     /// The graph as last sent to the plugin rules, for `cruise()` to hand back to JS instead of
     /// encoding it again. `(modules, edges)` guards against a different graph.
     encoded: Mutex<Option<((usize, usize), Vec<u8>)>>,
+    /// Keep a copy of the buffer in `encoded`; only `cruise()` reuses it.
+    keep_encoded: AtomicBool,
 }
 
 impl Host {
@@ -85,7 +88,13 @@ impl Host {
             cb,
             plugins: Mutex::new(vec![]),
             encoded: Mutex::new(None),
+            keep_encoded: AtomicBool::new(false),
         }
+    }
+
+    /// Remember the buffer sent to plugin rules, for `take_encoded`.
+    pub fn keep_encoded_graph(&self) {
+        self.keep_encoded.store(true, Ordering::Relaxed);
     }
 
     /// The buffer of `graph` that plugin rules were given, if they ran on this graph.
@@ -151,9 +160,11 @@ impl ExternalRules for Host {
         analyses: &AnalysisCache,
     ) -> Result<Vec<ExternalViolation>, String> {
         let bytes = graph_buffer::encode_with(graph, workspace, usage, analyses);
-        let buffer = Buffer::from(bytes.clone());
-        *self.encoded.lock().expect("poisoned") =
-            Some(((graph.module_count(), graph.edge_count()), bytes));
+        let shape = (graph.module_count(), graph.edge_count());
+        if self.keep_encoded.load(Ordering::Relaxed) {
+            *self.encoded.lock().expect("poisoned") = Some((shape, bytes.clone()));
+        }
+        let buffer = Buffer::from(bytes);
         let specs: Vec<_> = rules
             .iter()
             .map(|r| {

@@ -120,8 +120,8 @@ pub struct DepOut {
     pub line: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub col: Option<u32>,
-    /// On an import cycle of the whole graph (type-only imports included), whether or not a rule
-    /// reports it.
+    /// On an import cycle of the whole graph, type-only imports included, whether or not a rule
+    /// reports it. `no-circular` ignores type-only imports by default (`includeTypeOnly`).
     pub circular: bool,
     /// The cycle a `no-circular` violation reports through this dependency, starting here.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]

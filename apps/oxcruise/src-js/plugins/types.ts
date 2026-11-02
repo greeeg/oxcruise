@@ -58,6 +58,12 @@ export interface Export {
    * `entries`, `production` and `conventions`), so the rule is the authoritative report.
    */
   readonly used: boolean;
+  /**
+   * The members read as `Export.member` (`E.A` for an enum, `ns.a` for a namespace): `"*"` when the
+   * export is used whole or by an entry point, so any member may be read; otherwise the names, sorted
+   * (empty when nothing uses it).
+   */
+  readonly usedMembers: "*" | readonly string[];
   readonly loc: Loc | undefined;
   /** Module a re-export reads from. */
   readonly from: Module | undefined;
@@ -76,7 +82,10 @@ export interface Dependency {
   readonly kinds: readonly DepKind[];
   readonly loc: Loc | undefined;
   readonly typeOnly: boolean;
-  /** On a cycle of the whole graph (type-only edges included). */
+  /**
+   * On a cycle of the whole graph, type-only edges included; `no-circular` ignores type-only
+   * edges by default (`includeTypeOnly`).
+   */
   readonly circular: boolean;
   readonly unresolved: boolean;
   /**
@@ -198,6 +207,10 @@ export interface DependencyJson {
   moduleSystem: string;
   line?: number;
   col?: number;
+  /**
+   * On a cycle of the whole graph, type-only edges included; `no-circular` ignores type-only
+   * edges by default (`includeTypeOnly`).
+   */
   circular: boolean;
   /** The cycle this dependency is part of, starting here; empty when it is not circular. */
   cycle?: CycleHopJson[];

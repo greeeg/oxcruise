@@ -129,6 +129,7 @@ pub async fn run_cruise(
     }));
     spawn_blocking(move || {
         let mut err = Vec::new();
+        host.keep_encoded_graph();
         let outcome = runner(args, host.clone()).analyze_only(&mut err);
         let stderr = String::from_utf8_lossy(&err).into_owned();
         match outcome {

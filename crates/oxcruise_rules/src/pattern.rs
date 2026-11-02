@@ -138,21 +138,30 @@ impl Template {
     /// Shared, not cloned: a `Regex` clone starts a new scratch-space pool, which costs more than
     /// a match.
     fn regex(&self, caps: &Captures) -> Option<Arc<Regex>> {
-        // the key alone decides a hit; the substituted glob is only built on a miss
-        let key = cache_key(&self.source, caps)?;
-        if let Some(hit) = self.cache.read().expect("poisoned").get(&key) {
-            return hit.clone();
+        thread_local! {
+            static KEY: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
         }
-        let (substituted, _) = substitute(&self.source, caps)?;
-        let compiled = Regex::new(&glob_to_regex(&substituted, false))
-            .ok()
-            .map(Arc::new);
-        self.cache
-            .write()
-            .expect("poisoned")
-            .entry(key)
-            .or_insert(compiled)
-            .clone()
+        // the key alone decides a hit; it is built in a reused buffer, and the substituted glob
+        // and an owned key only on a miss
+        KEY.with_borrow_mut(|key| {
+            key.clear();
+            if !cache_key(&self.source, caps, key) {
+                return None;
+            }
+            if let Some(hit) = self.cache.read().expect("poisoned").get(key.as_str()) {
+                return hit.clone();
+            }
+            let (substituted, _) = substitute(&self.source, caps)?;
+            let compiled = Regex::new(&glob_to_regex(&substituted, false))
+                .ok()
+                .map(Arc::new);
+            self.cache
+                .write()
+                .expect("poisoned")
+                .entry(key.clone())
+                .or_insert(compiled)
+                .clone()
+        })
     }
 }
 
@@ -183,14 +192,17 @@ fn is_ident(s: &str) -> bool {
         && c.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// The cache key of a template under `caps`: the captured values it refers to.
-fn cache_key(src: &str, caps: &Captures) -> Option<String> {
-    let mut key = String::new();
+/// Write the cache key of a template under `caps` into `key`: the captured values it refers to.
+/// `false` when a placeholder has no capture.
+fn cache_key(src: &str, caps: &Captures, key: &mut String) -> bool {
     for (_, _, name) in placeholder_spans(src) {
-        key.push_str(caps.get(name)?);
+        let Some(v) = caps.get(name) else {
+            return false;
+        };
+        key.push_str(v);
         key.push('\0');
     }
-    Some(key)
+    true
 }
 
 /// Replace references with captured text. Returns the new source and a cache key.

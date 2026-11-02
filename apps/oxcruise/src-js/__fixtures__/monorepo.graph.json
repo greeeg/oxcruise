@@ -107,7 +107,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -126,7 +127,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -145,7 +147,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -164,7 +167,8 @@
           "col": 41,
           "from": "node_modules/react/index.js",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "_",
@@ -174,7 +178,8 @@
           "col": 32,
           "from": "node_modules/lodash/index.js",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "a",
@@ -184,7 +189,8 @@
           "col": 90,
           "from": "packages/app/src/cycle-a.ts",
           "imported": "a",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "cjs",
@@ -194,7 +200,8 @@
           "col": 93,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "fs",
@@ -204,7 +211,8 @@
           "col": 67,
           "from": "fs",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "fsevents",
@@ -214,7 +222,8 @@
           "col": 48,
           "from": "node_modules/fsevents/index.js",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "gone",
@@ -224,7 +233,8 @@
           "col": 76,
           "from": "./missing",
           "imported": "gone",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "helper",
@@ -234,7 +244,8 @@
           "col": 16,
           "from": "packages/app/src/helpers.ts",
           "imported": "helper",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "leftPad",
@@ -244,7 +255,8 @@
           "col": 58,
           "from": "node_modules/left-pad/index.js",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "secret",
@@ -254,7 +266,8 @@
           "col": 24,
           "from": "packages/app/src/internal/secret.ts",
           "imported": "secret",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "shared",
@@ -264,7 +277,8 @@
           "col": 82,
           "from": "packages/lib/src/index.ts",
           "imported": "shared",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "sys",
@@ -274,7 +288,8 @@
           "col": 71,
           "from": "sys",
           "imported": "default",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "test",
@@ -284,7 +299,8 @@
           "col": 35,
           "from": "node_modules/vitest/index.js",
           "imported": "test",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         },
         {
           "name": "util",
@@ -294,7 +310,8 @@
           "col": 10,
           "from": "packages/app/src/util.ts",
           "imported": "util",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -313,7 +330,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -332,7 +350,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -351,7 +370,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -378,7 +398,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -397,7 +418,8 @@
           "col": 10,
           "from": "packages/app/src/thing.test.ts",
           "imported": "t",
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -416,7 +438,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -435,7 +458,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },
@@ -454,7 +478,8 @@
           "col": 14,
           "from": null,
           "imported": null,
-          "used": true
+          "used": true,
+          "usedMembers": "*"
         }
       ]
     },

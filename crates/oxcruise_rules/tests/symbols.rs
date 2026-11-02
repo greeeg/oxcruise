@@ -207,6 +207,40 @@ fn each_package_json_checks_its_own_modules() {
 }
 
 #[test]
+fn whole_graph_rules_survive_overrides() {
+    let lines = [
+        "packages/a/src/x.ts -> ./y.ts",
+        "packages/b/src/x.ts -> ./y.ts",
+    ];
+    let with = |overrides: Value| {
+        Tester::config(json!({
+            "rules": { "no-unused-deps": "error" },
+            "overrides": overrides,
+        }))
+        .with_manifest("packages/a", &[("dependencies", "a-dep")])
+        .with_manifest("packages/b", &[("dependencies", "b-dep")])
+    };
+    let count = |t: &Tester| t.run(&lines).violations.len();
+
+    // an override that matches nothing must not hide the rule
+    assert_eq!(
+        count(&with(
+            json!([{ "files": ["nothing/**"], "rules": { "no-unused-deps": "warn" } }])
+        )),
+        2
+    );
+    // turning it off for one package hides only that package's finding
+    let t = with(json!([{ "files": ["packages/a/**"], "rules": { "no-unused-deps": "off" } }]));
+    let result = t.run(&lines);
+    assert_eq!(result.violations.len(), 1);
+    assert!(
+        result.violations[0].message.contains("b-dep"),
+        "{:?}",
+        result.violations
+    );
+}
+
+#[test]
 fn unused_deps_options() {
     let lines = ["src/a.ts -> used [npm]"];
     let manifest = [
