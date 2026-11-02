@@ -72,12 +72,15 @@ struct LoadedPlugin {
     symbols: bool,
 }
 
+/// A graph buffer with the `(modules, edges)` of the graph it encodes.
+type Encoded = ((usize, usize), Vec<u8>);
+
 pub struct Host {
     cb: Callbacks,
     plugins: Mutex<Vec<LoadedPlugin>>,
     /// The graph as last sent to the plugin rules, for `cruise()` to hand back to JS instead of
     /// encoding it again. `(modules, edges)` guards against a different graph.
-    encoded: Mutex<Option<((usize, usize), Vec<u8>)>>,
+    encoded: Mutex<Option<Encoded>>,
     /// Keep a copy of the buffer in `encoded`; only `cruise()` reuses it.
     keep_encoded: AtomicBool,
 }
