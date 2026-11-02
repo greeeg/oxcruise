@@ -17,6 +17,9 @@
 | [`no-test-imports`](#no-test-imports) | correctness | error |
 | [`no-undeclared-deps`](#no-undeclared-deps) | correctness | error |
 | [`no-unresolvable`](#no-unresolvable) | correctness | error |
+| [`no-unused-deps`](#no-unused-deps) | nursery | off |
+| [`no-unused-exports`](#no-unused-exports) | nursery | off |
+| [`no-unused-files`](#no-unused-files) | nursery | off |
 
 ## Correctness
 
@@ -196,3 +199,137 @@ _Category: restriction, off by default. Since 0.1.0._
 #### What it does
 
 Reports use of peer dependencies, which the consuming project must provide.
+
+## Nursery
+
+### no-unused-deps
+
+_Category: nursery, off by default. Since 0.1.0._
+
+#### What it does
+
+Reports packages that a `package.json` declares and none of its modules imports.
+
+#### Why is this bad?
+
+An unused dependency is installed, audited and shipped for nothing.
+
+#### How it works
+
+A package is used when a module that the `package.json` governs (the nearest one above it)
+imports it, whatever the subpath. `@types/x` follows `x`, `@types/node` follows any
+built-in module, and the peer dependencies of a used package are used too. Packages that
+are only run (a CLI in a script) or loaded by a tool's configuration are not seen: list
+them in `ignore`. A `package.json` that governs no module of the graph is skipped.
+
+#### Options
+
+`production`: do not check `devDependencies` and ignore imports from tests (`test` adds
+globs to `*.test.*`, `*.spec.*` and test directories); `oxcruise --production` turns it on.
+`sections`: which sections to check. `ignore`: globs of package names to skip.
+`conventions`: packages that the tools listed in the same `package.json` load by name
+(`@vitest/*` next to `vitest`, `*-loader` next to `webpack`) count as used; `false`
+turns that off and a list of names keeps only those conventions.
+
+### no-unused-exports
+
+_Category: nursery, off by default. Since 0.1.0._
+
+#### What it does
+
+Reports exports that no other module imports, members of enums and namespaces that nothing
+reads, and bindings exported under two names.
+
+#### Why is this bad?
+
+An unused export is dead code, and it keeps what it uses alive. It also hides which
+parts of a module are really its interface.
+
+#### How it works
+
+Every static import marks the names it uses (`import { a }`, `ns.a` of a namespace
+import, `E.X` of an enum), and the marks travel through `export { a } from` and
+`export *` to the module that defines the name. Anything used some other way (a
+`require`, a dynamic `import()`, a namespace passed around as a value) counts as using
+everything. The exports of entry points are public API and are not reported: modules that
+no other module imports, `package.json` entry points, the files that the tools you use load
+by convention, and the `entries` option.
+
+#### Options
+
+`production`: leave tests out (`test` adds globs to `*.test.*`, `*.spec.*` and test
+directories), so an export that only a test uses is reported; `oxcruise --production`
+turns it on. `entries`: extra globs for public modules. `conventions`: `false` or a list of names to use
+only some tool conventions. `includeEntryExports`: check entry points too.
+`ignoreExportsUsedInFile`: skip exports that their own file uses. `types`, `members`:
+turn off the report of unused types and unused enum or namespace members. `ignore`:
+globs of modules to skip.
+
+Suppress one export with `// oxcruise-ignore-next-line no-unused-exports` above it.
+
+### no-unused-files
+
+_Category: nursery, off by default. Since 0.1.0._
+
+#### What it does
+
+Reports source modules that cannot be reached from any entry point.
+
+#### Why is this bad?
+
+A module that nothing leads to is dead code. Unlike `no-orphans`, this also finds
+groups of modules that import each other but are used by nothing else.
+
+#### Entry points
+
+The files `package.json` publishes (`main`, `module`, `types`, `bin`, `exports`, mapped
+from the build output back to source), `index`, `main` and `cli` files, the files that the
+tools listed in `package.json` load (tests, routes, configs; see the conventions table), the
+entries of plugins and the `entries` option. When none is found, nothing is reported.
+Mark a module with `// oxcruise-ignore-file` to keep it and what it imports.
+
+#### Options
+
+`production`: tests are neither entry points nor reported (`test` adds globs to `*.test.*`,
+`*.spec.*` and test directories); `oxcruise --production` turns it on.
+`entries`: more entry globs. `ignore`: globs of modules to skip, on top of dotfiles,
+declaration files and `*.config.*`. `conventions`: `false` or a list of names to use only
+some tool conventions.
+
+## Conventions
+
+A convention tells the `no-unused-*` rules what a tool loads by itself. It is active in a
+`package.json` that declares one of its packages (always, when it lists none). Its entries are
+globs relative to that `package.json`: files that count as entry points. Its packages are counted as
+used by `no-unused-deps`. Switch conventions off, or pick some, with the rules' `conventions` option.
+
+| Convention | Active when it declares | Entry points | Packages used |
+|---|---|---|---|
+| vitest | `vitest` | `**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}`<br>`**/__tests__/**`<br>`vitest.config.*`<br>`vitest.workspace.*`<br>`vitest.setup.*` | `@vitest/*`<br>`jsdom`<br>`happy-dom` |
+| jest | `jest` | `**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}`<br>`**/__tests__/**`<br>`**/__mocks__/**`<br>`jest.config.*`<br>`jest.setup.*` | `@jest/*`<br>`@types/jest`<br>`babel-jest`<br>`ts-jest`<br>`jest-*` |
+| mocha | `mocha` | `test/**`<br>`tests/**`<br>`**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` | `@types/mocha` |
+| ava | `ava` | `test/**`<br>`tests/**`<br>`**/*.test.{js,jsx,ts,tsx,mjs,cjs,mts,cts}`<br>`ava.config.*` | `@ava/*` |
+| node-test | – | `**/*.test.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` | – |
+| playwright | `@playwright/test`<br>`playwright` | `playwright.config.*`<br>`e2e/**`<br>`tests/**`<br>`**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` | `@playwright/*` |
+| cypress | `cypress` | `cypress.config.*`<br>`cypress/**` | `@cypress/*` |
+| storybook | `storybook`<br>`@storybook/react`<br>`@storybook/vue3`<br>`@storybook/svelte`<br>`@storybook/angular`<br>`@storybook/nextjs`<br>`@storybook/react-vite`<br>`@storybook/web-components`<br>`@storybook/html` | `**/*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts,svelte,vue}`<br>`**/*.mdx`<br>`.storybook/**` | `@storybook/*`<br>`storybook` |
+| next | `next` | `app/**/{page,layout,loading,error,global-error,not-found,template,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.*`<br>`src/app/**/{page,layout,loading,error,global-error,not-found,template,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.*`<br>`pages/**`<br>`src/pages/**`<br>`{src/,}middleware.*`<br>`{src/,}instrumentation.*`<br>`next.config.*` | `@next/*`<br>`eslint-config-next` |
+| remix | `@remix-run/dev`<br>`@remix-run/react` | `app/routes/**`<br>`app/root.*`<br>`app/entry.client.*`<br>`app/entry.server.*`<br>`remix.config.*` | `@remix-run/*` |
+| react-router | `@react-router/dev` | `app/routes/**`<br>`app/routes.*`<br>`app/root.*`<br>`app/entry.client.*`<br>`app/entry.server.*`<br>`react-router.config.*` | `@react-router/*` |
+| astro | `astro` | `src/pages/**`<br>`src/content/**`<br>`src/content.config.*`<br>`src/middleware.*`<br>`src/actions/**`<br>`astro.config.*` | `@astrojs/*` |
+| sveltekit | `@sveltejs/kit` | `src/routes/**`<br>`src/hooks.*`<br>`src/hooks.*.*`<br>`src/params/**`<br>`svelte.config.*`<br>`vite.config.*` | `@sveltejs/*` |
+| nuxt | `nuxt` | `pages/**`<br>`layouts/**`<br>`middleware/**`<br>`plugins/**`<br>`server/**`<br>`components/**`<br>`composables/**`<br>`utils/**`<br>`stores/**`<br>`app.vue`<br>`error.vue`<br>`nuxt.config.*` | `@nuxt/*` |
+| vite | `vite` | `vite.config.*` | `@vitejs/*` |
+| webpack | `webpack` | `webpack.config.*`<br>`webpack.*.config.*` | `*-loader`<br>`webpack-cli`<br>`webpack-dev-server` |
+| rollup | `rollup` | `rollup.config.*` | `@rollup/*` |
+| rolldown | `rolldown` | `rolldown.config.*` | – |
+| tsup | `tsup` | `tsup.config.*` | – |
+| tsdown | `tsdown` | `tsdown.config.*` | – |
+| eslint | `eslint` | `eslint.config.*` | `@eslint/*`<br>`@typescript-eslint/*`<br>`typescript-eslint`<br>`eslint-*` |
+| prettier | `prettier` | `prettier.config.*` | `@prettier/*`<br>`prettier-plugin-*` |
+| oxlint | `oxlint` | `oxlint.config.*` | – |
+| postcss | `postcss`<br>`tailwindcss` | `postcss.config.*`<br>`tailwind.config.*` | `autoprefixer`<br>`cssnano`<br>`postcss-*`<br>`@tailwindcss/*` |
+| babel | `@babel/core` | `babel.config.*` | `@babel/*`<br>`babel-*` |
+| docusaurus | `@docusaurus/core` | `docusaurus.config.*`<br>`sidebars.*`<br>`src/pages/**`<br>`src/theme/**` | `@docusaurus/*` |
+| vitepress | `vitepress` | `.vitepress/config.*`<br>`.vitepress/theme/**`<br>`docs/.vitepress/config.*`<br>`docs/.vitepress/theme/**` | – |
+| expo | `expo` | `app/**`<br>`app.config.*`<br>`metro.config.*` | `expo-*`<br>`@expo/*` |

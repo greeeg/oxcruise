@@ -2,6 +2,7 @@
 //! the `oxcruise` app implements [`ExternalRules`] on top of its napi callbacks.
 
 use oxcruise_core::{EdgeId, Graph, ModuleId, Severity};
+use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_resolve::WorkspacePackage;
 
 /// Index of an external rule within one run (`offset + i` in oxlint's scheme).
@@ -44,6 +45,12 @@ pub trait ExternalRules: Send + Sync {
         Ok(())
     }
 
+    /// Globs of modules the loaded plugins declare as entry points (`definePlugin({ entries })`),
+    /// relative to the cruise root.
+    fn entries(&self) -> Vec<String> {
+        vec![]
+    }
+
     /// Is there a plugin rule with this fully qualified name (`acme/max-fan-out`)?
     fn rule_exists(&self, name: &str) -> bool;
 
@@ -53,5 +60,7 @@ pub trait ExternalRules: Send + Sync {
         graph: &Graph,
         workspace: &[WorkspacePackage],
         rules: &[ExternalRuleSpec],
+        // which exports are used, when symbols were extracted
+        usage: Option<&ExportUsage>,
     ) -> Result<Vec<ExternalViolation>, String>;
 }

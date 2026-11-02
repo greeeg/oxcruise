@@ -3,9 +3,13 @@
 mod graph;
 mod kinds;
 mod loc;
+mod symbols;
 mod violation;
 
 pub use graph::{Edge, EdgeId, Graph, Module, ModuleId, ModuleKind};
 pub use kinds::{DepKinds, ModuleSystem, kinds_typescript};
 pub use loc::{LineIndex, Loc, Span};
-pub use violation::{CycleStep, Severity, Violation};
+pub use symbols::{
+    DeclaredDep, DeclaredManifest, DepSection, Export, ExportKind, ExportMember, UsedNames,
+};
+pub use violation::{CycleStep, Fix, Severity, Violation};

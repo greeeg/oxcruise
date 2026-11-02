@@ -9,7 +9,7 @@ mod options;
 mod workspace;
 
 pub use classify::{Resolved, Target};
-pub use manifest::Manifest;
+pub use manifest::{Manifest, scan_dependency_members};
 pub use options::{ResolveConfig, ResolveMode, TsconfigMode};
 pub use workspace::{Workspace, WorkspacePackage};
 
@@ -75,6 +75,12 @@ impl Resolver {
         &self.config
     }
     pub(crate) fn manifest_for(&self, dir: &Path) -> Option<std::sync::Arc<Manifest>> {
+        self.manifests.nearest(dir)
+    }
+
+    /// The `package.json` that governs files in `dir`: the nearest one in `dir` or above.
+    /// The same lookup that classifies `npm-*` dependencies, so the two always agree.
+    pub fn nearest_manifest(&self, dir: &Path) -> Option<std::sync::Arc<Manifest>> {
         self.manifests.nearest(dir)
     }
 

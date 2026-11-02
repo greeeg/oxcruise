@@ -1,5 +1,7 @@
 // Renders `oxcruise --rules -f json` as docs/rules.md. Usage: node rules-md.mjs rules.json > docs/rules.md
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const rules = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const byCategory = Map.groupBy(rules, (r) => r.category);
@@ -19,4 +21,30 @@ for (const cat of order.filter((c) => byCategory.has(c))) {
     out += `\n### ${r.name}\n\n_Category: ${cat}, ${level(cat) === "off" ? "off by default" : `\`${level(cat)}\` by default`}. Since ${r.version}._\n\n${r.docs.replace(/^### /gm, "#### ")}\n`;
   }
 }
+
+// The tool conventions behind `no-unused-exports`, `no-unused-files` and `no-unused-deps`, from the
+// same JSON the rules embed, so the table and the code cannot drift apart.
+const conventions = JSON.parse(
+  readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../crates/oxcruise_rules/src/conventions.json",
+    ),
+    "utf8",
+  ),
+);
+const code = (list) => list.map((g) => `\`${g}\``).join("<br>") || "–";
+out += `
+## Conventions
+
+A convention tells the \`no-unused-*\` rules what a tool loads by itself. It is active in a
+\`package.json\` that declares one of its packages (always, when it lists none). Its entries are
+globs relative to that \`package.json\`: files that count as entry points. Its packages are counted as
+used by \`no-unused-deps\`. Switch conventions off, or pick some, with the rules' \`conventions\` option.
+
+| Convention | Active when it declares | Entry points | Packages used |
+|---|---|---|---|
+`;
+for (const c of conventions)
+  out += `| ${c.name} | ${code(c.when)} | ${code(c.entries).replaceAll("|", "\\|")} | ${code(c.uses)} |\n`;
 process.stdout.write(out);

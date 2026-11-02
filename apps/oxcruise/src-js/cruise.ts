@@ -2,6 +2,12 @@
 //
 //   const g = await cruise({ cwd, paths: ["src"] });
 //   expect(g.module("src/ui/x.ts")?.dependsOn("src/db/**")).toBe(false);
+//
+// With `symbols: true` it also answers questions about exports:
+//
+//   const g = await cruise({ cwd, symbols: true });
+//   expect(g.module("packages/core/src/index.ts")!.unusedExports()).toEqual([]);
+//   expect(g.whoImports("src/db/client.ts", "query").every((m) => m.path.startsWith("src/repo/"))).toBe(true);
 
 import { runCruise } from "./bindings.js";
 import { matchesGlob } from "./glob.ts";
@@ -10,6 +16,7 @@ import { GraphFacade } from "./plugins/graph.ts";
 import type {
   CruiseResultJson,
   Dependency,
+  Export,
   Graph,
   Module,
   ModuleKind,
@@ -27,6 +34,12 @@ export interface CruiseOptions {
   ignorePatterns?: string[];
   maxDepth?: number;
   threads?: number;
+  /**
+   * Also extract exports and the names each import uses (default `false`: costs an extra walk over
+   * every file). Needed for `ModuleHandle.exports`, `unusedExports()`, `importersOf()`, `isUsed()`
+   * and `CruiseResult.whoImports()`. Running with `jsPlugins`, or rules that read symbols, turns it on.
+   */
+  symbols?: boolean;
 }
 
 /** What `runCruise` returns next to the graph buffer. */
@@ -58,6 +71,28 @@ export class ModuleHandle {
   }
   get violations(): readonly ViolationJson[] {
     return this.result.violationsOf(this.path);
+  }
+
+  /** What the module exports. Needs `cruise({ symbols: true })`. */
+  get exports(): readonly Export[] {
+    this.result.requireSymbols();
+    return this.module.exports;
+  }
+
+  /** Exports that no module uses (type-only `export *` aside). Entry points are not reported. Needs `symbols: true`. */
+  unusedExports(): Export[] {
+    return this.exports.filter((x) => !x.used && x.kind !== "star");
+  }
+
+  /** Is export `name` used by some module, or part of an entry point's interface? Needs `symbols: true`. */
+  isUsed(name: string): boolean {
+    return this.exports.some((x) => x.name === name && x.used);
+  }
+
+  /** Modules that use export `name`, directly or through re-exports. Needs `symbols: true`. */
+  importersOf(name: string): ModuleHandle[] {
+    this.result.requireSymbols();
+    return this.result.graph.importersOf(this.module, name).map((m) => this.result.handleOf(m));
   }
 
   /** Does this module import a module whose path matches `target` (a path or glob)? */
@@ -128,6 +163,22 @@ export class CruiseResult {
     return this.byModule.get(path) ?? [];
   }
 
+  /** Throws unless the run extracted exports and used names. */
+  requireSymbols(): void {
+    if (!this.graph.symbols)
+      throw new Error("exports were not extracted; run cruise() with `symbols: true`");
+  }
+
+  /** Modules that use export `name` of the module at `path`; `[]` if there is no such module. */
+  whoImports(path: string, name: string): ModuleHandle[] {
+    this.requireSymbols();
+    return this.module(path)?.importersOf(name) ?? [];
+  }
+
+  handleOf(m: Module): ModuleHandle {
+    return this.handle(m);
+  }
+
   private handle(m: Module): ModuleHandle {
     return (this.handles[m.index] ??= new ModuleHandle(this, m));
   }
@@ -141,6 +192,7 @@ export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult>
   if (options.config) args.push("--config", options.config);
   if (options.maxDepth !== undefined) args.push("--max-depth", String(options.maxDepth));
   if (options.threads !== undefined) args.push("--threads", String(options.threads));
+  if (options.symbols) args.push("--symbols");
   flag("--ignore-pattern", options.ignorePatterns);
   args.push(...(options.paths ?? []));
 

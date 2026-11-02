@@ -35,6 +35,18 @@ impl BitSet {
         new
     }
 
+    /// Returns `true` if the bit was set.
+    pub fn remove(&mut self, i: usize) -> bool {
+        if i >= self.len {
+            return false;
+        }
+        let w = &mut self.words[i / 64];
+        let mask = 1 << (i % 64);
+        let was = *w & mask != 0;
+        *w &= !mask;
+        was
+    }
+
     pub fn count(&self) -> usize {
         self.words.iter().map(|w| w.count_ones() as usize).sum()
     }

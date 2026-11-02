@@ -507,3 +507,68 @@ fn help_and_version_succeed() {
     }
     assert_eq!(run(&["--nope"]).result, CliRunResult::InvalidOptions);
 }
+
+fn unused_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/unused")
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+fn report(o: &Out) -> String {
+    format!(
+        "exit: {}\n--- stdout\n{}\n--- stderr\n{}",
+        o.result.code(),
+        o.stdout,
+        o.stderr
+    )
+}
+
+#[test]
+fn unused_rules_report_exports_dependencies_and_files() {
+    let o = run_in(&unused_fixture(), &["-f", "github"]);
+    insta::assert_snapshot!("unused_github", report(&o));
+}
+
+#[test]
+fn production_leaves_tests_out() {
+    let o = run_in(&unused_fixture(), &["-f", "github", "--production"]);
+    insta::assert_snapshot!("unused_production", report(&o));
+}
+
+#[test]
+fn fix_removes_unused_exports_and_dependencies() {
+    let dir = std::env::temp_dir().join(format!("oxcruise-unused-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    copy_dir(&unused_fixture(), &dir);
+
+    let first = run_in(&dir, &["-f", "github", "--fix"]);
+    let read = |p: &str| std::fs::read_to_string(dir.join(p)).unwrap();
+    insta::assert_snapshot!("unused_fix_report", report(&first));
+    insta::assert_snapshot!("unused_fix_util", read("src/util.ts"));
+    insta::assert_snapshot!("unused_fix_api", read("src/api.ts"));
+    insta::assert_snapshot!("unused_fix_package", read("package.json"));
+
+    // what the first pass unlocked is reported (and fixed) by the second
+    let second = run_in(&dir, &["-f", "github", "--fix"]);
+    insta::assert_snapshot!("unused_fix_second", report(&second));
+    let third = run_in(&dir, &["-f", "github"]);
+    insta::assert_snapshot!("unused_fix_third", report(&third));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn fix_refuses_the_file_writing_modes() {
+    let o = run_in(&unused_fixture(), &["--init", "--fix"]);
+    assert_eq!(o.result.code(), 2, "{}", o.stderr);
+}

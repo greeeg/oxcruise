@@ -29,7 +29,31 @@ export interface Module {
   /** Distinct modules that depend on this one. */
   readonly dependents: readonly Module[];
   readonly dependentCount: number;
+  /** What the module exports, sorted by name. Empty when exports were not extracted (see `Graph.symbols`). */
+  readonly exports: readonly Export[];
   is(kind: ModuleKind): boolean;
+}
+
+export type ExportKind = "local" | "reexport" | "star" | "namespace";
+
+/** One export of a module. */
+export interface Export {
+  /** The name importers use: `default` for the default export, `*` for `export *`. */
+  readonly name: string;
+  readonly kind: ExportKind;
+  /** A type or interface. */
+  readonly type: boolean;
+  /**
+   * Some module imports it, or it is part of an entry point's interface. Entry points are the
+   * modules nothing imports, the files `package.json` publishes, the files the tools in
+   * `package.json` load by convention, and plugin `entries`.
+   */
+  readonly used: boolean;
+  readonly loc: Loc | undefined;
+  /** Module a re-export reads from. */
+  readonly from: Module | undefined;
+  /** Name read from `from`: `a` in `export { a as b } from "x"`. */
+  readonly imported: string | undefined;
 }
 
 /** One import, export, require... of `from` pointing at `to`. */
@@ -46,6 +70,12 @@ export interface Dependency {
   /** On a cycle of the whole graph (type-only edges included). */
   readonly circular: boolean;
   readonly unresolved: boolean;
+  /**
+   * What `from` uses of `to`: `"*"` for anything (a `require`, a dynamic `import()`, a namespace
+   * passed around), otherwise export names. `E.A` is the member `A` of export `E`; `ns.a` the
+   * export `a` read through the namespace import `ns`. Empty for a bare `import "x"`.
+   */
+  readonly names: "*" | readonly string[];
   /** Shortest cycle through this dependency, starting at `from`; undefined if not circular. */
   readonly cycle: readonly Module[] | undefined;
   is(kind: DepKind): boolean;
@@ -54,6 +84,13 @@ export interface Dependency {
 export interface Graph {
   readonly modules: readonly Module[];
   readonly edges: readonly Dependency[];
+  /** Exports and used names were extracted, so `Module.exports`, `Dependency.names` and `importersOf` are meaningful. */
+  readonly symbols: boolean;
+  /**
+   * Modules that use export `name` of `module`, directly or through `export { name } from`,
+   * `export *` and `export * as ns`. Throws when exports were not extracted.
+   */
+  importersOf(module: Module, name: string): Module[];
   /** Workspace package names. */
   readonly packages: readonly string[];
   /** Distinct folders that contain at least one source module. */
@@ -118,6 +155,17 @@ export interface ModuleJson {
   orphan: boolean;
   dependencies: DependencyJson[];
   dependents: string[];
+  /** Present when exports were extracted. */
+  exports?: ExportJson[];
+}
+
+export interface ExportJson {
+  name: string;
+  kind: ExportKind;
+  is_type?: boolean;
+  line: number;
+  col: number;
+  used: boolean;
 }
 
 export interface DependencyJson {
@@ -129,6 +177,8 @@ export interface DependencyJson {
   line?: number;
   col?: number;
   circular: boolean;
+  /** Present when exports were extracted: `"*"` or the names used. */
+  names?: "*" | string[];
 }
 
 export interface ViolationJson {
@@ -148,4 +198,10 @@ export interface PluginDefinition {
   meta: { name: string };
   rules?: Record<string, RuleDefinition<any>>;
   reporters?: Record<string, ReporterFunction>;
+  /**
+   * Globs (relative to the cruise root) of modules the tools you use load without anyone importing
+   * them, e.g. `["**\/*.stories.tsx", "app/routes/**"]`. They are entry points for `no-unused-exports`,
+   * `no-unused-files` and `Export.used`.
+   */
+  entries?: string[];
 }

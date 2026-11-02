@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use oxcruise_core::{EdgeId, ModuleId};
 
+use crate::conventions::ConventionFilter;
 use crate::declarative::CompiledRule;
 use crate::meta::{Analyses, Category, Rule, RuleCtx, RuleMeta};
 use crate::rules::*;
@@ -37,6 +38,13 @@ macro_rules! register_rules {
                 match self {
                     $(RuleEnum::$ty(r) => r.requirements(),)*
                     RuleEnum::Declarative(r) => r.requirements(),
+                }
+            }
+
+            pub fn conventions(&self) -> ConventionFilter {
+                match self {
+                    $(RuleEnum::$ty(r) => r.conventions(),)*
+                    RuleEnum::Declarative(_) => ConventionFilter::default(),
                 }
             }
 
@@ -90,4 +98,7 @@ register_rules! {
     Layers,
     InternalModules,
     NoCrossPackageRelative,
+    NoUnusedExports,
+    NoUnusedDeps,
+    NoUnusedFiles,
 }

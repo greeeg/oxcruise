@@ -3,13 +3,15 @@
 // until a rule asks for it; strings are decoded on demand and memoised.
 
 import { DEP_KINDS, type DepKind } from "./kinds.generated.ts";
-import type { Dependency, Graph, Loc, Module, ModuleKind } from "./types.ts";
+import type { Dependency, Export, ExportKind, Graph, Loc, Module, ModuleKind } from "./types.ts";
 
 const MAGIC = 0x5247584f;
-const VERSION = 1;
+const VERSION = 2;
 const NO_PACKAGE = 0xffffffff;
 const MODULE_KINDS: ModuleKind[] = ["source", "stub", "core", "unresolved"];
-const HEADER_WORDS = 16;
+const HEADER_WORDS = 24;
+const NO_REF = 0xffffffff;
+const EXPORT_KINDS: ExportKind[] = ["local", "reexport", "star", "namespace"];
 
 /** Typed views over the buffer. */
 export class GraphBuffer {
@@ -26,6 +28,12 @@ export class GraphBuffer {
   readonly inEdges: Uint32Array;
   readonly scc: Uint32Array;
   private readonly packageStrings: Uint32Array;
+  private readonly exportOffsets: Uint32Array;
+  private readonly exports: Uint32Array;
+  private readonly nameOffsets: Uint32Array;
+  private readonly names: Uint32Array;
+  /** Exports and used names were extracted (`cruise({ symbols: true })`, or a symbol rule/plugin). */
+  readonly symbols: boolean;
   private readonly decoder = new TextDecoder();
   private readonly strings: (string | undefined)[];
 
@@ -57,7 +65,48 @@ export class GraphBuffer {
     this.inEdges = view(h[12]!, this.edgeCount);
     this.scc = view(h[13]!, this.moduleCount);
     this.packageStrings = view(h[14]!, packageCount);
+    this.exportOffsets = view(h[18]!, this.moduleCount + 1);
+    this.exports = view(h[19]!, h[16]! * 6);
+    this.nameOffsets = view(h[20]!, this.edgeCount + 1);
+    this.names = view(h[21]!, h[17]!);
+    this.symbols = h[22] === 1;
     this.strings = new Array(stringCount);
+  }
+
+  /** Range of export numbers of module `m`. */
+  exportRange(m: number): [start: number, end: number] {
+    return [this.exportOffsets[m]!, this.exportOffsets[m + 1]!];
+  }
+  exportName(x: number): string {
+    return this.string(this.exports[x * 6]!);
+  }
+  exportFlags(x: number): number {
+    return this.exports[x * 6 + 1]!;
+  }
+  exportLine(x: number): number {
+    return this.exports[x * 6 + 2]!;
+  }
+  exportCol(x: number): number {
+    return this.exports[x * 6 + 3]!;
+  }
+  /** Module a re-export reads from, or undefined. */
+  exportFrom(x: number): number | undefined {
+    const m = this.exports[x * 6 + 4]!;
+    return m === NO_REF ? undefined : m;
+  }
+  exportImported(x: number): string | undefined {
+    const s = this.exports[x * 6 + 5]!;
+    return s === NO_REF ? undefined : this.string(s);
+  }
+  /** Names edge `e` uses; empty when it uses anything (see `edgeUsesAll`) or nothing. */
+  edgeNames(e: number): string[] {
+    const out: string[] = [];
+    for (let i = this.nameOffsets[e]!; i < this.nameOffsets[e + 1]!; i++)
+      out.push(this.string(this.names[i]!));
+    return out;
+  }
+  edgeUsesAll(e: number): boolean {
+    return (this.edgeFlags(e) & 8) !== 0;
   }
 
   string(i: number): string {
@@ -118,6 +167,7 @@ export class GraphBuffer {
 class ModuleFacade implements Module {
   private deps: Dependency[] | undefined;
   private dependentList: Module[] | undefined;
+  private exportList: Export[] | undefined;
   private readonly g: GraphFacade;
   readonly index: number;
   constructor(g: GraphFacade, index: number) {
@@ -162,6 +212,28 @@ class ModuleFacade implements Module {
   get dependentCount(): number {
     return this.g.buf.moduleDependents(this.index);
   }
+  get exports(): readonly Export[] {
+    if (!this.exportList) {
+      const { buf } = this.g;
+      const [start, end] = buf.exportRange(this.index);
+      this.exportList = Array.from({ length: end - start }, (_, i) => {
+        const x = start + i;
+        const flags = buf.exportFlags(x);
+        const from = buf.exportFrom(x);
+        const line = buf.exportLine(x);
+        return {
+          name: buf.exportName(x),
+          kind: EXPORT_KINDS[flags & 3]!,
+          type: (flags & 4) !== 0,
+          used: (flags & 8) !== 0,
+          loc: line === 0 ? undefined : { line, col: buf.exportCol(x) },
+          from: from === undefined ? undefined : this.g.module_(from),
+          imported: buf.exportImported(x),
+        };
+      });
+    }
+    return this.exportList;
+  }
   is(kind: ModuleKind): boolean {
     return this.kind === kind;
   }
@@ -193,6 +265,9 @@ class DependencyFacade implements Dependency {
       if ((word >>> (i % 32)) & 1) out.push(DEP_KINDS[i]!);
     }
     return out;
+  }
+  get names(): "*" | readonly string[] {
+    return this.g.buf.edgeUsesAll(this.index) ? "*" : this.g.buf.edgeNames(this.index);
   }
   get loc(): Loc | undefined {
     const line = this.g.buf.edgeLine(this.index);
@@ -270,6 +345,61 @@ export class GraphFacade implements Graph {
     }
     const i = this.byPath.get(path);
     return i === undefined ? undefined : this.module_(i);
+  }
+
+  get symbols(): boolean {
+    return this.buf.symbols;
+  }
+
+  /**
+   * Modules that import export `name` of `module`: those that use it, and those that re-export
+   * it (`export { name } from`, `export *`), followed through the re-exports to their users.
+   */
+  importersOf(module: Module, name: string): Module[] {
+    if (!this.buf.symbols)
+      throw new Error("exports were not extracted; run cruise() with `symbols: true`");
+    const { buf } = this;
+    const found = new Set<number>();
+    const seen = new Set<string>();
+    // `whole`: only a use of the name itself counts, not of its members (`ns` but not `ns.a`)
+    const visit = (m: number, n: string, whole: boolean) => {
+      const key = `${m}\0${n}\0${whole}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      for (let i = buf.inOffsets[m]!; i < buf.inOffsets[m + 1]!; i++) {
+        const e = buf.inEdges[i]!;
+        const from = buf.edgeFrom(e);
+        if (buf.edgeUsesAll(e)) {
+          found.add(from);
+        } else {
+          const prefix = n + ".";
+          if (buf.edgeNames(e).some((x) => x === n || (!whole && x.startsWith(prefix))))
+            found.add(from);
+        }
+        // a module that re-exports `n` from `m` hands the question on
+        const [start, end] = buf.exportRange(from);
+        for (let x = start; x < end; x++) {
+          if (buf.exportFrom(x) !== m) continue;
+          const kind = EXPORT_KINDS[buf.exportFlags(x) & 3];
+          const exported = buf.exportName(x);
+          // the re-exporting module imports the name itself, and passes it on
+          if (kind === "reexport" && buf.exportImported(x) === n) {
+            found.add(from);
+            visit(from, exported, whole);
+          } else if (kind === "star" && n !== "default") {
+            found.add(from);
+            visit(from, n, whole);
+          } else if (kind === "namespace") {
+            found.add(from);
+            visit(from, `${exported}.${n}`, whole);
+            visit(from, exported, true);
+          }
+        }
+      }
+    };
+    visit(module.index, name, false);
+    found.delete(module.index);
+    return [...found].sort((a, b) => a - b).map((m) => this.module_(m));
   }
 
   cycles(): Module[][] {

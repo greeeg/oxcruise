@@ -1356,6 +1356,7 @@ dependencies = [
  "globset",
  "ignore",
  "oxc_resolver",
+ "oxcruise_config",
  "oxcruise_core",
  "rustc-hash",
  "serde",

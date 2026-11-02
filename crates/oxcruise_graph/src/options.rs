@@ -19,6 +19,8 @@ pub struct CruiseOptions {
     /// Explore at most this many hops from the entries.
     pub max_depth: Option<u32>,
     pub extract: ExtractOptions,
+    /// Read the `package.json` of every module (`CruiseOutput::manifests`).
+    pub manifests: bool,
     pub resolve: ResolveConfig,
     /// Worker threads; `None` uses all cores.
     pub threads: Option<usize>,
@@ -35,6 +37,7 @@ impl CruiseOptions {
             do_not_follow: PathMatcher::default(),
             max_depth: None,
             extract: ExtractOptions::default(),
+            manifests: false,
             threads: None,
         }
     }

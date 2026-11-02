@@ -1,0 +1,8 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"main.ts -> lib.ts [names=E.A,Whole,Ns.f]\", \"main.ts [exports=run]\",\n\"lib.ts [exports=E{A+B+C},Whole{X+Y},Ns{f+g},Dead{Q}]\",])"
+---
+error no-unused-exports lib.ts:3:1: unused export `Dead`
+error no-unused-exports lib.ts:3:1: unused member `E.B`
+error no-unused-exports lib.ts:3:1: unused member `E.C`
+error no-unused-exports lib.ts:3:1: unused member `Ns.g`

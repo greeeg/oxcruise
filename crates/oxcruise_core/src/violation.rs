@@ -26,6 +26,14 @@ pub struct CycleStep {
     pub edge: Option<EdgeId>,
 }
 
+/// An automatic repair: replace byte ranges of `file` (relative to the cruise root).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Fix {
+    pub file: String,
+    /// `(start, end, replacement)`
+    pub edits: Vec<(u32, u32, String)>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Violation {
     pub rule: String,
@@ -39,6 +47,14 @@ pub struct Violation {
     pub loc: Option<Loc>,
     /// Cycle or path that explains the violation.
     pub path: Vec<CycleStep>,
+    /// Index into `from`'s exports when the violation is about one export (for suppression).
+    #[serde(default)]
+    pub export: Option<u32>,
+    /// File the violation is in when it is not a module (a `package.json`), relative to the root.
+    #[serde(default)]
+    pub file: Option<String>,
+    #[serde(default)]
+    pub fix: Option<Fix>,
 }
 
 impl Violation {
@@ -57,6 +73,9 @@ impl Violation {
             message,
             loc: None,
             path: vec![],
+            export: None,
+            file: None,
+            fix: None,
         }
     }
 }

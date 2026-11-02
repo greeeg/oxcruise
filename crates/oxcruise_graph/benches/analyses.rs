@@ -35,6 +35,7 @@ fn parts(n: usize) -> (Vec<Module>, Vec<Edge>) {
                     module_system: ModuleSystem::Es6,
                     loc: None,
                     suppressed: vec![],
+                    used: oxcruise_core::UsedNames::All,
                 });
             }
         }

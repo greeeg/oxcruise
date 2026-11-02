@@ -1,0 +1,8 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: "read(\"src/api.ts\")"
+---
+import { helper, Color } from "./util";
+
+export const api = helper() + Color.Red;
+export const apiExtra = 2;

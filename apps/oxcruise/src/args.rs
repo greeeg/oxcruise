@@ -8,6 +8,9 @@ const CHECK_ONLY: &[&str] = &[
     "format",
     "quiet",
     "ignore_pattern",
+    "production",
+    "symbols",
+    "fix",
     "max_depth",
     "max_warnings",
     "deny_warnings",
@@ -69,6 +72,21 @@ pub struct Cli {
         help_heading = "Output Options"
     )]
     pub format: String,
+    /// Extract exports and the names each import uses even when no rule needs them
+    /// (the `cruise()` API asks for this)
+    #[arg(long, hide = true, help_heading = "Input Options")]
+    pub symbols: bool,
+
+    /// Apply the automatic repairs of `no-unused-exports` and `no-unused-deps` (drop the `export`
+    /// keyword or list entry, remove the `package.json` entry); run again for what that unlocks
+    #[arg(long, help_heading = "Output Options")]
+    pub fix: bool,
+
+    /// Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are
+    /// left out, and `devDependencies` are not checked
+    #[arg(long, help_heading = "Input Options")]
+    pub production: bool,
+
     /// Report errors only (warnings still count for the warning limits)
     #[arg(long, help_heading = "Output Options")]
     pub quiet: bool,

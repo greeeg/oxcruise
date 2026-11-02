@@ -61,7 +61,7 @@ describe("loading", () => {
   test("loads a plugin by path and reports its qualified names", async () => {
     write("a.mjs", plugin("acme"));
     const meta = await loadPlugin({ specifier: "./a.mjs", cwd: dir }, registry);
-    expect(meta).toEqual({ name: "acme", rules: ["r"], reporters: ["rep"] });
+    expect(meta).toEqual({ name: "acme", rules: ["r"], reporters: ["rep"], entries: [] });
     expect(registry.rule("acme/r").rule.create).toBeTypeOf("function");
     expect(registry.reporter("acme/rep")({} as never)).toBe("x");
   });
@@ -74,6 +74,16 @@ describe("loading", () => {
     write("node_modules/oxcruise-plugin-pkg/i.js", plugin("pkg"));
     const meta = await loadPlugin({ specifier: "pkg", cwd: dir }, registry);
     expect(meta.name).toBe("pkg");
+  });
+
+  test("a plugin can declare entry points", async () => {
+    write("e.mjs", plugin("ent", `, entries: ["**/*.stories.tsx", "app/routes/**"]`));
+    const meta = await loadPlugin({ specifier: "./e.mjs", cwd: dir }, registry);
+    expect(meta.entries).toEqual(["**/*.stories.tsx", "app/routes/**"]);
+    write("bad.mjs", plugin("bad", `, entries: "src/**"`));
+    await expect(loadPlugin({ specifier: "./bad.mjs", cwd: dir }, registry)).rejects.toThrow(
+      /`entries` must be an array of glob strings/,
+    );
   });
 
   test("an alias replaces meta.name", async () => {

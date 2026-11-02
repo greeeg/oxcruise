@@ -135,7 +135,11 @@ pub async fn run_cruise(
             Ok(a) => CruiseOutcome {
                 exit_code: u32::from(a.errors > 0),
                 stderr,
-                graph: Some(Buffer::from(graph_buffer::encode(&a.graph, &a.workspace))),
+                graph: Some(Buffer::from(graph_buffer::encode(
+                    &a.graph,
+                    &a.workspace,
+                    a.usage.as_ref(),
+                ))),
                 report: Some(
                     serde_json::json!({
                         "violations": violation_outs(&a.graph, &a.violations),

@@ -82,9 +82,17 @@ export function validatePlugin(value: unknown, source: string): PluginDefinition
     throw new Error(`${where}: \`meta.name\` must be a lowercase string like "acme"`);
   }
   for (const key of Object.keys(p)) {
-    if (!["meta", "rules", "reporters"].includes(key)) {
-      throw new Error(`${where}: unknown property \`${key}\` (expected meta, rules, reporters)`);
+    if (!["meta", "rules", "reporters", "entries"].includes(key)) {
+      throw new Error(
+        `${where}: unknown property \`${key}\` (expected meta, rules, reporters, entries)`,
+      );
     }
+  }
+  if (
+    p.entries !== undefined &&
+    !(Array.isArray(p.entries) && p.entries.every((e) => typeof e === "string"))
+  ) {
+    throw new Error(`${where}: \`entries\` must be an array of glob strings`);
   }
   for (const [name, rule] of Object.entries((p.rules ?? {}) as Record<string, unknown>)) {
     if (!NAME.test(name)) throw new Error(`${where}: invalid rule name \`${name}\``);
@@ -111,6 +119,8 @@ export interface LoadedMetadata {
   name: string;
   rules: string[];
   reporters: string[];
+  /** Globs of modules the plugin declares as entry points. */
+  entries: string[];
 }
 
 export async function loadPlugin(
@@ -136,5 +146,10 @@ export async function loadPlugin(
     );
   }
   registry.plugins.set(name, { name, def, source });
-  return { name, rules: Object.keys(def.rules ?? {}), reporters: Object.keys(def.reporters ?? {}) };
+  return {
+    name,
+    rules: Object.keys(def.rules ?? {}),
+    reporters: Object.keys(def.reporters ?? {}),
+    entries: def.entries ?? [],
+  };
 }

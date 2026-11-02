@@ -16,9 +16,10 @@ fn result() -> CruiseResult {
     let root = fixture();
     let out = cruise(&CruiseOptions::new(&root, vec!["packages".into()])).unwrap();
     let config = OxcruiseConfig::default();
-    let run = Engine::new(&config, None)
-        .unwrap()
-        .run(&out.graph, &root, &out.workspace);
+    let run =
+        Engine::new(&config, None)
+            .unwrap()
+            .run(&out.graph, &root, &out.workspace, &out.manifests);
     CruiseResult::build(
         &out.graph,
         &out.workspace,
@@ -26,6 +27,7 @@ fn result() -> CruiseResult {
         &run.violations,
         run.suppressed,
         run.warnings,
+        None,
     )
 }
 

@@ -1,0 +1,195 @@
+[
+  {
+    "name": "vitest",
+    "when": ["vitest"],
+    "entries": [
+      "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}",
+      "**/__tests__/**",
+      "vitest.config.*",
+      "vitest.workspace.*",
+      "vitest.setup.*"
+    ],
+    "uses": ["@vitest/*", "jsdom", "happy-dom"]
+  },
+  {
+    "name": "jest",
+    "when": ["jest"],
+    "entries": [
+      "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}",
+      "**/__tests__/**",
+      "**/__mocks__/**",
+      "jest.config.*",
+      "jest.setup.*"
+    ],
+    "uses": ["@jest/*", "@types/jest", "babel-jest", "ts-jest", "jest-*"]
+  },
+  {
+    "name": "mocha",
+    "when": ["mocha"],
+    "entries": ["test/**", "tests/**", "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}"],
+    "uses": ["@types/mocha"]
+  },
+  {
+    "name": "ava",
+    "when": ["ava"],
+    "entries": ["test/**", "tests/**", "**/*.test.{js,jsx,ts,tsx,mjs,cjs,mts,cts}", "ava.config.*"],
+    "uses": ["@ava/*"]
+  },
+  {
+    "name": "node-test",
+    "when": [],
+    "entries": ["**/*.test.{js,jsx,ts,tsx,mjs,cjs,mts,cts}"],
+    "uses": []
+  },
+  {
+    "name": "playwright",
+    "when": ["@playwright/test", "playwright"],
+    "entries": [
+      "playwright.config.*",
+      "e2e/**",
+      "tests/**",
+      "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}"
+    ],
+    "uses": ["@playwright/*"]
+  },
+  {
+    "name": "cypress",
+    "when": ["cypress"],
+    "entries": ["cypress.config.*", "cypress/**"],
+    "uses": ["@cypress/*"]
+  },
+  {
+    "name": "storybook",
+    "when": ["storybook", "@storybook/react", "@storybook/vue3", "@storybook/svelte", "@storybook/angular", "@storybook/nextjs", "@storybook/react-vite", "@storybook/web-components", "@storybook/html"],
+    "entries": ["**/*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts,svelte,vue}", "**/*.mdx", ".storybook/**"],
+    "uses": ["@storybook/*", "storybook"]
+  },
+  {
+    "name": "next",
+    "when": ["next"],
+    "entries": [
+      "app/**/{page,layout,loading,error,global-error,not-found,template,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.*",
+      "src/app/**/{page,layout,loading,error,global-error,not-found,template,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.*",
+      "pages/**",
+      "src/pages/**",
+      "{src/,}middleware.*",
+      "{src/,}instrumentation.*",
+      "next.config.*"
+    ],
+    "uses": ["@next/*", "eslint-config-next"]
+  },
+  {
+    "name": "remix",
+    "when": ["@remix-run/dev", "@remix-run/react"],
+    "entries": ["app/routes/**", "app/root.*", "app/entry.client.*", "app/entry.server.*", "remix.config.*"],
+    "uses": ["@remix-run/*"]
+  },
+  {
+    "name": "react-router",
+    "when": ["@react-router/dev"],
+    "entries": ["app/routes/**", "app/routes.*", "app/root.*", "app/entry.client.*", "app/entry.server.*", "react-router.config.*"],
+    "uses": ["@react-router/*"]
+  },
+  {
+    "name": "astro",
+    "when": ["astro"],
+    "entries": ["src/pages/**", "src/content/**", "src/content.config.*", "src/middleware.*", "src/actions/**", "astro.config.*"],
+    "uses": ["@astrojs/*"]
+  },
+  {
+    "name": "sveltekit",
+    "when": ["@sveltejs/kit"],
+    "entries": ["src/routes/**", "src/hooks.*", "src/hooks.*.*", "src/params/**", "svelte.config.*", "vite.config.*"],
+    "uses": ["@sveltejs/*"]
+  },
+  {
+    "name": "nuxt",
+    "when": ["nuxt"],
+    "entries": ["pages/**", "layouts/**", "middleware/**", "plugins/**", "server/**", "components/**", "composables/**", "utils/**", "stores/**", "app.vue", "error.vue", "nuxt.config.*"],
+    "uses": ["@nuxt/*"]
+  },
+  {
+    "name": "vite",
+    "when": ["vite"],
+    "entries": ["vite.config.*"],
+    "uses": ["@vitejs/*"]
+  },
+  {
+    "name": "webpack",
+    "when": ["webpack"],
+    "entries": ["webpack.config.*", "webpack.*.config.*"],
+    "uses": ["*-loader", "webpack-cli", "webpack-dev-server"]
+  },
+  {
+    "name": "rollup",
+    "when": ["rollup"],
+    "entries": ["rollup.config.*"],
+    "uses": ["@rollup/*"]
+  },
+  {
+    "name": "rolldown",
+    "when": ["rolldown"],
+    "entries": ["rolldown.config.*"],
+    "uses": []
+  },
+  {
+    "name": "tsup",
+    "when": ["tsup"],
+    "entries": ["tsup.config.*"],
+    "uses": []
+  },
+  {
+    "name": "tsdown",
+    "when": ["tsdown"],
+    "entries": ["tsdown.config.*"],
+    "uses": []
+  },
+  {
+    "name": "eslint",
+    "when": ["eslint"],
+    "entries": ["eslint.config.*"],
+    "uses": ["@eslint/*", "@typescript-eslint/*", "typescript-eslint", "eslint-*"]
+  },
+  {
+    "name": "prettier",
+    "when": ["prettier"],
+    "entries": ["prettier.config.*"],
+    "uses": ["@prettier/*", "prettier-plugin-*"]
+  },
+  {
+    "name": "oxlint",
+    "when": ["oxlint"],
+    "entries": ["oxlint.config.*"],
+    "uses": []
+  },
+  {
+    "name": "postcss",
+    "when": ["postcss", "tailwindcss"],
+    "entries": ["postcss.config.*", "tailwind.config.*"],
+    "uses": ["autoprefixer", "cssnano", "postcss-*", "@tailwindcss/*"]
+  },
+  {
+    "name": "babel",
+    "when": ["@babel/core"],
+    "entries": ["babel.config.*"],
+    "uses": ["@babel/*", "babel-*"]
+  },
+  {
+    "name": "docusaurus",
+    "when": ["@docusaurus/core"],
+    "entries": ["docusaurus.config.*", "sidebars.*", "src/pages/**", "src/theme/**"],
+    "uses": ["@docusaurus/*"]
+  },
+  {
+    "name": "vitepress",
+    "when": ["vitepress"],
+    "entries": [".vitepress/config.*", ".vitepress/theme/**", "docs/.vitepress/config.*", "docs/.vitepress/theme/**"],
+    "uses": []
+  },
+  {
+    "name": "expo",
+    "when": ["expo"],
+    "entries": ["app/**", "app.config.*", "metro.config.*"],
+    "uses": ["expo-*", "@expo/*"]
+  }
+]

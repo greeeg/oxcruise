@@ -24,5 +24,8 @@ restriction (default: off)
   no-peer-deps               Reports use of peer dependencies, which the consuming project must provide.
 
 nursery (default: off)
+  no-unused-deps             Reports packages that a `package.json` declares and none of its modules imports.
+  no-unused-exports          Reports exports that no other module imports, members of enums and namespaces that nothing reads, and bindings exported under two names.
+  no-unused-files            Reports source modules that cannot be reached from any entry point.
 
-13 rules
+16 rules

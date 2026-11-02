@@ -19,6 +19,7 @@ fn build(n: usize, pairs: &[(usize, usize)]) -> Graph {
             module_system: ModuleSystem::Es6,
             loc: None,
             suppressed: vec![],
+            used: oxcruise_core::UsedNames::All,
         })
         .collect();
     Graph::build(modules, edges)

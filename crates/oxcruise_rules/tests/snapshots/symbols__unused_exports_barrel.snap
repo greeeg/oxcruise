@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"app.ts -> index.ts [names=y]\",\n\"index.ts -> impl.ts [reexport=x:y names=]\",\n\"index.ts -> other.ts [star names=]\", \"impl.ts [exports=x,z]\",\n\"other.ts [exports=o]\", \"app.ts [exports=main]\",])"
+---
+error no-unused-exports impl.ts:4:1: unused export `z`
+error no-unused-exports other.ts:5:1: unused export `o`

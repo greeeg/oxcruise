@@ -3,13 +3,15 @@ use std::path::Path;
 use std::sync::Arc;
 
 use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
-use oxcruise_core::{Graph, Loc, ModuleId, Severity, Violation};
+use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Severity, UsedNames, Violation};
 use oxcruise_graph::PathMatcher;
-use oxcruise_graph::analyses::BitSet;
+use oxcruise_graph::analyses::{BitSet, ExportUsage, export_usage};
 use oxcruise_resolve::WorkspacePackage;
 use rayon::prelude::*;
 
+use crate::conventions::ConventionFilter;
 use crate::declarative::CompiledRule;
+use crate::entries::EntryInputs;
 use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget};
 use crate::meta::{Analyses, AnalysisCache, RuleCtx, Shared};
 use crate::registry::{RuleEnum, builtin_rules};
@@ -49,6 +51,9 @@ pub struct RunResult {
     pub warnings: Vec<String>,
     /// Problems that make the result untrustworthy (a plugin crashed). The run must fail.
     pub fatal: Vec<String>,
+    /// Which exports are used (entries, conventions and plugins decide what is public), when the
+    /// graph carries symbols. Independent of any rule's options.
+    pub usage: Option<ExportUsage>,
 }
 
 impl RunResult {
@@ -230,7 +235,63 @@ impl Engine {
         }
     }
 
-    pub fn run(&self, graph: &Graph, root: &Path, workspace: &[WorkspacePackage]) -> RunResult {
+    /// Set option `key` of built-in rule `rule` to `value`, in the rule's configuration and in
+    /// every override of it, so a command-line flag wins over the config file. Rules that are
+    /// off stay off.
+    pub fn set_option(&mut self, rule: &str, key: &str, value: serde_json::Value) {
+        let patch = |e: &mut Entry| {
+            if e.options.is_null() {
+                e.options = serde_json::json!({});
+            }
+            if let Some(o) = e.options.as_object_mut() {
+                o.insert(key.to_string(), value.clone());
+            }
+        };
+        for plan in self
+            .plans
+            .iter_mut()
+            .filter(|p| p.name == rule && matches!(p.source, Source::Builtin))
+        {
+            plan.base.iter_mut().for_each(patch);
+            plan.overrides.iter_mut().for_each(|(_, e)| patch(e));
+        }
+    }
+
+    /// Whole-graph analyses the enabled rules need, whatever their options.
+    fn wanted(&self) -> Analyses {
+        let mut wanted = Analyses::empty();
+        for plan in &self.plans {
+            let enabled = plan.base.as_ref().is_some_and(|e| e.level != Level::Off)
+                || plan.overrides.iter().any(|(_, e)| e.level != Level::Off);
+            if enabled
+                && matches!(plan.source, Source::Builtin)
+                && let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, serde_json::Value::Null)
+            {
+                wanted |= rule.requirements();
+            }
+        }
+        wanted
+    }
+
+    /// Whether `cruise` must extract exports and the names each import uses.
+    pub fn wants_symbols(&self) -> bool {
+        self.wanted()
+            .intersects(Analyses::SYMBOLS | Analyses::ENTRIES)
+    }
+
+    /// Whether `cruise` must read the `package.json` of every module.
+    pub fn wants_manifests(&self) -> bool {
+        self.wanted()
+            .intersects(Analyses::MANIFESTS | Analyses::ENTRIES)
+    }
+
+    pub fn run(
+        &self,
+        graph: &Graph,
+        root: &Path,
+        workspace: &[WorkspacePackage],
+        manifests: &[DeclaredManifest],
+    ) -> RunResult {
         let mut warnings = vec![];
         let mut fatal = vec![];
         let mut resolved: Vec<Resolved> = vec![];
@@ -258,11 +319,27 @@ impl Engine {
         let wanted = resolved
             .iter()
             .fold(Analyses::empty(), |a, r| a | r.rule.requirements());
-        let analyses = AnalysisCache::compute(graph, wanted);
+        // what each rule that needs entry points takes as one, and what plugins add
+        let conventions: Vec<ConventionFilter> = resolved
+            .iter()
+            .filter(|r| r.rule.requirements().contains(Analyses::ENTRIES))
+            .map(|r| r.rule.conventions())
+            .collect();
+        let plugin_entries = self.external.as_ref().map_or(vec![], |x| x.entries());
+        let analyses = AnalysisCache::compute(
+            graph,
+            wanted,
+            &EntryInputs {
+                manifests,
+                conventions: &conventions,
+                plugin_entries: &plugin_entries,
+            },
+        );
         let shared = Shared {
             graph,
             root,
             workspace,
+            manifests,
             analyses: &analyses,
         };
 
@@ -271,9 +348,23 @@ impl Engine {
             .flat_map_iter(|r| run_rule(r, &shared))
             .collect();
 
+        let usage = (graph.modules().iter().any(|m| !m.exports.is_empty())
+            || graph.edges().iter().any(|e| e.used != UsedNames::All))
+        .then(|| {
+            let entries = crate::entries::compute(
+                graph,
+                &EntryInputs {
+                    manifests,
+                    conventions: &[ConventionFilter::default()],
+                    plugin_entries: &plugin_entries,
+                },
+            );
+            export_usage(graph, &entries.all(), &|_| false)
+        });
+
         if !externals.is_empty() {
             match &self.external {
-                Some(x) => match x.run(graph, workspace, &externals) {
+                Some(x) => match x.run(graph, workspace, &externals, usage.as_ref()) {
                     Ok(found) => {
                         for f in found {
                             let spec = &externals[externals
@@ -295,6 +386,9 @@ impl Engine {
                                         message: f.message,
                                         loc: edge.loc,
                                         path: vec![],
+                                        export: None,
+                                        file: None,
+                                        fix: None,
                                     }
                                 }
                             };
@@ -334,6 +428,7 @@ impl Engine {
             suppressed,
             warnings,
             fatal,
+            usage,
         }
     }
 
@@ -519,5 +614,12 @@ fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usiz
 
 fn is_suppressed(g: &Graph, v: &Violation) -> bool {
     let covers = |list: &[String]| list.iter().any(|r| r == "*" || *r == v.rule);
-    v.edge.is_some_and(|e| covers(&g.edge(e).suppressed)) || covers(&g.module(v.from).suppressed)
+    if v.file.is_some() {
+        return false;
+    }
+    let module = g.module(v.from);
+    v.edge.is_some_and(|e| covers(&g.edge(e).suppressed))
+        || v.export
+            .is_some_and(|i| covers(&module.exports[i as usize].suppressed))
+        || covers(&module.suppressed)
 }

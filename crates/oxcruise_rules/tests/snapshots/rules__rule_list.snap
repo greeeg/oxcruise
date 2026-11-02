@@ -15,3 +15,6 @@ no-peer-deps restriction 0.1.0
 no-test-imports correctness 0.1.0
 no-undeclared-deps correctness 0.1.0
 no-unresolvable correctness 0.1.0
+no-unused-deps nursery 0.1.0
+no-unused-exports nursery 0.1.0
+no-unused-files nursery 0.1.0

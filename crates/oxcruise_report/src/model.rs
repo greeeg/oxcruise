@@ -1,11 +1,16 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use oxcruise_core::{DepKinds, Graph, ModuleKind, ModuleSystem, Severity, Violation};
+use oxcruise_core::{
+    DepKinds, ExportKind, Graph, ModuleId, ModuleKind, ModuleSystem, Severity, UsedNames, Violation,
+};
 use oxcruise_resolve::WorkspacePackage;
 use serde::{Deserialize, Serialize};
 
 pub const RESULT_VERSION: u32 = 1;
+
+/// Whether the export `name` of a module is used.
+pub type ExportUsed<'a> = dyn Fn(ModuleId, &str) -> bool + 'a;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CruiseResult {
@@ -32,6 +37,31 @@ pub struct ModuleOut {
     pub dependents: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub parse_error: Option<String>,
+    /// What the module exports and whether anything uses it (only when symbols were extracted).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub exports: Vec<ExportOut>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportOut {
+    pub name: String,
+    pub kind: ExportKind,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub is_type: bool,
+    pub line: u32,
+    pub col: u32,
+    /// Some module imports it, or it is part of an entry point's interface.
+    pub used: bool,
+}
+
+/// The names a dependency uses from its target.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NamesOut {
+    /// `"*"`: anything.
+    Any(String),
+    /// Exports used; `E.A` is a member of an export.
+    Some(Vec<String>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -50,6 +80,9 @@ pub struct DepOut {
     pub cycle: Vec<CycleHop>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub rules: Vec<RuleRef>,
+    /// Only when symbols were extracted.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub names: Option<NamesOut>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -112,6 +145,8 @@ impl CruiseResult {
         violations: &[Violation],
         suppressed: usize,
         warnings: Vec<String>,
+        // `Some` when symbols were extracted: whether `(module, export name)` is used
+        symbols: Option<&ExportUsed<'_>>,
     ) -> CruiseResult {
         let name = |m| graph.module(m).path.clone();
 
@@ -168,6 +203,12 @@ impl CruiseResult {
                             circular: !cycle.is_empty(),
                             cycle,
                             rules: edge_rules.get(&id.0).cloned().unwrap_or_default(),
+                            names: symbols.map(|_| match &e.used {
+                                UsedNames::All => NamesOut::Any("*".into()),
+                                UsedNames::Names(n) => {
+                                    NamesOut::Some(n.iter().map(|s| s.to_string()).collect())
+                                }
+                            }),
                         }
                     })
                     .collect();
@@ -185,6 +226,20 @@ impl CruiseResult {
                     dependencies,
                     dependents,
                     parse_error: module.parse_error.clone(),
+                    exports: symbols.map_or(vec![], |used| {
+                        module
+                            .exports
+                            .iter()
+                            .map(|x| ExportOut {
+                                name: x.name.clone(),
+                                kind: x.kind,
+                                is_type: x.is_type,
+                                line: x.loc.line,
+                                col: x.loc.col,
+                                used: used(m, &x.name),
+                            })
+                            .collect()
+                    }),
                 }
             })
             .collect();
@@ -218,7 +273,7 @@ pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationO
                 rule: v.rule.clone(),
                 severity: v.severity,
                 kind,
-                from: name(v.from),
+                from: v.file.clone().unwrap_or_else(|| name(v.from)),
                 to: v.to.map(name),
                 line: v.loc.map(|l| l.line),
                 col: v.loc.map(|l| l.col),

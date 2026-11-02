@@ -21,7 +21,7 @@ Each row is a problem in dependency-cruiser (with the issues that report it) and
 | Regex-only paths; unsafe-regex guard; silent dead rules | #472, #651, #980, #806 | globs only, matched by the linear-time `regex` crate; rules that match nothing are reported | done |
 | All-or-nothing cache that relies on git | #715, #1071 | per-file content-hash cache | post-MVP |
 | No editor/LSP integration | #529, #272 | LSP with a resident incremental graph | post-MVP |
-| No unused exports/dependencies | #674, #468, #638, #340 | symbol-level analysis (export/import names are already extracted) | post-MVP |
+| No unused exports/dependencies | #674, #468, #638, #340 | `no-unused-exports`, `no-unused-deps`, `no-unused-files` (see [Symbols](#symbols)) | done (nursery) |
 | Missing dependency forms | #971, #966, #1007 | `new URL()`/workers, SFC splitter for Vue/Svelte/Astro; CSS `@import`: post-MVP | partly done |
 
 ## Repository layout
@@ -89,6 +89,41 @@ wins the location. A rule stays suppressed on a merged dependency only if *every
 
 `.vue`, `.svelte` and `.astro` files are split into their `<script>` blocks (and Astro frontmatter); every block
 is parsed separately and its offsets are mapped back to the file.
+
+### Symbols
+
+With `ExtractOptions.symbols` the same single pass also records what a file exports and how it uses its imports. It
+is **off unless something needs it**: `Engine::wants_symbols()` (a `no-unused-*` rule is enabled), `jsPlugins`, a
+`json` or plugin-reporter output, or `cruise({ symbols: true })`. Without it, nothing changes in speed or output.
+
+* Exports come from oxc's `ModuleRecord` (`export { a as b } from` keeps its source name, `import {a}; export {a}` is
+  already a re-export there) plus `loc`, per-export suppression comments, the members of exported enums and
+  namespaces, whether the file uses the binding itself, and the byte range to delete for `--fix`.
+* Each import is classified by the existing AST walk, with no scope analysis: a namespace import read only as `ns.a`
+  or an enum only as `E.X` records the dotted names, any other use of the binding is opaque (`All`). Shadowing can
+  only make a binding look *more* used, so it never causes a false positive. Single-file components are never narrowed
+  (templates use bindings the script does not mention).
+* `freeze()` turns that into `Edge.used` (`All`, or a list of names) and `Module.exports`; anything that is not a
+  static ES `import`/`export` (`require`, `import()`, JSDoc, AMD, `new URL`) uses `All`. With `manifests` on it also
+  reads the nearest `package.json` of every module (`Resolver::nearest_manifest`, the lookup that classifies `npm-*`)
+  and finds each dependency's line by scanning the raw JSON.
+* **Liveness** (`analyses/exports.rs`) is one forward worklist over `(module, name)` marks: an importing edge marks the
+  names it uses, a mark travels through `export { a } from`, `export *` (never `default`) and `export * as ns` to the
+  defining module, and each mark is set once, so re-export cycles end. Knip answers the same question by walking up the
+  importers once per export; this does the whole graph in one linear pass.
+* **Entry points** (`entries.rs`) are the modules whose exports are public: modules no other module imports, the files
+  each `package.json` publishes (`main`, `module`, `types`, `bin`, `exports`, mapped from the build output back to
+  source with the tsconfig `outDir`/`rootDir`), `index`/`main`/`cli` files, the **conventions** of the tools the
+  package declares (`conventions.json`: tests, routes, configs, and the packages those tools load by name; the table is
+  in [rules.md](rules.md#conventions)), plugin `entries`, and modules marked `oxcruise-ignore-file`.
+* Production mode (`--production`, or `production: true`) leaves tests out as entries and as importers, and skips
+  `devDependencies`. `--fix` applies the repairs the rules attach (drop `export`, drop a list entry, drop a
+  `package.json` member); edits that overlap wait for the next run.
+
+Compared with [Knip](https://knip.dev) (which also uses oxc-parser and oxc-resolver since v6): the same two phases
+(build, then analyse) and the same notion of entries and `OPAQUE` imports, but liveness is linear instead of per
+export, and instead of 200+ plugins evaluating tool configs there is one small JSON table of conventions and
+`definePlugin({ entries })` for the rest. Not built: class members, catalogs, binaries, JSDoc visibility tags.
 
 ## Resolution and classification
 
@@ -159,7 +194,9 @@ export default defineConfig({
   `rules` and `resolve.alias` merge by key (the child wins), `forbid`/`overrides`/`calls`/`jsPlugins` concatenate.
 * **Overrides** can change a rule's severity and options for importing modules matching `files`; the engine runs
   one variant of the rule per distinct effective setting, limited to the modules it applies to.
-* **CLI-only**: `--max-warnings`, `--deny-warnings`, `--max-depth` (for `dot` and `mermaid`), `--ignore-pattern`.
+* **CLI-only**: `--max-warnings`, `--deny-warnings`, `--max-depth` (for `dot` and `mermaid`), `--ignore-pattern`,
+  `--production` and `--fix` (for the `no-unused-*` rules; `--fix` is refused with `--init`, `--migrate`, `--rules`
+  and `--print-config`, and does not chase cascades: run again).
 * The schema is generated (`just schema-json`) into `npm/oxcruise/configuration_schema.json`; the TypeScript types
   from it (`just config-ts`).
 
@@ -172,7 +209,8 @@ Violations go into a per-task buffer, so rules never lock under `par_iter`.
 Built-in, by category: **correctness** `no-circular` (runtime cycles; `includeTypeOnly`, `ignore`),
 `no-unresolvable`, `no-undeclared-deps`, `no-dev-deps-in-prod`, `no-test-imports`, `no-cross-package-relative`;
 **suspicious** `no-orphans`, `no-deprecated`, `no-duplicate-deps`; **restriction** `no-optional-deps`, `no-peer-deps`,
-`layers`, `internal-modules`. See [rules.md](rules.md).
+`layers`, `internal-modules`; **nursery** `no-unused-exports`, `no-unused-deps`, `no-unused-files`
+(see [Symbols](#symbols)). See [rules.md](rules.md).
 
 Cycles are reported **once per distinct cycle**, not once per edge, and a cycle counts as suppressed when any one of
 its edges carries the suppression comment.
@@ -206,8 +244,14 @@ export default definePlugin({
 ```
 
 * `Graph`: `modules`, `edges`, `module(path)`, `cycles()`, `reach(from)`, `packages`, `folders`.
-  `Module`: `path`, `kind`, `package`, `dependencies`, `dependents`, `dependentCount`, `is(kind)`.
-  `Dependency`: `from`, `to`, `specifier`, `kinds`, `is(kind)`, `loc`, `typeOnly`, `circular`, `cycle`, `unresolved`.
+  `Module`: `path`, `kind`, `package`, `dependencies`, `dependents`, `dependentCount`, `exports`, `is(kind)`.
+  `Dependency`: `from`, `to`, `specifier`, `kinds`, `is(kind)`, `loc`, `typeOnly`, `circular`, `cycle`, `unresolved`,
+  `names`. Symbols (see [Symbols](#symbols)) are always present for plugins: `Module.exports` is
+  `{ name, kind, type, used, loc, from, imported }[]`, `Dependency.names` is `"*"` or the names used, and
+  `graph.importersOf(module, name)` lists the modules that import an export, following re-exports. `used` does not
+  depend on any rule's options: it is computed over the shared entry points.
+* A plugin can declare entry points with static globs, `definePlugin({ meta, entries: ["**/*.stories.tsx"], … })`;
+  they are public API for `Export.used`, `no-unused-exports` and `no-unused-files`, like conventions.
 * Specifiers: a relative path, or a package (`acme` is tried as `oxcruise-plugin-acme`, then `acme`). In `jsPlugins`
   an entry can be `{ "name": "team", "specifier": "./acme.ts" }` to register the rules as `team/*`.
 * Rules are configured as `plugin/rule`; reporters are selected with `-f plugin/reporter`.
@@ -222,6 +266,10 @@ written once into a flat `u32` little-endian buffer (layout documented in `graph
 an independent decoder); the JS side wraps sections in `Uint32Array` views and decodes strings lazily. The bit ↔ name
 table for `DepKinds` is generated into TypeScript from the Rust source, with a test that fails when it is stale.
 
+The buffer has two more sections for symbols (version 2): the exports of each module (name, flags, line, column, the
+module a re-export reads from and the name it reads) and the names each edge uses; the header says whether symbols
+were extracted.
+
 The standalone binary has no JS runtime: with `jsPlugins` set it stops with "need the npm package", and TS/JS
 configs are evaluated by spawning `node`.
 
@@ -232,7 +280,7 @@ configs are evaluated by spawning `node`.
 
 `oxcruise [paths…]`, plus mode flags that replace it: `--init`, `--migrate[=FILE]`, `--rules` and `--print-config`
 (one at a time; `--init` and `--migrate` never overwrite). Flags: `-c`, `-f`, `--quiet`, `--ignore-pattern`,
-`--max-depth`, `--max-warnings`, `--deny-warnings`, `--threads`, `--cwd`. Color follows the terminal, `NO_COLOR` and
+`--max-depth`, `--max-warnings`, `--deny-warnings`, `--production`, `--fix`, `--threads`, `--cwd`. Color follows the terminal, `NO_COLOR` and
 `FORCE_COLOR`. Exit code 1 for
 errors, 2 for a bad invocation or config.
 
@@ -251,7 +299,8 @@ Honest list, so the plan and the code are not confused:
   `require`, `orphan`, `numberOf…`, `dependencyTypes`, `circular`/`via`, `license`, folder scope, `reachable: false`).
   `oxcruise --migrate` drops rules that use such conditions with a named warning instead of silently widening them.
 * Not built: baseline, cache, LSP/`--watch`, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
-  unused-exports, CSS `@import`.
+  CSS `@import`. Unused exports, dependencies and files are built (nursery), without Knip's class members, catalogs,
+  binaries and JSDoc tags.
 * The release workflow is drafted but has never run, and nothing has been published.
 * Only Linux/arm64 was built and tested while developing; the other platform targets are untested.
 

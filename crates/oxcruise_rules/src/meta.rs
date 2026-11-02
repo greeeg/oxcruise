@@ -2,9 +2,15 @@ use std::cell::RefCell;
 use std::path::Path;
 
 use bitflags::bitflags;
-use oxcruise_core::{CycleStep, Edge, EdgeId, Graph, Module, ModuleId, Severity, Violation};
+use oxcruise_core::{
+    CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Severity,
+    Violation,
+};
 use oxcruise_graph::analyses::{Scc, distinct_dependents, strongly_connected};
 use oxcruise_resolve::WorkspacePackage;
+
+use crate::conventions::ConventionFilter;
+use crate::entries::{self, EntryInputs, EntrySet};
 
 pub use oxcruise_config::Category;
 
@@ -33,6 +39,12 @@ bitflags! {
         const CYCLES_RUNTIME = 1 << 1;
         /// Distinct dependent counts per module.
         const DEPENDENTS = 1 << 2;
+        /// The entry points of the project (`RuleCtx::entries`). Implies `SYMBOLS`.
+        const ENTRIES = 1 << 3;
+        /// Exports and used names, extracted while parsing (`Module::exports`, `Edge::used`).
+        const SYMBOLS = 1 << 4;
+        /// The `package.json` declarations (`RuleCtx::manifests`).
+        const MANIFESTS = 1 << 5;
     }
 }
 
@@ -42,10 +54,11 @@ pub struct AnalysisCache {
     pub scc_all: Option<Scc>,
     pub scc_runtime: Option<Scc>,
     pub dependents: Option<Vec<u32>>,
+    pub entries: Option<EntrySet>,
 }
 
 impl AnalysisCache {
-    pub fn compute(graph: &Graph, wanted: Analyses) -> Self {
+    pub fn compute(graph: &Graph, wanted: Analyses, entries: &EntryInputs<'_>) -> Self {
         // Independent analyses run in parallel.
         let (scc, (rt, dep)) = rayon::join(
             || {
@@ -75,6 +88,9 @@ impl AnalysisCache {
             scc_all: scc,
             scc_runtime: rt,
             dependents: dep,
+            entries: wanted
+                .contains(Analyses::ENTRIES)
+                .then(|| entries::compute(graph, entries)),
         }
     }
 
@@ -101,6 +117,7 @@ pub struct Shared<'a> {
     pub graph: &'a Graph,
     pub root: &'a Path,
     pub workspace: &'a [WorkspacePackage],
+    pub manifests: &'a [DeclaredManifest],
     pub analyses: &'a AnalysisCache,
 }
 
@@ -128,6 +145,17 @@ impl<'a> RuleCtx<'a> {
     }
     pub fn analyses(&self) -> &'a AnalysisCache {
         self.shared.analyses
+    }
+    pub fn manifests(&self) -> &'a [DeclaredManifest] {
+        self.shared.manifests
+    }
+    /// The shared entry points. Only available to rules that require `Analyses::ENTRIES`.
+    pub fn entries(&self) -> &'a EntrySet {
+        self.shared
+            .analyses
+            .entries
+            .as_ref()
+            .expect("ENTRIES analysis was not requested by any rule")
     }
     pub fn module(&self, m: ModuleId) -> &'a Module {
         self.shared.graph.module(m)
@@ -167,7 +195,49 @@ impl<'a> RuleCtx<'a> {
             message: message.into(),
             loc: edge.loc,
             path,
+            export: None,
+            file: None,
+            fix: None,
         });
+    }
+
+    /// Violation on export number `export` of `m` (or one of its members, at `loc`).
+    pub fn report_export(
+        &self,
+        m: ModuleId,
+        export: usize,
+        loc: Option<Loc>,
+        message: impl Into<String>,
+        fixable: bool,
+    ) {
+        let module = self.module(m);
+        let mut v = Violation::module(self.rule, self.severity, m, message.into());
+        v.loc = loc.or(Some(module.exports[export].loc));
+        v.export = Some(export as u32);
+        v.fix = module.exports[export]
+            .fix
+            .filter(|_| fixable)
+            .map(|(s, e)| Fix {
+                file: module.path.clone(),
+                edits: vec![(s, e, String::new())],
+            });
+        self.out.borrow_mut().push(v);
+    }
+
+    /// Violation in a file that is not a module, such as a `package.json`. `from` only orders it.
+    pub fn report_file(
+        &self,
+        from: ModuleId,
+        file: &str,
+        loc: Loc,
+        message: impl Into<String>,
+        fix: Option<Fix>,
+    ) {
+        let mut v = Violation::module(self.rule, self.severity, from, message.into());
+        v.fix = fix;
+        v.loc = Some(loc);
+        v.file = Some(file.to_string());
+        self.out.borrow_mut().push(v);
     }
 
     /// Push a fully built violation (for module-level findings that carry a target and path).
@@ -188,6 +258,11 @@ pub trait Rule: RuleMeta + Sized + Default + std::fmt::Debug + Send + Sync {
 
     fn requirements(&self) -> Analyses {
         Analyses::empty()
+    }
+
+    /// Which tool conventions this rule counts as entry points (rules that need `ENTRIES`).
+    fn conventions(&self) -> ConventionFilter {
+        ConventionFilter::default()
     }
 
     fn check_module(&self, _m: ModuleId, _cx: &RuleCtx<'_>) {}

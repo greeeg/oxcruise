@@ -12,6 +12,7 @@ use napi::bindgen_prelude::{Buffer, Promise, block_on};
 use napi::threadsafe_function::ThreadsafeFunction;
 use oxcruise_config::{ConfigError, JsConfigLoader};
 use oxcruise_core::{EdgeId, Graph, ModuleId};
+use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_report::ExternalReporters;
 use oxcruise_resolve::WorkspacePackage;
 use oxcruise_rules::{
@@ -61,6 +62,9 @@ struct LoadedPlugin {
     rules: Vec<String>,
     #[serde(default)]
     reporters: Vec<String>,
+    /// Globs of modules the plugin declares as entry points.
+    #[serde(default)]
+    entries: Vec<String>,
 }
 
 pub struct Host {
@@ -100,6 +104,14 @@ impl ExternalRules for Host {
         Ok(())
     }
 
+    fn entries(&self) -> Vec<String> {
+        let plugins = self.plugins.lock().expect("poisoned");
+        plugins
+            .iter()
+            .flat_map(|p| p.entries.iter().cloned())
+            .collect()
+    }
+
     fn rule_exists(&self, name: &str) -> bool {
         self.plugins
             .lock()
@@ -113,8 +125,9 @@ impl ExternalRules for Host {
         graph: &Graph,
         workspace: &[WorkspacePackage],
         rules: &[ExternalRuleSpec],
+        usage: Option<&ExportUsage>,
     ) -> Result<Vec<ExternalViolation>, String> {
-        let buffer = Buffer::from(graph_buffer::encode(graph, workspace));
+        let buffer = Buffer::from(graph_buffer::encode(graph, workspace, usage));
         let specs: Vec<_> = rules
             .iter()
             .map(|r| {

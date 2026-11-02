@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{DepKinds, Loc, ModuleSystem};
+use crate::{DepKinds, Export, Loc, ModuleSystem, UsedNames};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ModuleId(pub u32);
@@ -45,6 +45,10 @@ pub struct Module {
     pub parse_error: Option<String>,
     /// Rules silenced for the whole file by `oxcruise-ignore-file`; `"*"` means all.
     pub suppressed: Vec<String>,
+    /// What the module exports, sorted by name. Empty unless symbols were extracted.
+    pub exports: Vec<Export>,
+    /// Index into the declared manifests of the run: the nearest `package.json`.
+    pub manifest: Option<u32>,
 }
 
 impl Module {
@@ -56,7 +60,19 @@ impl Module {
             not_followed: false,
             parse_error: None,
             suppressed: vec![],
+            exports: vec![],
+            manifest: None,
         }
+    }
+
+    /// The exports named `name`.
+    pub fn exports_named(&self, name: &str) -> &[Export] {
+        let start = self.exports.partition_point(|e| e.name.as_str() < name);
+        let len = self.exports[start..]
+            .iter()
+            .take_while(|e| e.name == name)
+            .count();
+        &self.exports[start..start + len]
     }
 }
 
@@ -70,6 +86,8 @@ pub struct Edge {
     pub loc: Option<Loc>,
     /// Rule names suppressed on this edge by an inline comment.
     pub suppressed: Vec<String>,
+    /// Names the importer uses from `to`. `All` unless symbols were extracted.
+    pub used: UsedNames,
 }
 
 impl Edge {
@@ -109,6 +127,14 @@ impl Graph {
             .map(|&old| slots[old].take().expect("unique"))
             .collect();
 
+        let mut modules = modules;
+        for m in &mut modules {
+            for x in &mut m.exports {
+                x.from = x.from.map(|f| ModuleId(remap[f.idx()]));
+            }
+            // stable, so exports of one name keep their source order
+            m.exports.sort_by(|a, b| a.name.cmp(&b.name));
+        }
         let mut edges = edges;
         for e in &mut edges {
             e.from = ModuleId(remap[e.from.idx()]);
@@ -214,6 +240,7 @@ mod tests {
             module_system: ModuleSystem::Es6,
             loc: None,
             suppressed: vec![],
+            used: UsedNames::All,
         }
     }
 

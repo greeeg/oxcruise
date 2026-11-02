@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "exports(json!({ \"types\": false })).fail(&lines)"
+---
+error no-unused-exports lib.ts:3:1: unused export `b`
+error no-unused-exports lib.ts:3:1: unused export `inFile`

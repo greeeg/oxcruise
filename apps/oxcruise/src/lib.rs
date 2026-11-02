@@ -2,6 +2,7 @@
 
 mod args;
 mod config_io;
+mod fix;
 mod init;
 pub mod js_plugins;
 mod migrate;

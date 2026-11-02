@@ -1,0 +1,10 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: report(&second)
+---
+exit: 1
+--- stdout
+::error file=src/orphan.ts,title=no-unused-files::this module cannot be reached from any entry point
+::warning file=src/util.ts,line=8,col=3,title=no-unused-exports::unused member `Color.Green`
+--- stderr
+fixed 1 problem(s); run again to see what that unlocked

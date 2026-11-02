@@ -17,6 +17,7 @@ use oxcruise_core::{LineIndex, Span};
 
 pub use facts::{
     ExportFact, ExportKind, ExtractOptions, FileFacts, ImportFact, RawDependency, Suppression,
+    UsedRefs,
 };
 
 /// Extensions oxcruise will parse as source.
@@ -57,6 +58,15 @@ pub fn extract(
         match SourceType::from_path(path) {
             Ok(st) => parse_block(allocator, source, 0, st, &mut builder),
             Err(e) => builder.parse_error = Some(e.to_string()),
+        }
+    }
+    if builder.opts.symbols && matches!(ext, "vue" | "svelte" | "astro") {
+        // Templates use bindings the script blocks never mention, so nothing can be narrowed.
+        for i in &mut builder.imports {
+            i.refs = UsedRefs::Opaque;
+        }
+        for e in &mut builder.exports {
+            e.used_in_file = true;
         }
     }
     builder.finish()

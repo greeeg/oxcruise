@@ -273,6 +273,109 @@ describe("cruise() programmatic API", () => {
   });
 });
 
+describe("cruise() with symbols", () => {
+  const symbolProject = () =>
+    project({
+      "package.json": '{ "name": "p", "main": "src/index.ts" }',
+      "src/index.ts": 'export { api } from "./api";\nexport * as util from "./util";\n',
+      "src/api.ts":
+        'import { helper, Color } from "./repo/db";\nexport const api = helper() + Color.Red;\nexport const unusedApi = 1;\n',
+      "src/util.ts": "export const u = 1;\n",
+      "src/repo/db.ts":
+        "export const helper = () => 1;\nexport const dead = 2;\nexport enum Color { Red, Green }\n",
+      "src/repo/other.ts": 'import * as db from "./db";\nconsole.log(db.helper);\n',
+      ".oxcruiserc.json": '{ "entries": ["src"] }',
+    });
+
+  test("exports, usage and importers", async () => {
+    const g = await cruise({ cwd: symbolProject(), paths: ["src"], symbols: true });
+    const db = g.module("src/repo/db.ts")!;
+    expect(db.exports.map((x) => [x.name, x.used])).toEqual([
+      ["Color", true],
+      ["dead", false],
+      ["helper", true],
+    ]);
+    expect(db.unusedExports().map((x) => x.name)).toEqual(["dead"]);
+    expect(db.isUsed("helper")).toBe(true);
+    expect(db.isUsed("dead")).toBe(false);
+    expect(db.importersOf("helper").map((m) => m.path)).toEqual([
+      "src/api.ts",
+      "src/repo/other.ts",
+    ]);
+    expect(db.importersOf("Color").map((m) => m.path)).toEqual(["src/api.ts"]);
+    expect(g.whoImports("src/repo/db.ts", "dead")).toEqual([]);
+    expect(g.whoImports("src/missing.ts", "x")).toEqual([]);
+    // through a re-export
+    expect(g.whoImports("src/api.ts", "api").map((m) => m.path)).toEqual(["src/index.ts"]);
+    // the dependency lists the names it uses
+    const dep = g.module("src/api.ts")!.dependencies.find((d) => d.specifier === "./repo/db")!;
+    expect(dep.names).toEqual(["Color.Red", "helper"]);
+    const ns = g.module("src/repo/other.ts")!.dependencies[0]!;
+    expect(ns.names).toEqual(["helper"]);
+    // the package entry point keeps its exports
+    expect(g.module("src/index.ts")!.unusedExports()).toEqual([]);
+  });
+
+  test("plugin entries are entry points for the unused rules and for `used`", async () => {
+    const files = {
+      "package.json": '{ "name": "p" }',
+      "plugin.mjs": 'export default { meta: { name: "acme" }, entries: ["src/stories/**"] };\n',
+      "src/index.ts": 'import "./live";\n',
+      "src/live.ts": "export const live = 1;\n",
+      "src/stories/a.stories.ts":
+        'import { shared } from "../shared";\nexport const story = shared;\n',
+      "src/shared.ts": "export const shared = 1;\nexport const extra = 2;\n",
+      "src/dead.ts": "export const dead = 1;\n",
+      ".oxcruiserc.json": JSON.stringify({
+        entries: ["src"],
+        jsPlugins: ["./plugin.mjs"],
+        rules: { "no-unused-files": "error", "no-unused-exports": "warn" },
+      }),
+    };
+    const o = await runCli(project(files), ["-f", "github"]);
+    expect(o.stdout).toContain("src/dead.ts,title=no-unused-files");
+    expect(o.stdout).not.toContain("src/stories/a.stories.ts");
+    expect(o.stdout).not.toContain("file=src/shared.ts,title=no-unused-files");
+    // the story's export is public; the shared module's unused export is not
+    expect(o.stdout).toContain("unused export `extra`");
+    expect(o.stdout).not.toContain("unused export `story`");
+
+    // plugins also see which exports are used
+    const g = await cruise({ cwd: project(files), paths: ["src"] });
+    expect(g.module("src/stories/a.stories.ts")!.exports.map((x) => x.used)).toEqual([true]);
+    expect(
+      g
+        .module("src/shared.ts")!
+        .unusedExports()
+        .map((x) => x.name),
+    ).toEqual(["extra"]);
+  });
+
+  test("without symbols the questions throw instead of answering nothing", async () => {
+    const g = await cruise({ cwd: symbolProject(), paths: ["src"] });
+    const db = g.module("src/repo/db.ts")!;
+    expect(() => db.exports).toThrow(/symbols: true/);
+    expect(() => db.unusedExports()).toThrow(/symbols: true/);
+    expect(() => db.importersOf("helper")).toThrow(/symbols: true/);
+    expect(() => g.whoImports("src/repo/db.ts", "helper")).toThrow(/symbols: true/);
+  });
+
+  test("the json result lists exports and names when asked", async () => {
+    const o = await runCli(symbolProject(), ["-f", "json"]);
+    const result = JSON.parse(o.stdout) as {
+      modules: {
+        path: string;
+        exports?: { name: string; used: boolean }[];
+        dependencies: { names?: unknown }[];
+      }[];
+    };
+    const db = result.modules.find((m) => m.path === "src/repo/db.ts")!;
+    expect(db.exports!.find((x) => x.name === "dead")!.used).toBe(false);
+    const api = result.modules.find((m) => m.path === "src/api.ts")!;
+    expect(api.dependencies[0]!.names).toEqual(["Color.Red", "helper"]);
+  });
+});
+
 describe("misc", () => {
   test("the host never loads the plugin runtime for runs without plugins", async () => {
     const dir = project({

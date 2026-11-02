@@ -9,9 +9,15 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, TryRecvError};
 
 use oxc_allocator::Allocator;
-use oxcruise_core::{DepKinds, Edge, Graph, Module, ModuleId, ModuleKind, ModuleSystem};
-use oxcruise_extract::{RawDependency, extract};
-use oxcruise_resolve::{ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
+use std::collections::BTreeSet;
+use std::sync::Arc;
+
+use oxcruise_core::{
+    DeclaredManifest, DepKinds, Edge, Export, Graph, Module, ModuleId, ModuleKind, ModuleSystem,
+    UsedNames,
+};
+use oxcruise_extract::{ExportFact, ImportFact, RawDependency, UsedRefs, extract};
+use oxcruise_resolve::{Manifest, ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
 use rustc_hash::FxHashMap;
 
 use crate::options::CruiseOptions;
@@ -22,6 +28,9 @@ pub struct CruiseOutput {
     pub graph: Graph,
     pub root: PathBuf,
     pub workspace: Vec<WorkspacePackage>,
+    /// The `package.json` files that own modules of the graph, sorted by path. Empty unless
+    /// `CruiseOptions::manifests` is set; `Module::manifest` indexes into it.
+    pub manifests: Vec<DeclaredManifest>,
 }
 
 /// Discover the graph described by `opts`.
@@ -41,6 +50,10 @@ struct Processed {
     deps: Vec<(RawDependency, Resolved)>,
     file_suppressions: Vec<String>,
     parse_error: Option<String>,
+    /// Only with `ExtractOptions::symbols`.
+    exports: Vec<ExportFact>,
+    /// Names used per import specifier (only with `ExtractOptions::symbols`).
+    used: FxHashMap<String, UsedNames>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -83,6 +96,8 @@ fn process(resolver: &Resolver, opts: &CruiseOptions, path: &Path) -> Processed 
                 deps: vec![],
                 file_suppressions: vec![],
                 parse_error: Some(e.to_string()),
+                exports: vec![],
+                used: FxHashMap::default(),
             };
         }
     };
@@ -113,11 +128,67 @@ fn process(resolver: &Resolver, opts: &CruiseOptions, path: &Path) -> Processed 
             file_suppressions.extend(s.rules.iter().cloned());
         }
     }
+    let (exports, used) = if opts.extract.symbols {
+        (facts.exports, used_names(&facts.imports))
+    } else {
+        (vec![], FxHashMap::default())
+    };
     Processed {
         deps,
         file_suppressions,
         parse_error: facts.parse_error,
+        exports,
+        used,
     }
+}
+
+/// Names each import specifier of a file uses. Specifiers that are only imported for their
+/// side effects, or re-exported, are absent: nothing is used through them directly.
+fn used_names(imports: &[ImportFact]) -> FxHashMap<String, UsedNames> {
+    let mut acc: FxHashMap<&str, Option<BTreeSet<String>>> = FxHashMap::default();
+    for i in imports {
+        let slot = acc
+            .entry(&i.specifier)
+            .or_insert_with(|| Some(BTreeSet::new()));
+        let Some(set) = slot else { continue };
+        let members = match &i.refs {
+            UsedRefs::Members(m) if !m.is_empty() => Some(m),
+            _ => None,
+        };
+        match (i.imported.as_str(), members) {
+            // a namespace nobody narrowed, or never mentioned: any export may be read
+            ("*", None) => *slot = None,
+            ("*", Some(m)) => set.extend(m.iter().cloned()),
+            (name, None) => {
+                set.insert(name.to_string());
+            }
+            (name, Some(m)) => set.extend(m.iter().map(|m| format!("{name}.{m}"))),
+        }
+    }
+    acc.into_iter()
+        .map(|(spec, set)| {
+            let used = match set {
+                None => UsedNames::All,
+                Some(set) => {
+                    UsedNames::Names(set.into_iter().map(String::into_boxed_str).collect())
+                }
+            };
+            (spec.to_string(), used)
+        })
+        .collect()
+}
+
+/// Whether a dependency can only be a static ES `import`/`export` statement, the one form whose
+/// used names are known.
+fn is_static_es(dep: &RawDependency) -> bool {
+    let other = DepKinds::SYNTAX_ANY
+        .difference(DepKinds::IMPORT | DepKinds::EXPORT)
+        .union(DepKinds::JSDOC)
+        .union(DepKinds::JSDOC_BRACKET_IMPORT)
+        .union(DepKinds::JSDOC_IMPORT_TAG);
+    dep.module_system == ModuleSystem::Es6
+        && dep.kinds.intersects(DepKinds::IMPORT | DepKinds::EXPORT)
+        && !dep.kinds.intersects(other)
 }
 
 fn discover(opts: &CruiseOptions, resolver: &Resolver, entries: Vec<PathBuf>) -> Discovered {
@@ -318,11 +389,19 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
         modules.push(m);
     }
 
+    let manifests = if opts.manifests {
+        attach_manifests(opts, resolver, &d, &mut modules)
+    } else {
+        vec![]
+    };
+
     let mut edges: Vec<Edge> = vec![];
     for (from, n) in d.nodes.iter().enumerate() {
         let (Some(p), Some(out)) = (&n.processed, &n.out) else {
             continue;
         };
+        // where each specifier of this file leads, for its re-exports
+        let mut leads_to: FxHashMap<&str, u32> = FxHashMap::default();
         for (i, target) in out {
             let (dep, res) = &p.deps[*i];
             let to = match (&res.target, target) {
@@ -343,6 +422,15 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
             if matches!(res.target, Target::Unresolved(_)) {
                 kinds |= DepKinds::UNKNOWN;
             }
+            leads_to.entry(&dep.specifier).or_insert(to);
+            let used = if !opts.extract.symbols || !is_static_es(dep) {
+                UsedNames::All
+            } else {
+                p.used
+                    .get(&dep.specifier)
+                    .cloned()
+                    .unwrap_or_else(UsedNames::none)
+            };
             edges.push(Edge {
                 from: ModuleId(from as u32),
                 to: ModuleId(to),
@@ -351,13 +439,71 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
                 module_system: dep.module_system,
                 loc: Some(dep.loc),
                 suppressed: dep.suppressed.clone(),
+                used,
             });
         }
+        modules[from].exports = p
+            .exports
+            .iter()
+            .map(|e| Export {
+                name: e.name.clone(),
+                kind: e.kind,
+                is_type: e.is_type,
+                from: e
+                    .from
+                    .as_deref()
+                    .and_then(|s| leads_to.get(s))
+                    .map(|&t| ModuleId(t)),
+                imported: e.imported.clone(),
+                loc: e.loc.unwrap_or_default(),
+                suppressed: e.suppressed.clone(),
+                members: e.members.clone(),
+                used_in_file: e.used_in_file,
+                duplicate_of: e.duplicate_of.clone(),
+                fix: e.fix,
+            })
+            .collect();
     }
 
     CruiseOutput {
         graph: Graph::build(modules, edges),
         root: opts.root.clone(),
         workspace: ws.packages.clone(),
+        manifests,
     }
+}
+
+/// Find the `package.json` of every source module, record the index on the module and return the
+/// declarations, sorted by path so the result does not depend on discovery order.
+fn attach_manifests(
+    opts: &CruiseOptions,
+    resolver: &Resolver,
+    d: &Discovered,
+    modules: &mut [Module],
+) -> Vec<DeclaredManifest> {
+    let mut by_dir: FxHashMap<PathBuf, Arc<Manifest>> = FxHashMap::default();
+    let mut owner: Vec<(usize, PathBuf)> = vec![];
+    for (i, n) in d.nodes.iter().enumerate() {
+        let NodeKey::Path(p) = &n.key else { continue };
+        if n.kind != ModuleKind::Source {
+            continue;
+        }
+        if let Some(m) = p.parent().and_then(|dir| resolver.nearest_manifest(dir)) {
+            owner.push((i, m.dir.clone()));
+            by_dir.entry(m.dir.clone()).or_insert(m);
+        }
+    }
+    let mut dirs: Vec<&PathBuf> = by_dir.keys().collect();
+    dirs.sort();
+    let index: FxHashMap<&PathBuf, u32> = dirs
+        .iter()
+        .enumerate()
+        .map(|(i, d)| (*d, i as u32))
+        .collect();
+    for (node, dir) in &owner {
+        modules[*node].manifest = Some(index[dir]);
+    }
+    dirs.iter()
+        .map(|dir| by_dir[*dir].declared(&opts.root))
+        .collect()
 }

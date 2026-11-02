@@ -9,175 +9,462 @@
       "kind": "unresolved",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "./missing",
       "kind": "unresolved",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "./nope",
       "kind": "unresolved",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "@app/helpers",
       "kind": "unresolved",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "fs",
       "kind": "core",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "node_modules/fsevents/index.js",
       "kind": "stub",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "node_modules/left-pad/index.js",
       "kind": "stub",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "node_modules/lodash/index.js",
       "kind": "stub",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "node_modules/react/index.js",
       "kind": "stub",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "node_modules/vitest/index.js",
       "kind": "stub",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "packages/app/src/cjs-thing.js",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     },
     {
       "path": "packages/app/src/cycle-a.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 2
+      "dependents": 2,
+      "exports": [
+        {
+          "name": "a",
+          "kind": "local",
+          "type": false,
+          "line": 2,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/cycle-b.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "b",
+          "kind": "local",
+          "type": false,
+          "line": 2,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/helpers.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 2
+      "dependents": 2,
+      "exports": [
+        {
+          "name": "helper",
+          "kind": "local",
+          "type": false,
+          "line": 2,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/index.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 0
+      "dependents": 0,
+      "exports": [
+        {
+          "name": "React",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 41,
+          "from": "node_modules/react/index.js",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "_",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 32,
+          "from": "node_modules/lodash/index.js",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "a",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 90,
+          "from": "packages/app/src/cycle-a.ts",
+          "imported": "a",
+          "used": true
+        },
+        {
+          "name": "cjs",
+          "kind": "local",
+          "type": false,
+          "line": 17,
+          "col": 93,
+          "from": null,
+          "imported": null,
+          "used": true
+        },
+        {
+          "name": "fs",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 67,
+          "from": "fs",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "fsevents",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 48,
+          "from": "node_modules/fsevents/index.js",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "gone",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 76,
+          "from": "./missing",
+          "imported": "gone",
+          "used": true
+        },
+        {
+          "name": "helper",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 16,
+          "from": "packages/app/src/helpers.ts",
+          "imported": "helper",
+          "used": true
+        },
+        {
+          "name": "leftPad",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 58,
+          "from": "node_modules/left-pad/index.js",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "secret",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 24,
+          "from": "packages/app/src/internal/secret.ts",
+          "imported": "secret",
+          "used": true
+        },
+        {
+          "name": "shared",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 82,
+          "from": "packages/lib/src/index.ts",
+          "imported": "shared",
+          "used": true
+        },
+        {
+          "name": "sys",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 71,
+          "from": "sys",
+          "imported": "default",
+          "used": true
+        },
+        {
+          "name": "test",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 35,
+          "from": "node_modules/vitest/index.js",
+          "imported": "test",
+          "used": true
+        },
+        {
+          "name": "util",
+          "kind": "reexport",
+          "type": false,
+          "line": 17,
+          "col": 10,
+          "from": "packages/app/src/util.ts",
+          "imported": "util",
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/internal/secret.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "secret",
+          "kind": "local",
+          "type": false,
+          "line": 1,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/lazy.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "lazy",
+          "kind": "local",
+          "type": false,
+          "line": 1,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/orphan.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 0
+      "dependents": 0,
+      "exports": [
+        {
+          "name": "orphan",
+          "kind": "local",
+          "type": false,
+          "line": 1,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/suppressed.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 0
+      "dependents": 0,
+      "exports": []
     },
     {
       "path": "packages/app/src/thing.test.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "t",
+          "kind": "local",
+          "type": false,
+          "line": 1,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/uses-test.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 0
+      "dependents": 0,
+      "exports": [
+        {
+          "name": "t",
+          "kind": "reexport",
+          "type": false,
+          "line": 2,
+          "col": 10,
+          "from": "packages/app/src/thing.test.ts",
+          "imported": "t",
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/app/src/util.ts",
       "kind": "source",
       "package": "@acme/app",
       "notFollowed": false,
-      "dependents": 2
+      "dependents": 2,
+      "exports": [
+        {
+          "name": "util",
+          "kind": "local",
+          "type": false,
+          "line": 2,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/lib/src/index.ts",
       "kind": "source",
       "package": "@acme/lib",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "shared",
+          "kind": "local",
+          "type": false,
+          "line": 3,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "packages/lib/src/inner.ts",
       "kind": "source",
       "package": "@acme/lib",
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": [
+        {
+          "name": "inner",
+          "kind": "local",
+          "type": false,
+          "line": 1,
+          "col": 14,
+          "from": null,
+          "imported": null,
+          "used": true
+        }
+      ]
     },
     {
       "path": "sys",
       "kind": "core",
       "package": null,
       "notFollowed": false,
-      "dependents": 1
+      "dependents": 1,
+      "exports": []
     }
   ],
   "edges": [
@@ -192,7 +479,10 @@
       "line": 1,
       "col": 19,
       "typeOnly": false,
-      "circular": true
+      "circular": true,
+      "names": [
+        "b"
+      ]
     },
     {
       "from": "packages/app/src/cycle-b.ts",
@@ -205,7 +495,10 @@
       "line": 1,
       "col": 19,
       "typeOnly": false,
-      "circular": true
+      "circular": true,
+      "names": [
+        "a"
+      ]
     },
     {
       "from": "packages/app/src/helpers.ts",
@@ -219,7 +512,10 @@
       "line": 1,
       "col": 27,
       "typeOnly": true,
-      "circular": true
+      "circular": true,
+      "names": [
+        "util"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -232,7 +528,10 @@
       "line": 11,
       "col": 22,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "gone"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -245,7 +544,10 @@
       "line": 9,
       "col": 16,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -258,7 +560,10 @@
       "line": 7,
       "col": 22,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -272,7 +577,10 @@
       "line": 8,
       "col": 21,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -285,7 +593,10 @@
       "line": 4,
       "col": 15,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -298,7 +609,10 @@
       "line": 6,
       "col": 19,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -311,7 +625,10 @@
       "line": 5,
       "col": 22,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "test"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -324,7 +641,8 @@
       "line": 14,
       "col": 21,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": "*"
     },
     {
       "from": "packages/app/src/index.ts",
@@ -337,7 +655,10 @@
       "line": 13,
       "col": 19,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "a"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -353,7 +674,10 @@
       "line": 2,
       "col": 24,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "helper"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -368,7 +692,10 @@
       "line": 3,
       "col": 24,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "secret"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -381,7 +708,8 @@
       "line": 15,
       "col": 8,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": "*"
     },
     {
       "from": "packages/app/src/index.ts",
@@ -394,7 +722,10 @@
       "line": 1,
       "col": 22,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "util"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -409,7 +740,10 @@
       "line": 12,
       "col": 24,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "shared"
+      ]
     },
     {
       "from": "packages/app/src/index.ts",
@@ -423,7 +757,10 @@
       "line": 10,
       "col": 17,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "default"
+      ]
     },
     {
       "from": "packages/app/src/suppressed.ts",
@@ -436,7 +773,8 @@
       "line": 3,
       "col": 8,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": []
     },
     {
       "from": "packages/app/src/suppressed.ts",
@@ -449,7 +787,8 @@
       "line": 2,
       "col": 8,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": []
     },
     {
       "from": "packages/app/src/uses-test.ts",
@@ -462,7 +801,10 @@
       "line": 1,
       "col": 19,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "t"
+      ]
     },
     {
       "from": "packages/app/src/util.ts",
@@ -475,7 +817,10 @@
       "line": 1,
       "col": 24,
       "typeOnly": false,
-      "circular": true
+      "circular": true,
+      "names": [
+        "helper"
+      ]
     },
     {
       "from": "packages/lib/src/index.ts",
@@ -488,7 +833,10 @@
       "line": 2,
       "col": 24,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "helper"
+      ]
     },
     {
       "from": "packages/lib/src/index.ts",
@@ -504,7 +852,10 @@
       "line": 1,
       "col": 23,
       "typeOnly": false,
-      "circular": false
+      "circular": false,
+      "names": [
+        "inner"
+      ]
     }
   ]
 }

@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"src/x.ts -> root-only [npm]\", \"packages/a/src/y.ts -> shared [npm]\",\n\"packages/a/src/y.ts -> ./z.ts\",])"
+---
+error no-unused-deps package.json:3:5: `shared` is in `dependencies` but no module imports it
+error no-unused-deps packages/a/package.json:3:5: `a-only` is in `dependencies` but no module imports it
