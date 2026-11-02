@@ -10,7 +10,6 @@ workspace = true
 
 [dependencies]
 oxcruise_core = { workspace = true }
-oxcruise_config = { workspace = true }
 oxc_resolver = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true }

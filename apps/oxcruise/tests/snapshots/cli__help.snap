@@ -24,7 +24,8 @@ Config Options:
 
 Input Options:
       --ignore-pattern <GLOB>  Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
-      --max-depth <N>          Follow dependencies at most this many hops from the entries (dot and mermaid output)
+      --max-depth <N>          Follow dependencies at most this many hops from the entries; deeper modules are not in the graph, so no output or rule sees them
+      --symbols                Extract exports and the names each import uses, for `json` output and plugins (rules that need them turn it on anyway)
       --production             Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are left out, and `devDependencies` are not checked
 
 Output Options:

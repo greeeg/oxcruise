@@ -61,7 +61,7 @@ describe("graph buffer written by Rust", () => {
       expect(m.exports.map((x) => x.name)).toEqual(want.map((x) => x.name));
       m.exports.forEach((x, j) => {
         const w = want[j]!;
-        expect([x.kind, x.type, x.used]).toEqual([w.kind, w.type, w.used]);
+        expect([x.kind, x.isType, x.used]).toEqual([w.kind, w.type, w.used]);
         expect(x.loc).toEqual({ line: w.line, col: w.col });
         expect(x.from?.path ?? null).toBe(w.from);
         expect(x.imported ?? null).toBe(w.imported);
@@ -91,7 +91,7 @@ describe("graph buffer written by Rust", () => {
   test("module() and per-module dependencies follow the CSR sections", () => {
     const g = graph();
     const index = g.module("packages/app/src/index.ts")!;
-    expect(index.kind).toBe("source");
+    expect(index.kind).toBe("local");
     expect(index.package).toBe("@acme/app");
     const specs = index.dependencies.map((d) => d.specifier);
     expect(specs).toContain("./util");

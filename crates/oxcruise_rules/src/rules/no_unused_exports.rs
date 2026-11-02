@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::is_test_module;
 use crate::conventions::ConventionFilter;
-use crate::meta::{Analyses, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -93,8 +93,8 @@ pub struct NoUnusedExports {
     entries: Option<PathPatterns>,
     ignore: Option<PathPatterns>,
     test: Option<PathPatterns>,
-    /// Computed by the first module checked: the entry points and what is used.
-    usage: OnceLock<(BitSet, ExportUsage)>,
+    /// Computed by the first module checked when the options change what is used.
+    usage: OnceLock<ExportUsage>,
 }
 
 impl NoUnusedExports {
@@ -102,7 +102,22 @@ impl NoUnusedExports {
         self.config.production && self.test.as_ref().is_some_and(|t| is_test_module(path, t))
     }
 
-    fn usage(&self, cx: &RuleCtx<'_>) -> &(BitSet, ExportUsage) {
+    /// The options that decide who is public and who counts as a user are the defaults: what
+    /// is used is then the run's shared answer.
+    fn is_plain(&self) -> bool {
+        let c = &self.config;
+        c.entries.is_empty()
+            && !c.production
+            && !c.include_entry_exports
+            && c.conventions == ConventionFilter::default()
+    }
+
+    fn usage<'a>(&'a self, cx: &RuleCtx<'a>) -> &'a ExportUsage {
+        if self.is_plain()
+            && let Some(shared) = &cx.analyses().usage
+        {
+            return shared;
+        }
         self.usage.get_or_init(|| {
             let g = cx.graph();
             let mut entries = cx.entries().all();
@@ -115,7 +130,7 @@ impl NoUnusedExports {
                 let none = Captures::default();
                 for m in g.module_ids() {
                     let module = g.module(m);
-                    if module.kind == ModuleKind::Source && extra.is_match(&module.path, &none) {
+                    if module.kind == ModuleKind::Local && extra.is_match(&module.path, &none) {
                         entries.insert(m.idx());
                     }
                 }
@@ -123,15 +138,16 @@ impl NoUnusedExports {
             let seeds = if self.config.include_entry_exports {
                 BitSet::new(g.module_count())
             } else {
-                entries.clone()
+                entries
             };
-            let usage = export_usage(g, &seeds, &|m| self.is_test(&g.module(m).path));
-            (entries, usage)
+            export_usage(g, &seeds, &|m| self.is_test(&g.module(m).path))
         })
     }
 }
 
 impl Rule for NoUnusedExports {
+    const HOOKS: Hooks = Hooks::MODULE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let config: NoUnusedExportsConfig = parse_options("no-unused-exports", value)?;
         config.conventions.validate()?;
@@ -144,6 +160,10 @@ impl Rule for NoUnusedExports {
         })
     }
 
+    fn has_production_option() -> bool {
+        true
+    }
+
     fn requirements(&self) -> Analyses {
         Analyses::ENTRIES | Analyses::SYMBOLS | Analyses::MANIFESTS
     }
@@ -154,7 +174,7 @@ impl Rule for NoUnusedExports {
 
     fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
         let module = cx.module(m);
-        if module.kind != ModuleKind::Source || module.exports.is_empty() {
+        if module.kind != ModuleKind::Local || module.exports.is_empty() {
             return;
         }
         if let Some(ignore) = &self.ignore
@@ -165,7 +185,7 @@ impl Rule for NoUnusedExports {
         if self.is_test(&module.path) {
             return;
         }
-        let (_, usage) = self.usage(cx);
+        let usage = self.usage(cx);
         for (i, x) in module.exports.iter().enumerate() {
             if x.kind == ExportKind::Star {
                 continue;
@@ -175,10 +195,7 @@ impl Rule for NoUnusedExports {
                     m,
                     i,
                     None,
-                    format!(
-                        "`{}` is exported as both `{first}` and `{}`",
-                        x.name, x.name
-                    ),
+                    format!("`{first}` and `{}` export the same binding", x.name),
                     false,
                 );
             }

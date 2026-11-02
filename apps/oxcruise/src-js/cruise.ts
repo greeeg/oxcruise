@@ -32,12 +32,19 @@ export interface CruiseOptions {
   config?: string;
   /** Globs of modules to leave out of the graph, on top of the config's `ignorePatterns`. */
   ignorePatterns?: string[];
+  /** Follow dependencies at most this many hops from the entries. Deeper modules are not in the graph, so no rule sees them either. */
   maxDepth?: number;
   threads?: number;
   /**
+   * Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are left
+   * out, and `devDependencies` are not checked (the CLI's `--production`).
+   */
+  production?: boolean;
+  /**
    * Also extract exports and the names each import uses (default `false`: costs an extra walk over
    * every file). Needed for `ModuleHandle.exports`, `unusedExports()`, `importersOf()`, `isUsed()`
-   * and `CruiseResult.whoImports()`. Running with `jsPlugins`, or rules that read symbols, turns it on.
+   * and `CruiseResult.whoImports()`. Rules that read symbols, and plugins that
+   * declare `needs: ["symbols"]`, turn it on anyway.
    */
   symbols?: boolean;
 }
@@ -79,8 +86,12 @@ export class ModuleHandle {
     return this.module.exports;
   }
 
-  /** Exports that no module uses (type-only `export *` aside). Entry points are not reported. Needs `symbols: true`. */
-  unusedExports(): Export[] {
+  /**
+   * Exports that no module uses (`export *` aside); entry points are not reported. Needs `symbols: true`.
+   * It answers with the default options of `no-unused-exports`, and knows nothing of enum members or
+   * duplicate exports: the rule is the authoritative report.
+   */
+  unusedExports(): readonly Export[] {
     return this.exports.filter((x) => !x.used && x.kind !== "star");
   }
 
@@ -147,7 +158,7 @@ export class CruiseResult {
 
   /** Source modules whose path matches the glob. */
   modulesMatching(glob: string): ModuleHandle[] {
-    return this.modules.filter((m) => m.kind === "source" && matchesGlob(glob, m.path));
+    return this.modules.filter((m) => m.kind === "local" && matchesGlob(glob, m.path));
   }
 
   /** Violations reported on `path`. */
@@ -193,6 +204,7 @@ export async function cruise(options: CruiseOptions = {}): Promise<CruiseResult>
   if (options.maxDepth !== undefined) args.push("--max-depth", String(options.maxDepth));
   if (options.threads !== undefined) args.push("--threads", String(options.threads));
   if (options.symbols) args.push("--symbols");
+  if (options.production) args.push("--production");
   flag("--ignore-pattern", options.ignorePatterns);
   args.push(...(options.paths ?? []));
 

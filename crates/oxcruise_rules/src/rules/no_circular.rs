@@ -7,7 +7,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Analyses, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
@@ -136,6 +136,8 @@ impl NoCircular {
 }
 
 impl Rule for NoCircular {
+    const HOOKS: Hooks = Hooks::MODULE.union(Hooks::EDGE);
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: NoCircularConfig = parse_options("no-circular", value)?;
         Ok(Self {

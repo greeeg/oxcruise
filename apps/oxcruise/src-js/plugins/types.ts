@@ -4,7 +4,12 @@ import type { DepKind } from "./kinds.generated.ts";
 
 export type { DepKind };
 
-export type ModuleKind = "source" | "stub" | "core" | "unresolved";
+/**
+ * What a module is, with the names the config's `to.kind` uses: `local` is a file of the project,
+ * `package` a file inside `node_modules` (resolved, not parsed), `builtin` a Node.js built-in and
+ * `unresolved` an import that could not be resolved.
+ */
+export type ModuleKind = "local" | "package" | "builtin" | "unresolved";
 
 export interface Loc {
   /** 1-based. */
@@ -17,14 +22,14 @@ export interface Loc {
 export interface Module {
   /** Index in `graph.modules`. */
   readonly index: number;
-  /** Path relative to the cruise root, `/`-separated. For core and unresolved modules, the specifier. */
+  /** Path relative to the cruise root, `/`-separated. For builtin and unresolved modules, the specifier. */
   readonly path: string;
   readonly kind: ModuleKind;
   /** Workspace package this module belongs to. */
   readonly package: string | undefined;
   /** Kept in the graph but its dependencies were not explored (`doNotFollow`, depth limit, node_modules). */
   readonly notFollowed: boolean;
-  /** Dependencies of this module, in source order. */
+  /** Dependencies of this module, sorted by target path, then specifier. */
   readonly dependencies: readonly Dependency[];
   /** Distinct modules that depend on this one. */
   readonly dependents: readonly Module[];
@@ -38,15 +43,19 @@ export type ExportKind = "local" | "reexport" | "star" | "namespace";
 
 /** One export of a module. */
 export interface Export {
+  /** The module that declares it. */
+  readonly module: Module;
   /** The name importers use: `default` for the default export, `*` for `export *`. */
   readonly name: string;
   readonly kind: ExportKind;
   /** A type or interface. */
-  readonly type: boolean;
+  readonly isType: boolean;
   /**
    * Some module imports it, or it is part of an entry point's interface. Entry points are the
    * modules nothing imports, the files `package.json` publishes, the files the tools in
-   * `package.json` load by convention, and plugin `entries`.
+   * `package.json` load by convention, and plugin `entries`. It is computed with the default
+   * options of `no-unused-exports` (it does not look at enum members, duplicate exports or a rule's
+   * `entries`, `production` and `conventions`), so the rule is the authoritative report.
    */
   readonly used: boolean;
   readonly loc: Loc | undefined;
@@ -102,7 +111,12 @@ export interface Graph {
   reach(from: Module | readonly Module[]): Module[];
 }
 
-export type Report = { message: string } & ({ module: Module } | { dependency: Dependency });
+/** Report on a module, one of its dependencies, or one of its exports (needs `needs: ["symbols"]`). */
+export type Report = { message: string } & (
+  | { module: Module }
+  | { dependency: Dependency }
+  | { export: Export }
+);
 
 export interface RuleContext<Options = Record<string, unknown>> {
   /** Configured options with the defaults from `meta.schema` applied. */
@@ -110,6 +124,8 @@ export interface RuleContext<Options = Record<string, unknown>> {
   readonly graph: Graph;
   /** Fully qualified rule name, e.g. `acme/max-fan-out`. */
   readonly ruleName: string;
+  /** The level the rule is configured with; what it reports gets this severity. */
+  readonly severity: "error" | "warn";
   report(report: Report): void;
 }
 
@@ -121,7 +137,10 @@ export interface RuleVisitors {
   after?(graph: Graph): void;
 }
 
-/** `{ max: { type: "number", default: 15 } }`: the options a rule takes and their defaults. */
+/**
+ * `{ max: { type: "number", default: 15 } }`: the options a rule takes, their `typeof` (`array` for
+ * lists) and defaults. Options that are not listed, or of another type, are an error.
+ */
 export type OptionsSchema = Record<
   string,
   { type?: string; default?: unknown; description?: string }
@@ -141,8 +160,9 @@ export interface CruiseResultJson {
     error: number;
     warn: number;
     suppressed: number;
-    total_modules: number;
-    total_dependencies: number;
+    /** The entries of `modules`; unresolved specifiers are not counted. */
+    totalModules: number;
+    totalDependencies: number;
   };
   warnings: string[];
 }
@@ -151,10 +171,12 @@ export interface ModuleJson {
   path: string;
   kind: ModuleKind;
   package?: string;
-  not_followed: boolean;
+  notFollowed: boolean;
   orphan: boolean;
   dependencies: DependencyJson[];
+  /** Modules that import this one; a module that imports itself is left out. */
   dependents: string[];
+  parseError?: string;
   /** Present when exports were extracted. */
   exports?: ExportJson[];
 }
@@ -162,7 +184,7 @@ export interface ModuleJson {
 export interface ExportJson {
   name: string;
   kind: ExportKind;
-  is_type?: boolean;
+  isType?: boolean;
   line: number;
   col: number;
   used: boolean;
@@ -170,26 +192,49 @@ export interface ExportJson {
 
 export interface DependencyJson {
   to: string;
-  to_kind: ModuleKind;
+  toKind: ModuleKind;
   specifier: string;
   kinds: DepKind[];
-  module_system: string;
+  moduleSystem: string;
   line?: number;
   col?: number;
   circular: boolean;
+  /** The cycle this dependency is part of, starting here; empty when it is not circular. */
+  cycle?: CycleHopJson[];
+  /** The rules that reported this dependency. */
+  rules?: RuleRefJson[];
   /** Present when exports were extracted: `"*"` or the names used. */
   names?: "*" | string[];
+}
+
+export interface CycleHopJson {
+  module: string;
+  /** Kinds of the dependency that leaves this module towards the next hop. */
+  kinds: DepKind[];
+}
+
+export interface RuleRefJson {
+  name: string;
+  severity: "error" | "warn";
 }
 
 export interface ViolationJson {
   rule: string;
   severity: "error" | "warn";
-  kind: "dependency" | "module" | "cycle" | "reachability";
+  /**
+   * `export`: an export of the module `from`. `file`: a file that is not a module (a
+   * `package.json`), and `from` is its path.
+   */
+  kind: "dependency" | "module" | "cycle" | "reachability" | "export" | "file";
   from: string;
   to?: string;
   line?: number;
   col?: number;
   message: string;
+  /** The modules of the cycle (`cycle`) or of the path to the target (`reachability`). */
+  cycle?: CycleHopJson[];
+  /** Length of the specifier as written, quotes included. */
+  specifierLen?: number;
 }
 
 export type ReporterFunction = (result: CruiseResultJson) => string | Promise<string>;
@@ -204,4 +249,10 @@ export interface PluginDefinition {
    * `no-unused-files` and `Export.used`.
    */
   entries?: string[];
+  /**
+   * What the plugin reads beyond the module graph. `"symbols"` extracts the exports of every module
+   * and the names each import uses (`Module.exports`, `Dependency.names`, `Graph.importersOf`),
+   * which costs an extra walk over every file.
+   */
+  needs?: "symbols"[];
 }

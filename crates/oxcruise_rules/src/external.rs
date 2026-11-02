@@ -5,8 +5,10 @@ use oxcruise_core::{EdgeId, Graph, ModuleId, Severity};
 use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_resolve::WorkspacePackage;
 
+use crate::meta::AnalysisCache;
+
 /// Index of an external rule within one run (`offset + i` in oxlint's scheme).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExternalRuleId(pub u32);
 
 #[derive(Debug, Clone)]
@@ -21,6 +23,8 @@ pub struct ExternalRuleSpec {
 pub enum ExternalTarget {
     Module(ModuleId),
     Edge(EdgeId),
+    /// Export number `.1` of the module (in `Module::exports`).
+    Export(ModuleId, u32),
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +55,11 @@ pub trait ExternalRules: Send + Sync {
         vec![]
     }
 
+    /// Whether a loaded plugin reads exports and used names (`definePlugin({ needs: ["symbols"] })`).
+    fn needs_symbols(&self) -> bool {
+        false
+    }
+
     /// Is there a plugin rule with this fully qualified name (`acme/max-fan-out`)?
     fn rule_exists(&self, name: &str) -> bool;
 
@@ -62,5 +71,8 @@ pub trait ExternalRules: Send + Sync {
         rules: &[ExternalRuleSpec],
         // which exports are used, when symbols were extracted
         usage: Option<&ExportUsage>,
+        // analyses already computed for the built-in rules (`CYCLES` and `DEPENDENTS` are always
+        // there when plugin rules run), so the host need not repeat them
+        analyses: &AnalysisCache,
     ) -> Result<Vec<ExternalViolation>, String>;
 }

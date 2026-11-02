@@ -3,7 +3,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 /// Files that are legitimately unconnected: dotfiles, declarations, and tool configuration.
@@ -59,6 +59,8 @@ impl NoOrphans {
 }
 
 impl Rule for NoOrphans {
+    const HOOKS: Hooks = Hooks::MODULE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: NoOrphansConfig = parse_options("no-orphans", value)?;
         Self::build(&c.ignore)
@@ -67,7 +69,7 @@ impl Rule for NoOrphans {
     fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
         let g = cx.graph();
         let module = cx.module(m);
-        if module.kind != ModuleKind::Source || g.in_degree(m) != 0 || g.out_degree(m) != 0 {
+        if module.kind != ModuleKind::Local || g.in_degree(m) != 0 || g.out_degree(m) != 0 {
             return;
         }
         if self.ignore.is_match(&module.path, &Captures::default()) {

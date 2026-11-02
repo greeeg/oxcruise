@@ -136,6 +136,35 @@ fn reachable() {
 }
 
 #[test]
+fn reachable_with_no_target_reachable() {
+    // the targets exist, but nothing from `from` leads to them (the walk is skipped for those)
+    let tester = t(json!({
+        "forbid": [{ "name": "ui-must-not-reach-db", "from": "src/ui/**", "to": { "path": "src/db/**", "reachable": true } }]
+    }));
+    tester.pass(&[
+        "src/ui/a.ts -> src/domain/b.ts",
+        "src/ui/b.ts -> src/ui/a.ts",
+        "src/db/q.ts -> src/ui/a.ts",
+        "src/db/conn.ts -> src/db/q.ts",
+    ]);
+    // a cycle through the target does not make it reachable from itself by mistake
+    tester.pass(&[
+        "src/db/q.ts -> src/db/q.ts",
+        "src/ui/a.ts -> src/domain/b.ts",
+    ]);
+    // only one of several `from` modules reaches the target
+    let r = tester.fail(&[
+        "src/ui/a.ts -> src/domain/b.ts",
+        "src/ui/c.ts -> src/domain/d.ts",
+        "src/domain/d.ts -> src/db/q.ts",
+    ]);
+    assert!(
+        r.contains("src/ui/c.ts") && !r.contains("src/ui/a.ts ->"),
+        "{r}"
+    );
+}
+
+#[test]
 fn unsupported_combinations_are_errors() {
     for (to, needle) in [
         (json!({ "reachable": false }), "`reachable: false`"),

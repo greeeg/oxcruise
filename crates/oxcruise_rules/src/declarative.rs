@@ -1,12 +1,14 @@
 //! Compiles `forbid` rules from config into checks over the graph.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::RefCell;
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use oxcruise_config::{ForbidRule, Kind, OneOrMany, Relation, ToCondition, ToSpec};
-use oxcruise_core::{DepKinds, Edge, EdgeId, Module, ModuleId, ModuleKind};
-use oxcruise_graph::analyses::reach_from;
+use oxcruise_core::{DepKinds, EdgeId, Module, ModuleId, ModuleKind};
+use oxcruise_graph::analyses::{BitSet, Reach, can_reach};
 
-use crate::meta::{Analyses, RuleCtx};
+use crate::meta::{Analyses, Hooks, RuleCtx};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug)]
@@ -15,8 +17,16 @@ pub struct CompiledRule {
     message: Option<String>,
     from: Option<PathPatterns>,
     to: To,
-    from_hits: AtomicUsize,
-    to_path_hits: AtomicUsize,
+    from_hits: AtomicBool,
+    to_path_hits: AtomicBool,
+    /// For `reachable` rules whose `to` does not refer to `from` captures: the modules that
+    /// reach a target at all, which is the same for every `from`. Filled on first use.
+    can_reach_target: OnceLock<Option<BitSet>>,
+}
+
+thread_local! {
+    /// Buffers of the reachability walks of this thread, reused from one module to the next.
+    static REACH: RefCell<Option<Reach>> = const { RefCell::new(None) };
 }
 
 #[derive(Debug, Default)]
@@ -70,17 +80,6 @@ fn compile_to(spec: &Option<ToSpec>, rule: &str) -> Result<To, String> {
     })
 }
 
-/// What a module is, for the `kind` condition.
-fn kind_of(m: &Module) -> Kind {
-    match m.kind {
-        ModuleKind::Source => Kind::Local,
-        // resolved but not parsed: with node_modules always leaves, that is a package file
-        ModuleKind::Stub => Kind::Package,
-        ModuleKind::Core => Kind::Builtin,
-        ModuleKind::Unresolved => Kind::Unresolved,
-    }
-}
-
 impl CompiledRule {
     pub fn forbid(r: &ForbidRule) -> Result<Self, String> {
         let err = |e: String| {
@@ -100,8 +99,9 @@ impl CompiledRule {
                 .transpose()
                 .map_err(err)?,
             to: compile_to(&r.to, &r.name).map_err(err)?,
-            from_hits: AtomicUsize::new(0),
-            to_path_hits: AtomicUsize::new(0),
+            from_hits: AtomicBool::new(false),
+            to_path_hits: AtomicBool::new(false),
+            can_reach_target: OnceLock::new(),
         })
     }
 
@@ -109,12 +109,27 @@ impl CompiledRule {
         Analyses::empty()
     }
 
+    /// Every rule works module by module: `from` is matched once per module, and only the
+    /// modules that match look at their dependencies.
+    pub fn hooks(&self) -> Hooks {
+        Hooks::MODULE
+    }
+
     // ---- from side -------------------------------------------------------------------------
 
+    /// The captures of `from` on `m`, or `None` if `m` is not a source of this rule.
     fn match_from(&self, m: ModuleId, cx: &RuleCtx<'_>) -> Option<Captures> {
         match &self.from {
             Some(p) => p.capture(&cx.module(m).path),
             None => Some(Captures::default()),
+        }
+    }
+
+    /// Set a hit flag without writing to a cache line that is already set: every worker
+    /// thread reads these, and only the first hit needs a store.
+    fn hit(flag: &AtomicBool) {
+        if !flag.load(Ordering::Relaxed) {
+            flag.store(true, Ordering::Relaxed);
         }
     }
 
@@ -130,10 +145,10 @@ impl CompiledRule {
             if !p.is_match(&to.path, caps) {
                 return false;
             }
-            self.to_path_hits.fetch_add(1, Ordering::Relaxed);
+            Self::hit(&self.to_path_hits);
         }
         if let Some(kinds) = &t.kinds
-            && !kinds.contains(&kind_of(to))
+            && !kinds.contains(&to.kind)
         {
             return false;
         }
@@ -150,64 +165,108 @@ impl CompiledRule {
     // ---- entry points used by the engine ---------------------------------------------------
 
     pub fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
-        if self.to.reachable && cx.module(m).kind == ModuleKind::Source {
-            self.check_reachable(m, cx);
+        if self.to.reachable {
+            if cx.module(m).kind == ModuleKind::Local {
+                self.check_reachable(m, cx);
+            }
+            return;
+        }
+        let edges = cx.graph().out_edge_ids(m);
+        if edges.len() == 0 {
+            return;
+        }
+        let Some(caps) = self.match_from(m, cx) else {
+            return;
+        };
+        Self::hit(&self.from_hits);
+        for e in edges {
+            if self.match_to(e, &caps, cx) {
+                cx.report_edge(e, self.message("forbidden dependency"));
+            }
         }
     }
 
-    pub fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
-        if self.to.reachable {
-            return;
-        }
-        let edge = cx.edge(e);
-        let Some(caps) = self.match_from(edge.from, cx) else {
-            return;
+    /// Does `t` count as a target of a `reachable` rule, given the captures of `from`?
+    fn is_target(&self, t: &Module, caps: &Captures) -> bool {
+        let kind = t.kind;
+        let wanted = match &self.to.kinds {
+            Some(kinds) => kinds.contains(&kind),
+            // like a plain dependency target: project files and packages, not built-ins
+            None => matches!(kind, Kind::Local | Kind::Package),
         };
-        self.from_hits.fetch_add(1, Ordering::Relaxed);
-        if self.match_to(e, &caps, cx) {
-            cx.report_edge(e, self.message("forbidden dependency"));
-        }
+        wanted
+            && self
+                .to
+                .path
+                .as_ref()
+                .is_none_or(|p| p.is_match(&t.path, caps))
+    }
+
+    /// The modules that reach a target. Only when the targets do not depend on `from`.
+    fn can_reach_target(&self, cx: &RuleCtx<'_>) -> Option<&BitSet> {
+        self.can_reach_target
+            .get_or_init(|| {
+                if self
+                    .to
+                    .path
+                    .as_ref()
+                    .is_some_and(|p| p.refers_to_captures())
+                {
+                    return None;
+                }
+                let g = cx.graph();
+                let none = Captures::default();
+                let mut targets = BitSet::new(g.module_count());
+                for (i, t) in g.modules().iter().enumerate() {
+                    if self.is_target(t, &none) {
+                        targets.insert(i);
+                    }
+                }
+                Some(can_reach(g, &targets))
+            })
+            .as_ref()
     }
 
     fn check_reachable(&self, m: ModuleId, cx: &RuleCtx<'_>) {
         let Some(caps) = self.match_from(m, cx) else {
             return;
         };
-        self.from_hits.fetch_add(1, Ordering::Relaxed);
-        let g = cx.graph();
-        let reach = reach_from(g, &[m], &|_: &Edge| true);
-        for t in reach
-            .reached
-            .iter()
-            .map(|i| ModuleId(i as u32))
-            .filter(|&t| t != m)
+        Self::hit(&self.from_hits);
+        // most modules reach no target: skip the walk for them
+        if self
+            .can_reach_target(cx)
+            .is_some_and(|s| !s.contains(m.idx()))
         {
-            let to = cx.module(t);
-            let kind = kind_of(to);
-            let wanted = match &self.to.kinds {
-                Some(kinds) => kinds.contains(&kind),
-                // like a plain dependency target: project files and packages, not built-ins
-                None => matches!(kind, Kind::Local | Kind::Package),
-            };
-            if !wanted
-                || self
-                    .to
-                    .path
-                    .as_ref()
-                    .is_some_and(|p| !p.is_match(&to.path, &caps))
-            {
-                continue;
-            }
-            self.to_path_hits.fetch_add(1, Ordering::Relaxed);
-            let msg = self
-                .message
-                .clone()
-                .unwrap_or_else(|| format!("`{}` is reachable from here", to.path));
-            let mut v = oxcruise_core::Violation::module(cx.rule, cx.severity, m, msg);
-            v.to = Some(t);
-            v.path = reach.path_to(g, t).unwrap_or_default();
-            cx.push(v);
+            return;
         }
+        let g = cx.graph();
+        REACH.with_borrow_mut(|slot| {
+            let reach = match slot {
+                Some(r) if r.reached.len() == g.module_count() => r,
+                _ => slot.insert(Reach::new(g.module_count())),
+            };
+            reach.run(g, &[m], &|_| true);
+            for t in reach
+                .reached
+                .iter()
+                .map(|i| ModuleId(i as u32))
+                .filter(|&t| t != m)
+            {
+                let to = cx.module(t);
+                if !self.is_target(to, &caps) {
+                    continue;
+                }
+                Self::hit(&self.to_path_hits);
+                let msg = self
+                    .message
+                    .clone()
+                    .unwrap_or_else(|| format!("`{}` is reachable from here", to.path));
+                let mut v = oxcruise_core::Violation::module(cx.rule, cx.severity, m, msg);
+                v.to = Some(t);
+                v.path = reach.path_to(g, t).unwrap_or_default();
+                cx.push(v);
+            }
+        });
     }
 
     /// What is wrong, in words. The reporter already prints `from -> to`, so the
@@ -219,12 +278,12 @@ impl CompiledRule {
     /// Reasons this rule can never fire: a typo in a glob, or a path that does not exist.
     pub fn dead_reasons(&self) -> Vec<String> {
         let mut out = vec![];
-        if self.from.is_some() && self.from_hits.load(Ordering::Relaxed) == 0 {
+        if self.from.is_some() && !self.from_hits.load(Ordering::Relaxed) {
             out.push(format!(
                 "rule `{}`: its `from` matched no module",
                 self.name
             ));
-        } else if self.to.path.is_some() && self.to_path_hits.load(Ordering::Relaxed) == 0 {
+        } else if self.to.path.is_some() && !self.to_path_hits.load(Ordering::Relaxed) {
             out.push(format!(
                 "rule `{}`: its `to.path` matched no dependency of the modules matching `from`",
                 self.name
@@ -245,7 +304,11 @@ fn parent_of(dir: &str) -> &str {
 pub(crate) fn relation_holds(r: Relation, from: &Module, to: &Module) -> bool {
     let (fd, td) = (dir_of(&from.path), dir_of(&to.path));
     let below = |dir: &str, base: &str| {
-        base.is_empty() || dir == base || dir.starts_with(&format!("{base}/"))
+        base.is_empty()
+            || dir == base
+            || dir
+                .strip_prefix(base)
+                .is_some_and(|rest| rest.starts_with('/'))
     };
     match r {
         Relation::SameFolder => fd == td,
@@ -266,7 +329,7 @@ mod tests {
     use super::*;
 
     fn m(path: &str, pkg: Option<u32>) -> Module {
-        let mut m = Module::new(path, ModuleKind::Source);
+        let mut m = Module::new(path, ModuleKind::Local);
         m.package = pkg;
         m
     }

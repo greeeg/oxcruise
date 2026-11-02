@@ -43,6 +43,11 @@ impl<T: Clone> OneOrMany<T> {
 /// Globs: one string or a list. A leading `!` negates a glob.
 pub type Paths = OneOrMany<String>;
 
+/// Reads [`Paths`] into a list, for fields that are lists in Rust.
+fn paths<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
+    Ok(Paths::deserialize(d)?.to_vec())
+}
+
 /// A rule entry: `"error"`, or `["error", { ...options }]`.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(untagged)]
@@ -158,25 +163,15 @@ pub enum Relation {
 }
 
 /// What a dependency points to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum Kind {
-    /// A file of the project.
-    Local,
-    /// A file inside `node_modules`.
-    Package,
-    /// A Node.js built-in module.
-    Builtin,
-    /// An import that could not be resolved.
-    Unresolved,
-}
+pub use oxcruise_core::ModuleKind as Kind;
 
 /// Conditions on the dependency and the module it points to.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct ToCondition {
     pub path: Option<Paths>,
-    /// What the dependency points to; any of these.
+    /// What the dependency points to; any of these. Default: every kind, except for `reachable`
+    /// rules, which look at `local` and `package` modules only.
     pub kind: Option<OneOrMany<Kind>>,
     /// The dependency is `import type` / `export type` only.
     pub type_only: Option<bool>,
@@ -229,6 +224,8 @@ pub struct ForbidRule {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Override {
     /// Globs of the importing module this override applies to.
+    #[serde(deserialize_with = "paths")]
+    #[schemars(with = "Paths")]
     pub files: Vec<String>,
     #[serde(default)]
     pub rules: BTreeMap<String, RuleEntry>,
@@ -276,10 +273,16 @@ pub struct OxcruiseConfig {
     /// Paths to other config files, merged underneath this one.
     pub extends: Vec<String>,
     /// Files, directories or globs to start from. Default: `["."]`.
+    #[serde(deserialize_with = "paths")]
+    #[schemars(with = "Paths")]
     pub entries: Vec<String>,
     /// Modules matching these globs are not part of the graph. `.gitignore` is always honoured.
+    #[serde(deserialize_with = "paths")]
+    #[schemars(with = "Paths")]
     pub ignore_patterns: Vec<String>,
     /// Matching modules stay in the graph, but their imports are not parsed.
+    #[serde(deserialize_with = "paths")]
+    #[schemars(with = "Paths")]
     pub do_not_follow: Vec<String>,
     /// Switch groups of built-in rules on or off. Default: `correctness: error, suspicious: warn`.
     pub categories: BTreeMap<Category, Level>,
@@ -291,6 +294,9 @@ pub struct OxcruiseConfig {
     pub resolve: ResolveSection,
     /// Callee names whose first string argument is a dependency, e.g. `jest.mock`.
     pub calls: Vec<String>,
+    /// Extract exports and the names each import uses, for `json` output and plugins; rules that
+    /// need them turn it on anyway.
+    pub symbols: bool,
     /// JS/TS plugin modules (paths or package names).
     pub js_plugins: Vec<JsPlugin>,
 }
@@ -363,6 +369,22 @@ mod tests {
     }
 
     #[test]
+    fn every_glob_list_takes_one_glob() {
+        let one: OxcruiseConfig = serde_json::from_str(
+            r#"{"entries":"src","ignorePatterns":"x/**","doNotFollow":"y/**",
+                "overrides":[{"files":"src/legacy/**","rules":{}}]}"#,
+        )
+        .unwrap();
+        let many: OxcruiseConfig = serde_json::from_str(
+            r#"{"entries":["src"],"ignorePatterns":["x/**"],"doNotFollow":["y/**"],
+                "overrides":[{"files":["src/legacy/**"],"rules":{}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(one, many);
+        assert_eq!(one.ignore_patterns, ["x/**"]);
+    }
+
+    #[test]
     fn schema_has_the_main_sections() {
         let s = serde_json::to_value(json_schema()).unwrap();
         let props = s["properties"].as_object().unwrap();
@@ -378,11 +400,12 @@ mod tests {
             "overrides",
             "resolve",
             "calls",
+            "symbols",
             "jsPlugins",
         ] {
             assert!(props.contains_key(k), "schema lacks {k}");
         }
-        assert_eq!(props.len(), 12, "unexpected extra keys: {props:?}");
+        assert_eq!(props.len(), 13, "unexpected extra keys: {props:?}");
     }
 
     #[test]

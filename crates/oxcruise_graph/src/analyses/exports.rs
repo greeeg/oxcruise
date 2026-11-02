@@ -4,6 +4,8 @@
 //! uses once, and a mark travels through re-exports to the module that really defines the
 //! name. Each mark is set once, so the work is linear in marks and re-export cycles end.
 
+use std::rc::Rc;
+
 use oxcruise_core::{ExportKind, Graph, ModuleId, ModuleKind, UsedNames};
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -51,50 +53,77 @@ impl ExportUsage {
     }
 }
 
+/// Names of one walk by number, so a mark is two integers and each distinct name is stored once.
+#[derive(Default)]
+struct Interner {
+    ids: FxHashMap<Rc<str>, u32>,
+    names: Vec<Rc<str>>,
+}
+
+impl Interner {
+    fn id(&mut self, name: &str) -> u32 {
+        if let Some(&id) = self.ids.get(name) {
+            return id;
+        }
+        let id = self.names.len() as u32;
+        let name: Rc<str> = name.into();
+        self.names.push(name.clone());
+        self.ids.insert(name, id);
+        id
+    }
+}
+
 enum Mark {
     All(ModuleId),
-    Name(ModuleId, Box<str>),
+    Name(ModuleId, u32),
 }
 
 struct Walk<'g> {
     g: &'g Graph,
     out: ExportUsage,
-    seen: FxHashSet<(u32, Box<str>)>,
+    names: Interner,
+    seen: FxHashSet<(u32, u32)>,
     queue: Vec<Mark>,
 }
 
 impl Walk<'_> {
     fn all(&mut self, m: ModuleId) {
-        if self.g.module(m).kind == ModuleKind::Source && self.out.all.insert(m.idx()) {
+        if self.g.module(m).kind == ModuleKind::Local && self.out.all.insert(m.idx()) {
             self.queue.push(Mark::All(m));
         }
     }
 
     /// Mark `name` (`export` or `export.member`) of `m` as used.
     fn name(&mut self, m: ModuleId, name: &str) {
-        if self.g.module(m).kind != ModuleKind::Source || self.out.all.contains(m.idx()) {
+        if self.g.module(m).kind != ModuleKind::Local || self.out.all.contains(m.idx()) {
             return;
         }
-        if !self.seen.insert((m.0, name.into())) {
+        let id = self.names.id(name);
+        if !self.seen.insert((m.0, id)) {
             return;
         }
         let (head, rest) = name.split_once('.').unwrap_or((name, ""));
         let slot = &mut self.out.used[m.idx()];
+        // the key is allocated the first time an export is used in this module
         if rest.is_empty() {
-            slot.insert(head.into(), Use::Whole);
+            match slot.get_mut(head) {
+                Some(used) => *used = Use::Whole,
+                None => {
+                    slot.insert(head.into(), Use::Whole);
+                }
+            }
         } else {
             let member = rest.split('.').next().unwrap_or(rest);
-            match slot
-                .entry(head.into())
-                .or_insert_with(|| Use::Members(FxHashSet::default()))
+            if !slot.contains_key(head) {
+                slot.insert(head.into(), Use::Members(FxHashSet::default()));
+            }
+            if let Some(Use::Members(set)) = slot.get_mut(head)
+                && !set.contains(member)
             {
-                Use::Members(set) => {
-                    set.insert(member.into());
-                }
-                Use::Whole => {}
+                set.insert(member.into());
             }
         }
-        self.queue.push(Mark::Name(m, name.into()));
+        self.queue.push(Mark::Name(m, id));
     }
 
     fn step(&mut self, mark: Mark) {
@@ -113,7 +142,8 @@ impl Walk<'_> {
                     }
                 }
             }
-            Mark::Name(m, name) => {
+            Mark::Name(m, id) => {
+                let name = self.names.names[id as usize].clone();
                 let (head, rest) = name.split_once('.').unwrap_or((&name, ""));
                 let module = g.module(m);
                 let declared = module.exports_named(head);
@@ -164,6 +194,7 @@ pub fn export_usage(
             all: BitSet::new(n),
             used: vec![FxHashMap::default(); n],
         },
+        names: Interner::default(),
         seen: FxHashSet::default(),
         queue: vec![],
     };
@@ -222,7 +253,7 @@ mod tests {
             Fixture {
                 modules: paths
                     .iter()
-                    .map(|p| Module::new(*p, ModuleKind::Source))
+                    .map(|p| Module::new(*p, ModuleKind::Local))
                     .collect(),
                 edges: vec![],
             }

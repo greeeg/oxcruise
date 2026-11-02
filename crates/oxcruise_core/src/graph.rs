@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{DepKinds, Export, Loc, ModuleSystem, UsedNames};
@@ -19,16 +20,17 @@ impl EdgeId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// What a module is. The names are the ones the config (`to.kind`), the JSON and plugins use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ModuleKind {
-    /// A file in the project that was parsed.
-    Source,
-    /// A resolved file outside the followed set (e.g. in node_modules); not parsed.
-    Stub,
-    /// A node:/builtin module.
-    Core,
-    /// A specifier that could not be resolved.
+    /// A file of the project, parsed.
+    Local,
+    /// A file inside `node_modules`: resolved, not parsed.
+    Package,
+    /// A Node.js built-in module.
+    Builtin,
+    /// An import that could not be resolved.
     Unresolved,
 }
 
@@ -248,9 +250,9 @@ mod tests {
     fn sorts_and_builds_csr() {
         // input order: c, a, b  -> sorted: a, b, c
         let modules = vec![
-            Module::new("c.ts", ModuleKind::Source),
-            Module::new("a.ts", ModuleKind::Source),
-            Module::new("b.ts", ModuleKind::Source),
+            Module::new("c.ts", ModuleKind::Local),
+            Module::new("a.ts", ModuleKind::Local),
+            Module::new("b.ts", ModuleKind::Local),
         ];
         let edges = vec![edge(1, 2, "./b"), edge(1, 0, "./c"), edge(2, 0, "./c")];
         let g = Graph::build(modules, edges);
@@ -276,7 +278,7 @@ mod tests {
             let names = ["a.ts", "b.ts", "c.ts"];
             let modules: Vec<_> = order
                 .iter()
-                .map(|&i| Module::new(names[i], ModuleKind::Source))
+                .map(|&i| Module::new(names[i], ModuleKind::Local))
                 .collect();
             let pos = |n: usize| order.iter().position(|&o| o == n).unwrap() as u32;
             let edges = vec![

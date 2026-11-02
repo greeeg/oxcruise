@@ -8,6 +8,6 @@ mod reporters;
 pub use format::{OutputFormat, ParseFormatError};
 pub use model::{
     CruiseResult, CycleHop, DepOut, ExportOut, ExportUsed, ModuleOut, NamesOut, RESULT_VERSION,
-    RuleRef, Summary, ViolationKind, ViolationOut, violation_outs,
+    RuleRef, Summary, Totals, ViolationKind, ViolationOut, violation_outs,
 };
 pub use reporters::{ExternalReporters, ReporterOptions, render};

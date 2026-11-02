@@ -1,12 +1,15 @@
 use std::cell::RefCell;
 use std::path::Path;
+use std::sync::Mutex;
 
 use bitflags::bitflags;
 use oxcruise_core::{
     CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Severity,
-    Violation,
+    Subject, Violation,
 };
-use oxcruise_graph::analyses::{Scc, distinct_dependents, strongly_connected};
+use oxcruise_graph::analyses::{
+    ExportUsage, Scc, distinct_dependents, export_usage, strongly_connected,
+};
 use oxcruise_resolve::WorkspacePackage;
 
 use crate::conventions::ConventionFilter;
@@ -39,12 +42,24 @@ bitflags! {
         const CYCLES_RUNTIME = 1 << 1;
         /// Distinct dependent counts per module.
         const DEPENDENTS = 1 << 2;
-        /// The entry points of the project (`RuleCtx::entries`). Implies `SYMBOLS`.
+        /// The entry points of the project (`RuleCtx::entries`). Implies `MANIFESTS`.
         const ENTRIES = 1 << 3;
         /// Exports and used names, extracted while parsing (`Module::exports`, `Edge::used`).
         const SYMBOLS = 1 << 4;
         /// The `package.json` declarations (`RuleCtx::manifests`).
         const MANIFESTS = 1 << 5;
+        /// The peer dependencies of each declared package (`DeclaredDep::peers`). Implies `MANIFESTS`.
+        const DEP_PEERS = 1 << 6;
+    }
+}
+
+bitflags! {
+    /// The `check_*` hooks a rule implements; the engine skips the passes of the others.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Hooks: u8 {
+        const MODULE = 1;
+        const EDGE = 1 << 1;
+        const GRAPH = 1 << 2;
     }
 }
 
@@ -54,11 +69,23 @@ pub struct AnalysisCache {
     pub scc_all: Option<Scc>,
     pub scc_runtime: Option<Scc>,
     pub dependents: Option<Vec<u32>>,
+    /// The entry points the rules that asked for them take together (the union of their
+    /// convention filters).
     pub entries: Option<EntrySet>,
+    /// The entry points with default options. Computed whenever the graph carries symbols.
+    pub default_entries: Option<EntrySet>,
+    /// What the exports of the project are used by, from `default_entries`. It does not depend
+    /// on which rules are on, so every report agrees on it.
+    pub usage: Option<ExportUsage>,
 }
 
 impl AnalysisCache {
-    pub fn compute(graph: &Graph, wanted: Analyses, entries: &EntryInputs<'_>) -> Self {
+    pub fn compute(
+        graph: &Graph,
+        wanted: Analyses,
+        entries: &EntryInputs<'_>,
+        symbols: bool,
+    ) -> Self {
         // Independent analyses run in parallel.
         let (scc, (rt, dep)) = rayon::join(
             || {
@@ -84,13 +111,38 @@ impl AnalysisCache {
                 )
             },
         );
+        let default = [ConventionFilter::default()];
+        // The usage of the whole project always goes with the default entries; rules that
+        // take other options compute their own.
+        let default_entries = (symbols || wanted.contains(Analyses::ENTRIES)).then(|| {
+            entries::compute(
+                graph,
+                &EntryInputs {
+                    manifests: entries.manifests,
+                    conventions: &default,
+                    plugin_entries: entries.plugin_entries,
+                },
+            )
+        });
+        let usage = default_entries
+            .as_ref()
+            .filter(|_| symbols)
+            .map(|e| export_usage(graph, &e.all(), &|_| false));
+        // a default filter allows every convention, so it makes the others redundant
+        let rules_entries = wanted.contains(Analyses::ENTRIES).then(|| {
+            if entries.conventions.contains(&default[0]) {
+                default_entries.clone().expect("computed for ENTRIES")
+            } else {
+                entries::compute(graph, entries)
+            }
+        });
         Self {
             scc_all: scc,
             scc_runtime: rt,
             dependents: dep,
-            entries: wanted
-                .contains(Analyses::ENTRIES)
-                .then(|| entries::compute(graph, entries)),
+            entries: rules_entries,
+            default_entries,
+            usage,
         }
     }
 
@@ -119,6 +171,8 @@ pub struct Shared<'a> {
     pub workspace: &'a [WorkspacePackage],
     pub manifests: &'a [DeclaredManifest],
     pub analyses: &'a AnalysisCache,
+    /// Notes rules leave for the user (`RuleCtx::warn`), in no particular order.
+    pub warnings: Mutex<Vec<String>>,
 }
 
 /// Per-task context: shared state plus a private violation buffer, so rules
@@ -164,6 +218,16 @@ impl<'a> RuleCtx<'a> {
         self.shared.graph.edge(e)
     }
 
+    /// A note for the user that is not a violation, such as a rule that cannot find what it needs
+    /// and so reports nothing. The same note from several places is shown once.
+    pub fn warn(&self, message: impl Into<String>) {
+        self.shared
+            .warnings
+            .lock()
+            .expect("poisoned")
+            .push(message.into());
+    }
+
     /// Violation on a whole module.
     pub fn report_module(&self, m: ModuleId, message: impl Into<String>) {
         self.out.borrow_mut().push(Violation::module(
@@ -195,8 +259,7 @@ impl<'a> RuleCtx<'a> {
             message: message.into(),
             loc: edge.loc,
             path,
-            export: None,
-            file: None,
+            subject: Subject::Module,
             fix: None,
         });
     }
@@ -213,7 +276,7 @@ impl<'a> RuleCtx<'a> {
         let module = self.module(m);
         let mut v = Violation::module(self.rule, self.severity, m, message.into());
         v.loc = loc.or(Some(module.exports[export].loc));
-        v.export = Some(export as u32);
+        v.subject = Subject::Export(export as u32);
         v.fix = module.exports[export]
             .fix
             .filter(|_| fixable)
@@ -236,7 +299,7 @@ impl<'a> RuleCtx<'a> {
         let mut v = Violation::module(self.rule, self.severity, from, message.into());
         v.fix = fix;
         v.loc = Some(loc);
-        v.file = Some(file.to_string());
+        v.subject = Subject::File(file.to_string());
         self.out.borrow_mut().push(v);
     }
 
@@ -260,10 +323,19 @@ pub trait Rule: RuleMeta + Sized + Default + std::fmt::Debug + Send + Sync {
         Analyses::empty()
     }
 
+    /// Whether the rule has a `production` option, which `--production` turns on.
+    fn has_production_option() -> bool {
+        false
+    }
+
     /// Which tool conventions this rule counts as entry points (rules that need `ENTRIES`).
     fn conventions(&self) -> ConventionFilter {
         ConventionFilter::default()
     }
+
+    /// The hooks below that this rule overrides. A hook missing here is never called, so keep
+    /// it in step with the `check_*` methods; the default runs all of them.
+    const HOOKS: Hooks = Hooks::all();
 
     fn check_module(&self, _m: ModuleId, _cx: &RuleCtx<'_>) {}
     fn check_edge(&self, _e: EdgeId, _cx: &RuleCtx<'_>) {}

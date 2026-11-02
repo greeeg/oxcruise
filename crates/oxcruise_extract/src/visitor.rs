@@ -149,8 +149,13 @@ pub(crate) fn collect_module_record(
 
 /// Everything that is not a static import/export: dynamic `import()`,
 /// `require`, `import x = require()`, `import("x")` types, AMD, URLs, configured calls.
-pub(crate) fn collect_ast(program: &Program<'_>, offset: u32, b: &mut FactsBuilder<'_>) {
-    let symbols = b.opts.symbols.then(|| Symbols::new(b));
+pub(crate) fn collect_ast(
+    program: &Program<'_>,
+    offset: u32,
+    first: BlockStart,
+    b: &mut FactsBuilder<'_>,
+) {
+    let symbols = b.opts.symbols.then(|| Symbols::new(first, b));
     let mut v = AstVisitor {
         b,
         offset,
@@ -163,9 +168,18 @@ pub(crate) fn collect_ast(program: &Program<'_>, offset: u32, b: &mut FactsBuild
     }
 }
 
+/// Where the imports and exports of the block being parsed begin in the builder: single-file
+/// components have several blocks, and what earlier blocks collected must stay untouched.
+#[derive(Clone, Copy)]
+pub(crate) struct BlockStart {
+    pub imports: usize,
+    pub exports: usize,
+}
+
 /// What the AST walk learns about bindings, for `ExtractOptions::symbols`. There is no scope
 /// analysis: a shadowing local can only make a binding look more used, never less.
 struct Symbols {
+    first: BlockStart,
     /// import local name -> index in `FactsBuilder::imports`
     import_idx: FxHashMap<String, usize>,
     /// Imports read as `binding.member` only: the members seen.
@@ -183,18 +197,23 @@ struct Symbols {
 }
 
 impl Symbols {
-    fn new(b: &FactsBuilder<'_>) -> Self {
+    fn new(first: BlockStart, b: &FactsBuilder<'_>) -> Self {
         Self {
+            first,
             import_idx: b
                 .imports
                 .iter()
                 .enumerate()
+                .skip(first.imports)
                 .map(|(i, f)| (f.local.clone(), i))
                 .collect(),
             members: FxHashMap::default(),
             opaque: FxHashSet::default(),
             referenced: FxHashSet::default(),
-            export_locals: b.exports.iter().filter_map(|e| e.local.clone()).collect(),
+            export_locals: b.exports[first.exports..]
+                .iter()
+                .filter_map(|e| e.local.clone())
+                .collect(),
             keyword_fixes: FxHashMap::default(),
             listed_fixes: FxHashMap::default(),
         }
@@ -202,7 +221,8 @@ impl Symbols {
 
     /// Write what was learned into the facts.
     fn apply(self, program: &Program<'_>, offset: u32, b: &mut FactsBuilder<'_>) {
-        for (i, f) in b.imports.iter_mut().enumerate() {
+        let BlockStart { imports, exports } = self.first;
+        for (i, f) in b.imports.iter_mut().enumerate().skip(imports) {
             if self.opaque.contains(&i) {
                 f.refs = UsedRefs::Opaque;
             } else if let Some(m) = self.members.get(&i)
@@ -214,10 +234,13 @@ impl Symbols {
             }
         }
         let mut per_statement: FxHashMap<u32, usize> = FxHashMap::default();
-        for &(_, stmt) in &b.export_pos {
+        for &(_, stmt) in &b.export_pos[exports..] {
             *per_statement.entry(stmt).or_default() += 1;
         }
-        for (e, &(_, stmt)) in b.exports.iter_mut().zip(&b.export_pos) {
+        for (e, &(_, stmt)) in b.exports[exports..]
+            .iter_mut()
+            .zip(&b.export_pos[exports..])
+        {
             // removing `export` from a statement that exports several names would hide the others
             e.fix = match self.keyword_fixes.get(&(stmt - offset)) {
                 Some(&(s, end)) if per_statement[&stmt] == 1 && e.kind == ExportKind::Local => {
@@ -232,7 +255,7 @@ impl Symbols {
             };
         }
         let mut members = declared_members(program, offset, b);
-        for e in &mut b.exports {
+        for e in &mut b.exports[exports..] {
             if let Some(local) = &e.local {
                 e.used_in_file |= self.referenced.contains(local);
                 if let Some(m) = members.remove(local) {

@@ -27,8 +27,8 @@ pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
     writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];")?;
     for m in &result.modules {
         let shape = match m.kind {
-            ModuleKind::Core => "ellipse",
-            ModuleKind::Stub => "component",
+            ModuleKind::Builtin => "ellipse",
+            ModuleKind::Package => "component",
             _ => "box",
         };
         let color = if bad.contains(m.path.as_str()) {

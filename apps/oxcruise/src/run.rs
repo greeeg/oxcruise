@@ -5,7 +5,7 @@ use std::sync::Arc;
 use napi::bindgen_prelude::{Buffer, spawn_blocking};
 use napi_derive::napi;
 
-use oxcruise_report::{Summary, violation_outs};
+use oxcruise_report::{Summary, Totals, violation_outs};
 
 use crate::CliRunner;
 use crate::js_plugins::graph_buffer;
@@ -129,21 +129,26 @@ pub async fn run_cruise(
     }));
     spawn_blocking(move || {
         let mut err = Vec::new();
-        let outcome = runner(args, host).analyze_only(&mut err);
+        let outcome = runner(args, host.clone()).analyze_only(&mut err);
         let stderr = String::from_utf8_lossy(&err).into_owned();
         match outcome {
             Ok(a) => CruiseOutcome {
                 exit_code: u32::from(a.errors > 0),
                 stderr,
-                graph: Some(Buffer::from(graph_buffer::encode(
-                    &a.graph,
-                    &a.workspace,
-                    a.usage.as_ref(),
+                graph: Some(Buffer::from(host.take_encoded(&a.graph).unwrap_or_else(
+                    || graph_buffer::encode(&a.graph, &a.workspace, a.usage.as_ref()),
                 ))),
                 report: Some(
                     serde_json::json!({
                         "violations": violation_outs(&a.graph, &a.violations),
-                        "summary": Summary::new(&a.graph, &a.violations, a.suppressed),
+                        "summary": Summary::new(
+                            &a.graph,
+                            Totals {
+                                error: a.errors,
+                                warn: a.warnings,
+                                suppressed: a.suppressed,
+                            },
+                        ),
                     })
                     .to_string(),
                 ),

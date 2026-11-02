@@ -28,13 +28,14 @@
 //! Export flags: bits 0-1 kind (0 local, 1 re-export, 2 star, 3 namespace), bit 2 type, bit 3 used.
 //! `from` is `NO_MODULE` and `imported` `NO_STRING` when they do not apply.
 //!
-//! Module flags: bits 0-3 kind (0 source, 1 stub, 2 core, 3 unresolved), bit 4 not followed,
+//! Module flags: bits 0-3 kind (0 local, 1 package, 2 builtin, 3 unresolved), bit 4 not followed,
 //! bit 5 parse error. Edge flags: bit 0 type-only, bit 1 on a cycle, bit 2 unresolved target,
 //! bit 3 uses any name (`Dependency.names === "*"`; the edge's name list is then empty).
 
 use oxcruise_core::{Edge, ExportKind, Graph, ModuleId, ModuleKind, UsedNames};
 use oxcruise_graph::analyses::{ExportUsage, distinct_dependents, strongly_connected};
 use oxcruise_resolve::WorkspacePackage;
+use oxcruise_rules::AnalysisCache;
 use string_table::StringTable;
 
 pub const MAGIC: u32 = 0x5247_584F; // "OXGR" little-endian
@@ -72,17 +73,34 @@ pub fn encode(
     workspace: &[WorkspacePackage],
     usage: Option<&ExportUsage>,
 ) -> Vec<u8> {
+    encode_with(graph, workspace, usage, &AnalysisCache::default())
+}
+
+/// [`encode`], reusing the cycles and dependent counts that `analyses` already holds.
+pub fn encode_with(
+    graph: &Graph,
+    workspace: &[WorkspacePackage],
+    usage: Option<&ExportUsage>,
+    analyses: &AnalysisCache,
+) -> Vec<u8> {
     let (n_mod, n_edge) = (graph.module_count(), graph.edge_count());
-    let scc = strongly_connected(graph, &|_: &Edge| true);
+    let own_scc;
+    let scc = match &analyses.scc_all {
+        Some(scc) => scc,
+        None => {
+            own_scc = strongly_connected(graph, &|_: &Edge| true);
+            &own_scc
+        }
+    };
 
     let mut strings = StringTable::default();
     let mut modules: Vec<u32> = Vec::with_capacity(n_mod * 4);
     for id in graph.module_ids() {
         let m = graph.module(id);
         let kind = match m.kind {
-            ModuleKind::Source => 0,
-            ModuleKind::Stub => 1,
-            ModuleKind::Core => 2,
+            ModuleKind::Local => 0,
+            ModuleKind::Package => 1,
+            ModuleKind::Builtin => 2,
             ModuleKind::Unresolved => 3,
         };
         let flags = kind | u32::from(m.not_followed) << 4 | u32::from(m.parse_error.is_some()) << 5;
@@ -90,7 +108,10 @@ pub fn encode(
             strings.intern(&m.path),
             flags,
             m.package.unwrap_or(NO_PACKAGE),
-            distinct_dependents(graph, id),
+            match &analyses.dependents {
+                Some(d) => d[id.idx()],
+                None => distinct_dependents(graph, id),
+            },
         ]);
     }
 
@@ -337,9 +358,9 @@ mod tests {
     use oxcruise_core::{DepKinds, Loc, Module, ModuleId, ModuleSystem};
 
     fn sample() -> Graph {
-        let mut a = Module::new("src/ä.ts", ModuleKind::Source); // non-ASCII path
+        let mut a = Module::new("src/ä.ts", ModuleKind::Local); // non-ASCII path
         a.package = Some(1);
-        let mut b = Module::new("src/b.ts", ModuleKind::Source);
+        let mut b = Module::new("src/b.ts", ModuleKind::Local);
         let export = |name: &str, kind, from, imported: Option<&str>| oxcruise_core::Export {
             name: name.into(),
             kind,
@@ -361,7 +382,7 @@ mod tests {
         let modules = vec![
             a,
             b,
-            Module::new("fs", ModuleKind::Core),
+            Module::new("fs", ModuleKind::Builtin),
             Module::new("./missing", ModuleKind::Unresolved),
         ];
         let e = |from, to, spec: &str, kinds: DepKinds, line| Edge {
@@ -427,9 +448,9 @@ mod tests {
             let (path, flags, pkg, dependents) = d.module(i);
             assert_eq!(path, m.path);
             let kind = match m.kind {
-                ModuleKind::Source => 0,
-                ModuleKind::Stub => 1,
-                ModuleKind::Core => 2,
+                ModuleKind::Local => 0,
+                ModuleKind::Package => 1,
+                ModuleKind::Builtin => 2,
                 ModuleKind::Unresolved => 3,
             };
             assert_eq!(flags & 0xF, kind);

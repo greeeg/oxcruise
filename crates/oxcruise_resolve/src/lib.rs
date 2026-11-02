@@ -13,6 +13,7 @@ pub use manifest::{Manifest, scan_dependency_members};
 pub use options::{ResolveConfig, ResolveMode, TsconfigMode};
 pub use workspace::{Workspace, WorkspacePackage};
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use oxc_resolver::{ResolveError, Resolver as OxcResolver};
@@ -22,6 +23,8 @@ pub struct Resolver {
     esm: OxcResolver,
     cjs: OxcResolver,
     config: ResolveConfig,
+    /// `config.root` without a Windows verbatim prefix, for `relative`.
+    plain_root: PathBuf,
     manifests: manifest::ManifestCache,
     workspace: Workspace,
 }
@@ -34,6 +37,7 @@ impl Resolver {
         Self {
             esm,
             cjs,
+            plain_root: simplify_path(&config.root),
             config,
             manifests: manifest::ManifestCache::default(),
             workspace,
@@ -87,7 +91,7 @@ impl Resolver {
     /// Path relative to the cruise root, with `/` separators. Paths outside the
     /// root keep their `..` segments.
     pub fn relative(&self, path: &Path) -> String {
-        relative_to(&self.config.root, path)
+        relative_plain(&self.plain_root, path)
     }
 }
 
@@ -97,25 +101,40 @@ impl Resolver {
 /// tools return plain ones, and `strip_prefix` treats the two spellings as unrelated.
 /// Other verbatim forms (`\\?\Volume{..}`) and non-Windows paths are returned as is.
 pub fn simplify_path(path: &Path) -> PathBuf {
+    plain(path).into_owned()
+}
+
+/// [`simplify_path`] without copying the paths that need no change.
+pub(crate) fn plain(path: &Path) -> Cow<'_, Path> {
     let Some(s) = path.to_str() else {
-        return path.to_path_buf();
+        return Cow::Borrowed(path);
     };
     if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
-        return PathBuf::from(format!(r"\\{rest}"));
+        return Cow::Owned(PathBuf::from(format!(r"\\{rest}")));
     }
     match s.strip_prefix(r"\\?\") {
-        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => PathBuf::from(rest),
-        _ => path.to_path_buf(),
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => Cow::Owned(PathBuf::from(rest)),
+        _ => Cow::Borrowed(path),
     }
 }
 
 pub fn relative_to(root: &Path, path: &Path) -> String {
-    let (root, path) = (simplify_path(root), simplify_path(path));
-    let rel = match path.strip_prefix(&root) {
-        Ok(r) => r.to_path_buf(),
-        Err(_) => diff_paths(&path, &root).unwrap_or(path),
+    relative_plain(&plain(root), path)
+}
+
+/// [`relative_to`] for a `root` that is already plain.
+fn relative_plain(root: &Path, path: &Path) -> String {
+    let path = plain(path);
+    let rel = match path.strip_prefix(root) {
+        Ok(r) => Cow::Borrowed(r),
+        Err(_) => Cow::Owned(diff_paths(&path, root).unwrap_or_else(|| path.to_path_buf())),
     };
-    rel.to_string_lossy().replace('\\', "/")
+    let s = rel.to_string_lossy();
+    if s.contains('\\') {
+        s.replace('\\', "/")
+    } else {
+        s.into_owned()
+    }
 }
 
 fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {

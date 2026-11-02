@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use oxcruise_core::{DeclaredDep, DeclaredManifest, DepKinds, DepSection, LineIndex};
+use oxcruise_core::{DeclaredDep, DeclaredManifest, DepKinds, DepSection, LineIndex, strip_jsonc};
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 
@@ -43,15 +43,20 @@ impl Manifest {
     }
 
     /// What this manifest declares, with the position of each entry in the file.
-    /// `peers` are read from the installed packages in `node_modules` (nearest ancestor first).
-    pub fn declared(&self, root: &Path) -> DeclaredManifest {
+    /// With `peers`, the peer dependencies of each dependency are read from the installed
+    /// packages in `node_modules` (nearest ancestor first); it costs a lookup per dependency.
+    pub fn declared(&self, root: &Path, peers: bool) -> DeclaredManifest {
         let path = self.dir.join("package.json");
         let text = std::fs::read_to_string(&path).unwrap_or_default();
         let lines = LineIndex::new(&text);
         let mut deps: Vec<DeclaredDep> = scan_dependency_members(&text)
             .into_iter()
             .map(|(section, name, start, end)| DeclaredDep {
-                peers: installed_peers(&self.dir, &name),
+                peers: if peers {
+                    installed_peers(&self.dir, &name)
+                } else {
+                    vec![]
+                },
                 loc: lines.loc(start as u32),
                 range: (start as u32, end as u32),
                 section,
@@ -155,21 +160,89 @@ fn entry_files(text: &str) -> Vec<String> {
     out
 }
 
-/// `compilerOptions.outDir` and `rootDir` of the tsconfig.json in `dir`, as plain relative paths.
+/// `compilerOptions.outDir` and `rootDir` of the tsconfig.json in `dir`, as plain paths relative
+/// to `dir`. A relative `extends` (a path or a list of them) is followed; `extends` that name a
+/// package are not. Each path is taken relative to the file that declares it, as TypeScript does,
+/// so one that leads out of `dir` is of no use here and is dropped.
 fn tsconfig_dirs(dir: &Path) -> (Option<String>, Option<String>) {
-    let Ok(text) = std::fs::read_to_string(dir.join("tsconfig.json")) else {
+    let (out, root) = tsconfig_options(&dir.join("tsconfig.json"), 0);
+    let relative = |p: Option<PathBuf>| {
+        let p = p?.strip_prefix(normalize(dir)).ok()?.to_path_buf();
+        let parts: Vec<_> = p
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect();
+        (!parts.is_empty()).then(|| parts.join("/"))
+    };
+    (relative(out), relative(root))
+}
+
+/// How many `extends` links are followed, which also ends a cycle.
+const MAX_EXTENDS_DEPTH: u8 = 8;
+
+/// `(outDir, rootDir)` declared by `file` or the configs it extends, as normalized paths.
+fn tsconfig_options(file: &Path, depth: u8) -> (Option<PathBuf>, Option<PathBuf>) {
+    let Ok(text) = std::fs::read_to_string(file) else {
         return (None, None);
     };
-    let Ok(doc) = serde_json::from_str::<serde_json::Value>(&oxcruise_config::strip_jsonc(&text))
-    else {
+    let Ok(doc) = serde_json::from_str::<serde_json::Value>(&strip_jsonc(&text)) else {
         return (None, None);
     };
-    let get = |key: &str| {
+    let base = file.parent().unwrap_or(Path::new(""));
+    let (mut out_dir, mut root_dir) = (None, None);
+    // the child wins over what it extends, and a later entry over an earlier one
+    if depth < MAX_EXTENDS_DEPTH {
+        let extends: Vec<&str> = match doc.get("extends") {
+            Some(serde_json::Value::String(s)) => vec![s.as_str()],
+            Some(serde_json::Value::Array(a)) => a.iter().filter_map(|v| v.as_str()).collect(),
+            _ => vec![],
+        };
+        for spec in extends {
+            let Some(path) = extended_config(base, spec) else {
+                continue;
+            };
+            let (o, r) = tsconfig_options(&path, depth + 1);
+            out_dir = o.or(out_dir);
+            root_dir = r.or(root_dir);
+        }
+    }
+    let own = |key: &str| {
         let v = doc.get("compilerOptions")?.get(key)?.as_str()?;
-        let v = v.trim_start_matches("./").trim_end_matches('/');
-        (v != "." && !v.starts_with("..")).then(|| v.to_string())
+        Some(normalize(&base.join(v)))
     };
-    (get("outDir"), get("rootDir"))
+    (own("outDir").or(out_dir), own("rootDir").or(root_dir))
+}
+
+/// The file a relative `extends` of a config in `base` names; `None` for a package name.
+fn extended_config(base: &Path, spec: &str) -> Option<PathBuf> {
+    if !(spec.starts_with('.') || Path::new(spec).is_absolute()) {
+        return None;
+    }
+    let path = base.join(spec);
+    let mut candidates = vec![path.clone()];
+    if !spec.ends_with(".json") {
+        candidates.push(PathBuf::from(format!("{}.json", path.display())));
+        candidates.push(path.join("tsconfig.json"));
+    }
+    candidates.into_iter().find(|c| c.is_file())
+}
+
+/// `path` without `.` and `..` components, without looking at the file system.
+fn normalize(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
 
 /// Peer dependencies of the installed package `name`, found from `dir` upwards.
@@ -327,6 +400,89 @@ fn skip_value(b: &[u8], mut i: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Write `files` below a temporary directory and return it.
+    fn tree(files: &[(&str, &str)]) -> tempfile::TempDir {
+        let d = tempfile::tempdir().unwrap();
+        for (path, text) in files {
+            let full = d.path().join(path);
+            std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+            std::fs::write(full, text).unwrap();
+        }
+        d
+    }
+
+    fn dirs(d: &tempfile::TempDir, package: &str) -> (Option<String>, Option<String>) {
+        tsconfig_dirs(&d.path().join(package))
+    }
+
+    fn some(s: &str) -> Option<String> {
+        Some(s.to_string())
+    }
+
+    #[test]
+    fn tsconfig_without_extends_reads_its_own_directories() {
+        let d = tree(&[(
+            "app/tsconfig.json",
+            r#"{ // jsonc
+              "compilerOptions": { "outDir": "./dist/", "rootDir": "src" } }"#,
+        )]);
+        assert_eq!(dirs(&d, "app"), (some("dist"), some("src")));
+    }
+
+    #[test]
+    fn tsconfig_extends_a_base_in_a_parent_directory() {
+        // paths of the base are relative to the base, so this one names the package from above
+        let d = tree(&[
+            (
+                "tsconfig.base.json",
+                r#"{ "compilerOptions": { "outDir": "app/dist", "rootDir": "app/src" } }"#,
+            ),
+            (
+                "app/tsconfig.json",
+                r#"{ "extends": "../tsconfig.base.json" }"#,
+            ),
+        ]);
+        assert_eq!(dirs(&d, "app"), (some("dist"), some("src")));
+    }
+
+    #[test]
+    fn the_child_wins_over_the_base_and_later_bases_over_earlier_ones() {
+        let d = tree(&[
+            (
+                "app/a.json",
+                r#"{ "compilerOptions": { "outDir": "a-out", "rootDir": "a-root" } }"#,
+            ),
+            (
+                "app/b.json",
+                r#"{ "compilerOptions": { "outDir": "b-out" } }"#,
+            ),
+            (
+                "app/tsconfig.json",
+                r#"{ "extends": ["./a", "./b.json"], "compilerOptions": { "rootDir": "mine" } }"#,
+            ),
+        ]);
+        // `./a` is found without the extension; outDir from the later `b`, rootDir from the child
+        assert_eq!(dirs(&d, "app"), (some("b-out"), some("mine")));
+    }
+
+    #[test]
+    fn extends_of_a_package_or_a_cycle_are_harmless() {
+        let d = tree(&[
+            (
+                "app/tsconfig.json",
+                r#"{ "extends": ["@tsconfig/node20/tsconfig.json", "./loop.json"] }"#,
+            ),
+            ("app/loop.json", r#"{ "extends": "./tsconfig.json" }"#),
+        ]);
+        assert_eq!(dirs(&d, "app"), (None, None));
+        // a directory that leads out of the package is no use
+        let out = tree(&[(
+            "app/tsconfig.json",
+            r#"{ "compilerOptions": { "outDir": "../dist", "rootDir": "." } }"#,
+        )]);
+        assert_eq!(dirs(&out, "app"), (None, None));
+    }
 
     #[test]
     fn finds_dependency_members_with_positions() {

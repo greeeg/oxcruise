@@ -50,7 +50,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
 
     for m in graph.module_ids() {
         let module = graph.module(m);
-        if module.kind != ModuleKind::Source {
+        if module.kind != ModuleKind::Local {
             continue;
         }
         if graph
@@ -78,7 +78,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
     let mut owned_by: Vec<Vec<ModuleId>> = vec![vec![]; inputs.manifests.len()];
     for m in graph.module_ids() {
         let module = graph.module(m);
-        if module.kind == ModuleKind::Source
+        if module.kind == ModuleKind::Local
             && let Some(i) = module.manifest
         {
             owned_by[i as usize].push(m);
@@ -91,7 +91,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
         for entry in &manifest.entry_files {
             for path in source_candidates(manifest, entry) {
                 if let Some(m) = graph.find(&path)
-                    && graph.module(m).kind == ModuleKind::Source
+                    && graph.module(m).kind == ModuleKind::Local
                 {
                     declared.insert(m.idx());
                     break;
@@ -127,7 +127,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
         {
             for &m in owned {
                 let module = graph.module(m);
-                if module.kind == ModuleKind::Source && p.is_match(&module.path, &none) {
+                if module.kind == ModuleKind::Local && p.is_match(&module.path, &none) {
                     declared.insert(m.idx());
                 }
             }
@@ -135,7 +135,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
         if let Ok(p) = PathPatterns::new(&[program], Role::Referencing) {
             for &m in owned {
                 let module = graph.module(m);
-                if module.kind == ModuleKind::Source && p.is_match(&module.path, &none) {
+                if module.kind == ModuleKind::Local && p.is_match(&module.path, &none) {
                     declared.insert(m.idx());
                 }
             }

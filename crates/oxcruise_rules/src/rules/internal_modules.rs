@@ -3,7 +3,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
@@ -41,6 +41,8 @@ impl Default for InternalModules {
 }
 
 impl Rule for InternalModules {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: InternalModulesConfig = parse_options("internal-modules", value)?;
         Ok(Self { marker: c.marker })
@@ -49,7 +51,7 @@ impl Rule for InternalModules {
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         let (from, to) = (cx.module(edge.from), cx.module(edge.to));
-        if to.kind != ModuleKind::Source {
+        if to.kind != ModuleKind::Local {
             return;
         }
         let segs: Vec<&str> = to.path.split('/').collect();

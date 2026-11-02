@@ -47,12 +47,36 @@ impl BitSet {
         was
     }
 
+    /// Add every bit of `other`, which must have the same length.
+    pub fn union_with(&mut self, other: &BitSet) {
+        assert_eq!(self.len, other.len, "bitsets of different length");
+        for (a, b) in self.words.iter_mut().zip(&other.words) {
+            *a |= b;
+        }
+    }
+
     pub fn count(&self) -> usize {
         self.words.iter().map(|w| w.count_ones() as usize).sum()
     }
 
+    /// Remove every bit.
+    pub fn clear(&mut self) {
+        self.words.fill(0);
+    }
+
+    /// The set bits in ascending order; empty words are skipped.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
-        (0..self.len).filter(|&i| self.contains(i))
+        self.words.iter().enumerate().flat_map(|(w, &word)| {
+            let mut rest = word;
+            std::iter::from_fn(move || {
+                if rest == 0 {
+                    return None;
+                }
+                let bit = rest.trailing_zeros() as usize;
+                rest &= rest - 1;
+                Some(w * 64 + bit)
+            })
+        })
     }
 }
 
@@ -69,5 +93,7 @@ mod tests {
         assert!(b.contains(0) && b.contains(129) && !b.contains(64) && !b.contains(500));
         assert_eq!(b.count(), 2);
         assert_eq!(b.iter().collect::<Vec<_>>(), vec![0, 129]);
+        b.clear();
+        assert_eq!(b.count(), 0);
     }
 }

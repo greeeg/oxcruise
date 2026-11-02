@@ -2,7 +2,7 @@ use oxcruise_core::{EdgeId, ModuleKind};
 use oxcruise_macros::declare_rule;
 
 use super::{file_has_marker, in_test_dir};
-use crate::meta::{Rule, RuleCtx};
+use crate::meta::{Hooks, Rule, RuleCtx};
 
 declare_rule! {
     /// ### What it does
@@ -18,10 +18,12 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoTestImports;
 impl Rule for NoTestImports {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         let (from, to) = (cx.module(edge.from), cx.module(edge.to));
-        if to.kind != ModuleKind::Source {
+        if to.kind != ModuleKind::Local {
             return;
         }
         let is_test =

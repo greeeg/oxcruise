@@ -475,6 +475,59 @@ fn quiet_hides_warnings_but_keeps_limits() {
         run_in(p, &["--quiet", "--max-warnings", "0"]).result,
         CliRunResult::MaxWarningsExceeded { .. }
     ));
+    // and so does the summary of the report
+    let json = |args: &[&str]| -> serde_json::Value {
+        serde_json::from_str(&run_in(p, args).stdout).unwrap()
+    };
+    let hidden = json(&["--quiet", "-f", "json"]);
+    assert_eq!(hidden["violations"], serde_json::json!([]));
+    assert_eq!(hidden["summary"]["warn"], 1);
+    assert_eq!(hidden["summary"], json(&["-f", "json"])["summary"]);
+}
+
+#[test]
+fn json_circular_does_not_depend_on_the_rule() {
+    let d = project(&[
+        ("src/a.ts", "import './b';\nimport './c';\n"),
+        ("src/b.ts", "import './a';\n"),
+        ("src/c.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src"], "rules": { "no-circular": "off" } }"#,
+        ),
+    ]);
+    let json: serde_json::Value =
+        serde_json::from_str(&run_in(d.path(), &["-f", "json"]).stdout).unwrap();
+    let circular = |module: &str, to: &str| {
+        let m = json["modules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["path"] == module)
+            .unwrap();
+        let dep = m["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["to"] == to)
+            .unwrap();
+        (
+            dep["circular"].as_bool().unwrap(),
+            dep.get("cycle").is_none(),
+        )
+    };
+    // on a cycle although no rule reports it, so there is no `cycle` to show
+    assert_eq!(circular("src/a.ts", "src/b.ts"), (true, true));
+    assert_eq!(circular("src/b.ts", "src/a.ts"), (true, true));
+    assert_eq!(circular("src/a.ts", "src/c.ts"), (false, true));
+    // module kinds use the names of the config
+    let kinds: Vec<&str> = json["modules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["kind"].as_str().unwrap())
+        .collect();
+    assert!(kinds.iter().all(|k| *k == "local"), "{kinds:?}");
 }
 
 #[test]
@@ -485,6 +538,11 @@ fn modes_conflict() {
         &["--rules", "--print-config"],
         &["--init", "src"],
         &["--migrate", "--quiet"],
+        &["--rules", "--fix"],
+        &["--rules", "--threads", "2"],
+        &["--print-config", "--production"],
+        &["--print-config", "src"],
+        &["--print-config", "-f", "json"],
     ] {
         let o = run(args);
         assert_eq!(o.result.code(), 2, "{args:?}");
@@ -559,7 +617,7 @@ fn fix_removes_unused_exports_and_dependencies() {
     insta::assert_snapshot!("unused_fix_api", read("src/api.ts"));
     insta::assert_snapshot!("unused_fix_package", read("package.json"));
 
-    // what the first pass unlocked is reported (and fixed) by the second
+    // a second pass has nothing left to repair: neighbouring unused dependencies go in one run
     let second = run_in(&dir, &["-f", "github", "--fix"]);
     insta::assert_snapshot!("unused_fix_second", report(&second));
     let third = run_in(&dir, &["-f", "github"]);
@@ -571,4 +629,121 @@ fn fix_removes_unused_exports_and_dependencies() {
 fn fix_refuses_the_file_writing_modes() {
     let o = run_in(&unused_fixture(), &["--init", "--fix"]);
     assert_eq!(o.result.code(), 2, "{}", o.stderr);
+}
+
+/// `used` of every export of the json report, as `module:name -> used`.
+fn used_exports(json: &str) -> Vec<(String, bool)> {
+    let v: serde_json::Value = serde_json::from_str(json).unwrap();
+    let mut out = vec![];
+    for m in v["modules"].as_array().unwrap() {
+        for x in m["exports"].as_array().into_iter().flatten() {
+            out.push((
+                format!(
+                    "{}:{}",
+                    m["path"].as_str().unwrap(),
+                    x["name"].as_str().unwrap()
+                ),
+                x["used"].as_bool().unwrap(),
+            ));
+        }
+    }
+    out
+}
+
+#[test]
+fn export_usage_does_not_depend_on_the_rules_that_are_on() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/unused-entry");
+    let without = run_in(&dir, &["--format", "json", "--symbols", "src"]);
+    let with = run_in(
+        &dir,
+        &[
+            "--format",
+            "json",
+            "--symbols",
+            "--config",
+            "with-rule.json",
+            "src",
+        ],
+    );
+    let (a, b) = (used_exports(&without.stdout), used_exports(&with.stdout));
+    assert!(!a.is_empty(), "{}", without.stdout);
+    // `main` makes the index public, so `b` is used though only a test imports `a`
+    assert!(a.iter().all(|(_, used)| *used), "{a:?}");
+    assert_eq!(a, b);
+}
+
+#[test]
+fn symbols_are_in_the_json_only_when_asked_for() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/unused-entry");
+    let plain = run_in(&dir, &["--format", "json", "src"]);
+    assert!(!plain.stdout.contains("\"exports\""), "{}", plain.stdout);
+    assert!(!plain.stdout.contains("\"names\""), "{}", plain.stdout);
+    let asked = run_in(&dir, &["--format", "json", "--symbols", "src"]);
+    assert!(asked.stdout.contains("\"exports\""), "{}", asked.stdout);
+    assert!(asked.stdout.contains("\"names\""), "{}", asked.stdout);
+}
+
+#[test]
+fn the_symbols_key_of_the_config_turns_them_on() {
+    let d = project(&[
+        ("src/a.ts", "export const a = 1;\n"),
+        (".oxcruiserc.json", r#"{ "symbols": true }"#),
+    ]);
+    let o = run_in(d.path(), &["--format", "json", "src"]);
+    assert!(o.stdout.contains("\"exports\""), "{}", o.stdout);
+}
+
+#[test]
+fn fix_removes_neighbouring_unused_dependencies_in_one_run() {
+    let d = project(&[
+        ("src/index.ts", "import \"used\";\n"),
+        (
+            "package.json",
+            "{\n  \"name\": \"p\",\n  \"main\": \"src/index.ts\",\n  \"dependencies\": {\n    \"used\": \"1\",\n    \"x\": \"1\",\n    \"y\": \"1\",\n    \"z\": \"1\"\n  }\n}\n",
+        ),
+        (
+            ".oxcruiserc.json",
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-deps": "error" } }"#,
+        ),
+    ]);
+    let first = run_in(d.path(), &["-f", "github", "--fix", "src"]);
+    assert_eq!(first.result.code(), 0, "{}\n{}", first.stdout, first.stderr);
+    let text = std::fs::read_to_string(d.path().join("package.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&text).expect("valid JSON after --fix");
+    assert_eq!(
+        json["dependencies"],
+        serde_json::json!({ "used": "1" }),
+        "{text}"
+    );
+    // nothing is left for a second run
+    let second = run_in(d.path(), &["-f", "github", "src"]);
+    assert_eq!(second.result.code(), 0, "{}", second.stdout);
+    assert!(
+        !second.stdout.contains("no-unused-deps"),
+        "{}",
+        second.stdout
+    );
+}
+
+#[test]
+fn unused_files_warns_when_it_finds_no_entry_point() {
+    let d = project(&[
+        ("package.json", r#"{ "name": "p" }"#),
+        ("src/a.ts", "import \"./b\";\n"),
+        ("src/b.ts", "export const b = 1;\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-files": "error" } }"#,
+        ),
+    ]);
+    let o = run_in(d.path(), &["-f", "github", "src"]);
+    insta::assert_snapshot!("unused_files_without_entry", report(&o));
+    // an entry point makes the warning go away
+    std::fs::write(
+        d.path().join("package.json"),
+        r#"{ "name": "p", "main": "src/a.ts" }"#,
+    )
+    .unwrap();
+    let o = run_in(d.path(), &["-f", "github", "src"]);
+    assert!(!o.stderr.contains("no entry point"), "{}", o.stderr);
 }

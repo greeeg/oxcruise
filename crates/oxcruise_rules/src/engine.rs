@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
-use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Severity, UsedNames, Violation};
+use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Severity, Subject, Violation};
 use oxcruise_graph::PathMatcher;
-use oxcruise_graph::analyses::{BitSet, ExportUsage, export_usage};
+use oxcruise_graph::analyses::{BitSet, ExportUsage};
 use oxcruise_resolve::WorkspacePackage;
 use rayon::prelude::*;
 
@@ -13,7 +13,7 @@ use crate::conventions::ConventionFilter;
 use crate::declarative::CompiledRule;
 use crate::entries::EntryInputs;
 use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget};
-use crate::meta::{Analyses, AnalysisCache, RuleCtx, Shared};
+use crate::meta::{Analyses, AnalysisCache, Hooks, RuleCtx, Shared};
 use crate::registry::{RuleEnum, builtin_rules};
 
 #[derive(Clone)]
@@ -40,6 +40,8 @@ pub struct Engine {
     plans: Vec<Plan>,
     override_files: Vec<PathMatcher>,
     external: Option<Arc<dyn ExternalRules>>,
+    /// `wanted()`, which parses every rule's options; cleared when they change.
+    wanted: OnceLock<Analyses>,
 }
 
 #[derive(Debug, Default)]
@@ -229,6 +231,7 @@ impl Engine {
                 plans,
                 override_files,
                 external,
+                wanted: OnceLock::new(),
             })
         } else {
             Err(errors)
@@ -239,6 +242,7 @@ impl Engine {
     /// every override of it, so a command-line flag wins over the config file. Rules that are
     /// off stay off.
     pub fn set_option(&mut self, rule: &str, key: &str, value: serde_json::Value) {
+        self.wanted = OnceLock::new();
         let patch = |e: &mut Entry| {
             if e.options.is_null() {
                 e.options = serde_json::json!({});
@@ -257,17 +261,40 @@ impl Engine {
         }
     }
 
-    /// Whole-graph analyses the enabled rules need, whatever their options.
+    /// Turn on the `production` option of every built-in rule that has one (`--production`).
+    pub fn set_production(&mut self) {
+        let names: Vec<String> = self
+            .plans
+            .iter()
+            .filter(|p| {
+                matches!(p.source, Source::Builtin) && RuleEnum::has_production_option(&p.name)
+            })
+            .map(|p| p.name.clone())
+            .collect();
+        for name in names {
+            self.set_option(&name, "production", serde_json::json!(true));
+        }
+    }
+
+    /// Whole-graph analyses the enabled rules need, with the options they are configured with.
     fn wanted(&self) -> Analyses {
+        *self.wanted.get_or_init(|| self.compute_wanted())
+    }
+
+    fn compute_wanted(&self) -> Analyses {
         let mut wanted = Analyses::empty();
         for plan in &self.plans {
-            let enabled = plan.base.as_ref().is_some_and(|e| e.level != Level::Off)
-                || plan.overrides.iter().any(|(_, e)| e.level != Level::Off);
-            if enabled
-                && matches!(plan.source, Source::Builtin)
-                && let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, serde_json::Value::Null)
-            {
-                wanted |= rule.requirements();
+            if !matches!(plan.source, Source::Builtin) {
+                continue;
+            }
+            let entries = plan
+                .base
+                .iter()
+                .chain(plan.overrides.iter().map(|(_, e)| e));
+            for entry in entries.filter(|e| e.level != Level::Off) {
+                if let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, entry.options.clone()) {
+                    wanted |= rule.requirements();
+                }
             }
         }
         wanted
@@ -275,22 +302,29 @@ impl Engine {
 
     /// Whether `cruise` must extract exports and the names each import uses.
     pub fn wants_symbols(&self) -> bool {
-        self.wanted()
-            .intersects(Analyses::SYMBOLS | Analyses::ENTRIES)
+        self.wanted().contains(Analyses::SYMBOLS)
     }
 
     /// Whether `cruise` must read the `package.json` of every module.
     pub fn wants_manifests(&self) -> bool {
         self.wanted()
-            .intersects(Analyses::MANIFESTS | Analyses::ENTRIES)
+            .intersects(Analyses::MANIFESTS | Analyses::ENTRIES | Analyses::DEP_PEERS)
     }
 
+    /// Whether `cruise` must also read the peer dependencies of the declared packages.
+    pub fn wants_peers(&self) -> bool {
+        self.wanted().contains(Analyses::DEP_PEERS)
+    }
+
+    /// Check `graph`. `symbols` says whether it was built with exports and the names each import
+    /// uses (`cruise` extracted them).
     pub fn run(
         &self,
         graph: &Graph,
         root: &Path,
         workspace: &[WorkspacePackage],
         manifests: &[DeclaredManifest],
+        symbols: bool,
     ) -> RunResult {
         let mut warnings = vec![];
         let mut fatal = vec![];
@@ -316,9 +350,13 @@ impl Engine {
             self.resolve_plan(plan, graph, &mut resolved);
         }
 
-        let wanted = resolved
+        let mut wanted = resolved
             .iter()
             .fold(Analyses::empty(), |a, r| a | r.rule.requirements());
+        if !externals.is_empty() {
+            // the graph handed to plugins carries both
+            wanted |= Analyses::CYCLES | Analyses::DEPENDENTS;
+        }
         // what each rule that needs entry points takes as one, and what plugins add
         let conventions: Vec<ConventionFilter> = resolved
             .iter()
@@ -326,7 +364,7 @@ impl Engine {
             .map(|r| r.rule.conventions())
             .collect();
         let plugin_entries = self.external.as_ref().map_or(vec![], |x| x.entries());
-        let analyses = AnalysisCache::compute(
+        let mut analyses = AnalysisCache::compute(
             graph,
             wanted,
             &EntryInputs {
@@ -334,6 +372,7 @@ impl Engine {
                 conventions: &conventions,
                 plugin_entries: &plugin_entries,
             },
+            symbols,
         );
         let shared = Shared {
             graph,
@@ -341,6 +380,7 @@ impl Engine {
             workspace,
             manifests,
             analyses: &analyses,
+            warnings: Mutex::default(),
         };
 
         let mut violations: Vec<Violation> = resolved
@@ -348,32 +388,30 @@ impl Engine {
             .flat_map_iter(|r| run_rule(r, &shared))
             .collect();
 
-        let usage = (graph.modules().iter().any(|m| !m.exports.is_empty())
-            || graph.edges().iter().any(|e| e.used != UsedNames::All))
-        .then(|| {
-            let entries = crate::entries::compute(
-                graph,
-                &EntryInputs {
-                    manifests,
-                    conventions: &[ConventionFilter::default()],
-                    plugin_entries: &plugin_entries,
-                },
-            );
-            export_usage(graph, &entries.all(), &|_| false)
-        });
+        let mut notes = shared.warnings.into_inner().expect("poisoned");
+        notes.sort();
+        notes.dedup();
+        warnings.extend(notes);
+        let usage = analyses.usage.take();
 
         if !externals.is_empty() {
             match &self.external {
-                Some(x) => match x.run(graph, workspace, &externals, usage.as_ref()) {
+                Some(x) => match x.run(graph, workspace, &externals, usage.as_ref(), &analyses) {
                     Ok(found) => {
+                        let specs: BTreeMap<ExternalRuleId, &ExternalRuleSpec> =
+                            externals.iter().map(|s| (s.id, s)).collect();
                         for f in found {
-                            let spec = &externals[externals
-                                .iter()
-                                .position(|s| s.id == f.rule)
-                                .expect("known external rule")];
+                            let spec = specs[&f.rule];
                             let mut v = match f.target {
                                 ExternalTarget::Module(m) => {
                                     Violation::module(&spec.name, spec.severity, m, f.message)
+                                }
+                                ExternalTarget::Export(m, i) => {
+                                    let mut v =
+                                        Violation::module(&spec.name, spec.severity, m, f.message);
+                                    v.loc = Some(graph.module(m).exports[i as usize].loc);
+                                    v.subject = Subject::Export(i);
+                                    v
                                 }
                                 ExternalTarget::Edge(e) => {
                                     let edge = graph.edge(e);
@@ -386,8 +424,7 @@ impl Engine {
                                         message: f.message,
                                         loc: edge.loc,
                                         path: vec![],
-                                        export: None,
-                                        file: None,
+                                        subject: Subject::Module,
                                         fix: None,
                                     }
                                 }
@@ -455,27 +492,41 @@ impl Engine {
             return;
         }
 
-        // Effective entry per module: base, then each matching override in order.
+        // Effective entry per module: base, then each matching override in order, so the last
+        // matching override decides. Modules are grouped by that index (0 = the base), and only
+        // the groups, not the modules, are keyed by their entry.
         let n = graph.module_count();
-        let mut groups: BTreeMap<String, (Entry, BitSet)> = BTreeMap::new();
+        let mut by_slot: Vec<(Option<&Entry>, BitSet)> = std::iter::once(plan.base.as_ref())
+            .chain(plan.overrides.iter().map(|(_, e)| Some(e)))
+            .map(|e| (e.filter(|e| e.level != Level::Off), BitSet::new(n)))
+            .collect();
         for i in 0..n {
             let path = &graph.module(ModuleId(i as u32)).path;
-            let mut eff = plan.base.clone();
-            for (oi, entry) in &plan.overrides {
-                if self.override_files[*oi].is_match(path) {
-                    eff = Some(entry.clone());
-                }
+            let slot = plan
+                .overrides
+                .iter()
+                .rposition(|(oi, _)| self.override_files[*oi].is_match(path))
+                .map_or(0, |p| p + 1);
+            if by_slot[slot].0.is_some() {
+                by_slot[slot].1.insert(i);
             }
-            let Some(eff) = eff else { continue };
-            if eff.level == Level::Off {
+        }
+        // Slots with the same effective entry become one rule.
+        let mut groups: BTreeMap<String, (&Entry, BitSet)> = BTreeMap::new();
+        for (entry, set) in by_slot {
+            let Some(entry) = entry else { continue };
+            if set.count() == 0 {
                 continue;
             }
-            let key = format!("{:?}|{}", eff.level, eff.options);
-            groups
-                .entry(key)
-                .or_insert_with(|| (eff, BitSet::new(n)))
-                .1
-                .insert(i);
+            let key = format!("{:?}|{}", entry.level, entry.options);
+            match groups.entry(key) {
+                std::collections::btree_map::Entry::Occupied(mut o) => {
+                    o.get_mut().1.union_with(&set)
+                }
+                std::collections::btree_map::Entry::Vacant(v) => {
+                    v.insert((entry, set));
+                }
+            }
         }
         for (_, (entry, set)) in groups {
             if let (Some(sev), Some(rule)) = (entry.level.to_severity(), make(&entry.options)) {
@@ -536,30 +587,36 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
         a
     };
 
-    let mut out: Vec<Violation> = (0..g.module_count() as u32)
-        .into_par_iter()
-        .map(ModuleId)
-        .filter(|&m| in_scope(m))
-        .fold(new_cx, |cx, m| {
-            r.rule.check_module(m, &cx);
-            cx
-        })
-        .map(RuleCtx::into_violations)
-        .reduce(Vec::new, join);
+    let hooks = r.rule.hooks();
+    let mut out: Vec<Violation> = vec![];
+    if hooks.contains(Hooks::MODULE) {
+        out = (0..g.module_count() as u32)
+            .into_par_iter()
+            .map(ModuleId)
+            .filter(|&m| in_scope(m))
+            .fold(new_cx, |cx, m| {
+                r.rule.check_module(m, &cx);
+                cx
+            })
+            .map(RuleCtx::into_violations)
+            .reduce(Vec::new, join);
+    }
 
-    let edges: Vec<Violation> = (0..g.edge_count() as u32)
-        .into_par_iter()
-        .map(oxcruise_core::EdgeId)
-        .filter(|&e| in_scope(g.edge(e).from))
-        .fold(new_cx, |cx, e| {
-            r.rule.check_edge(e, &cx);
-            cx
-        })
-        .map(RuleCtx::into_violations)
-        .reduce(Vec::new, join);
-    out.extend(edges);
+    if hooks.contains(Hooks::EDGE) {
+        let edges: Vec<Violation> = (0..g.edge_count() as u32)
+            .into_par_iter()
+            .map(oxcruise_core::EdgeId)
+            .filter(|&e| in_scope(g.edge(e).from))
+            .fold(new_cx, |cx, e| {
+                r.rule.check_edge(e, &cx);
+                cx
+            })
+            .map(RuleCtx::into_violations)
+            .reduce(Vec::new, join);
+        out.extend(edges);
+    }
 
-    if r.modules.is_none() {
+    if hooks.contains(Hooks::GRAPH) && r.modules.is_none() {
         let cx = new_cx();
         r.rule.check_graph(&cx);
         out.extend(cx.into_violations());
@@ -614,12 +671,11 @@ fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usiz
 
 fn is_suppressed(g: &Graph, v: &Violation) -> bool {
     let covers = |list: &[String]| list.iter().any(|r| r == "*" || *r == v.rule);
-    if v.file.is_some() {
+    if matches!(v.subject, Subject::File(_)) {
         return false;
     }
     let module = g.module(v.from);
     v.edge.is_some_and(|e| covers(&g.edge(e).suppressed))
-        || v.export
-            .is_some_and(|i| covers(&module.exports[i as usize].suppressed))
+        || matches!(v.subject, Subject::Export(i) if covers(&module.exports[i as usize].suppressed))
         || covers(&module.suppressed)
 }

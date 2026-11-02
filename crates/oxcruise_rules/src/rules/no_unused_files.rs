@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::is_test_module;
 use crate::conventions::ConventionFilter;
-use crate::meta::{Analyses, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 /// Files that are legitimately not imported: dotfiles, declarations, and tool configuration.
@@ -91,16 +91,25 @@ impl NoUnusedFiles {
                     let none = Captures::default();
                     starts.extend(g.module_ids().filter(|&m| {
                         let module = g.module(m);
-                        module.kind == ModuleKind::Source && extra.is_match(&module.path, &none)
+                        module.kind == ModuleKind::Local && extra.is_match(&module.path, &none)
                     }));
                 }
-                (!starts.is_empty()).then(|| reach_from(g, &starts, &|_| true).reached)
+                if starts.is_empty() {
+                    cx.warn(
+                        "no-unused-files: no entry point found (package.json entries, conventions, \
+                         `entries` option); nothing is reported",
+                    );
+                    return None;
+                }
+                Some(reach_from(g, &starts, &|_| true).reached)
             })
             .as_ref()
     }
 }
 
 impl Rule for NoUnusedFiles {
+    const HOOKS: Hooks = Hooks::MODULE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: NoUnusedFilesConfig = parse_options("no-unused-files", value)?;
         c.conventions.validate()?;
@@ -121,8 +130,12 @@ impl Rule for NoUnusedFiles {
         })
     }
 
+    fn has_production_option() -> bool {
+        true
+    }
+
     fn requirements(&self) -> Analyses {
-        Analyses::ENTRIES | Analyses::SYMBOLS | Analyses::MANIFESTS
+        Analyses::ENTRIES | Analyses::MANIFESTS
     }
 
     fn conventions(&self) -> ConventionFilter {
@@ -131,7 +144,7 @@ impl Rule for NoUnusedFiles {
 
     fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
         let module = cx.module(m);
-        if module.kind != ModuleKind::Source || module.not_followed {
+        if module.kind != ModuleKind::Local || module.not_followed {
             return;
         }
         let Some(reached) = self.reached(cx) else {

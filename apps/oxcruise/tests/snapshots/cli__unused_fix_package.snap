@@ -6,8 +6,7 @@ expression: "read(\"package.json\")"
   "name": "unused-fixture",
   "main": "dist/index.js",
   "dependencies": {
-    "used-dep": "1.0.0",
-    "other-unused": "1.0.0"
+    "used-dep": "1.0.0"
   },
   "devDependencies": {
     "test-only-tool": "1.0.0"

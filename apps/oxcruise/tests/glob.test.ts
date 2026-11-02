@@ -1,5 +1,17 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { globToRegExp, matchesGlob } from "../src-js/glob.ts";
+
+const shared: { cases: [string, string, boolean][] } = JSON.parse(
+  readFileSync(new URL("../../../tests/fixtures/glob-cases.json", import.meta.url), "utf8"),
+);
+
+// The Rust matchers (`PathPatterns`, `PathMatcher`) run the same table in oxcruise_rules.
+describe("the shared glob table", () => {
+  test.each(shared.cases)("%s vs %s -> %s", (glob, path, want) => {
+    expect(matchesGlob(glob, path)).toBe(want);
+  });
+});
 
 describe("globs mean the same as in the Rust pattern module", () => {
   test.each([

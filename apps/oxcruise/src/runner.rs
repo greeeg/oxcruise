@@ -8,7 +8,9 @@ use oxcruise_config::{Category, JsConfigLoader, NodeSubprocessLoader};
 use oxcruise_core::Severity;
 use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_graph::cruise;
-use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
+use oxcruise_report::{
+    CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, Totals, render,
+};
 use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
 use crate::args::{Cli, Mode};
@@ -261,7 +263,12 @@ impl CliRunner {
             &workspace,
             cwd.clone(),
             &violations,
-            suppressed,
+            // `--quiet` hides warnings, it does not make them go away
+            Totals {
+                error: errors,
+                warn: warnings,
+                suppressed,
+            },
             vec![],
             usage
                 .as_ref()
@@ -352,9 +359,7 @@ impl CliRunner {
         let engine = match Engine::new(&config, self.external_rules.clone()) {
             Ok(mut e) => {
                 if args.production {
-                    for rule in ["no-unused-exports", "no-unused-deps", "no-unused-files"] {
-                        e.set_option(rule, "production", serde_json::json!(true));
-                    }
+                    e.set_production();
                 }
                 e
             }
@@ -369,20 +374,30 @@ impl CliRunner {
             Ok(o) => o,
             Err(e) => return Err(fail(err, e)),
         };
-        // symbols cost a second walk over every file, so only rules that read them switch them on
-        // ... and so do the outputs that list them: plugins, and the `json` result
-        let reports_symbols = args.format == "json" || args.format.contains('/');
+        // symbols cost a second walk over every file, so they are extracted only when asked for
+        // (`symbols`, `--symbols`), or when a rule or a plugin reads them
         opts.extract.symbols = engine.wants_symbols()
-            || !config.js_plugins.is_empty()
-            || reports_symbols
-            || args.symbols;
-        opts.manifests = engine.wants_manifests();
+            || config.symbols
+            || args.symbols
+            || self
+                .external_rules
+                .as_ref()
+                .is_some_and(|x| x.needs_symbols());
+        // what is used depends on the manifests (entry points), whichever rules are on
+        opts.manifests = engine.wants_manifests() || opts.extract.symbols;
+        opts.manifest_peers = engine.wants_peers();
         let symbols = opts.extract.symbols;
         let output = match cruise(&opts) {
             Ok(o) => o,
             Err(e) => return Err(fail(err, e)),
         };
-        let run = engine.run(&output.graph, &cwd, &output.workspace, &output.manifests);
+        let run = engine.run(
+            &output.graph,
+            &cwd,
+            &output.workspace,
+            &output.manifests,
+            symbols,
+        );
         if !run.fatal.is_empty() {
             for f in &run.fatal {
                 let _ = writeln!(err, "error: {f}");

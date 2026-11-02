@@ -47,14 +47,25 @@ pub struct Violation {
     pub loc: Option<Loc>,
     /// Cycle or path that explains the violation.
     pub path: Vec<CycleStep>,
-    /// Index into `from`'s exports when the violation is about one export (for suppression).
+    /// What the violation is about, besides `from`.
     #[serde(default)]
-    pub export: Option<u32>,
-    /// File the violation is in when it is not a module (a `package.json`), relative to the root.
-    #[serde(default)]
-    pub file: Option<String>,
+    pub subject: Subject,
     #[serde(default)]
     pub fix: Option<Fix>,
+}
+
+/// What a violation is attached to, which decides how comments can suppress it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Subject {
+    /// A module, one of its dependencies, or a path through the graph.
+    #[default]
+    Module,
+    /// Export number `n` of `from`'s exports.
+    Export(u32),
+    /// A file that is not a module (a `package.json`), relative to the root. No comment can
+    /// suppress a violation in it.
+    File(String),
 }
 
 impl Violation {
@@ -73,8 +84,7 @@ impl Violation {
             message,
             loc: None,
             path: vec![],
-            export: None,
-            file: None,
+            subject: Subject::Module,
             fix: None,
         }
     }

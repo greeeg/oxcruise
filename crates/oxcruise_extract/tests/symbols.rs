@@ -241,3 +241,47 @@ fn removing_a_listed_export_takes_its_comma() {
     );
     assert_eq!(fixed("export * as ns from './m';\n", &["ns"]), "\n");
 }
+
+/// Apply every fix of the file `file` to `src`, returning the removed texts.
+fn removed_texts(file: &str, src: &str) -> Vec<(String, String)> {
+    let f = facts(file, src);
+    f.exports
+        .iter()
+        .map(|e| {
+            let (s, end) = e
+                .fix
+                .unwrap_or_else(|| panic!("no fix for `{}` in {file}", e.name));
+            (e.name.clone(), src[s as usize..end as usize].to_string())
+        })
+        .collect()
+}
+
+#[test]
+fn a_svelte_file_with_two_scripts_keeps_the_fixes_of_both() {
+    let src = "<script context=\"module\">export const a = 1; export function b() {}</script>\n<script>let x = 1;</script>\n";
+    let texts = removed_texts("C.svelte", src);
+    assert_eq!(
+        texts,
+        [
+            ("a".to_string(), "export ".to_string()),
+            ("b".to_string(), "export ".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn a_vue_file_with_two_scripts_keeps_the_fixes_of_both() {
+    let src = "<script lang=\"ts\">export interface P {}</script>\n<script setup lang=\"ts\">export const x = 1;</script>\n";
+    let f = facts("C.vue", src);
+    assert!(!f.exports.is_empty());
+    let texts = removed_texts("C.vue", src);
+    assert!(texts.iter().all(|(_, t)| t == "export "), "{texts:?}");
+}
+
+#[test]
+fn imports_of_a_second_script_block_do_not_borrow_from_the_first() {
+    let src = "<script context=\"module\">import { a } from './a'; export const m = a;</script>\n<script>import { b } from './b'; b.go();</script>\n";
+    let f = facts("C.svelte", src);
+    assert_eq!(f.imports.len(), 2);
+    assert!(f.exports.iter().all(|e| e.fix.is_some()));
+}

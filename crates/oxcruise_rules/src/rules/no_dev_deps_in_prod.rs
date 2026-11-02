@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::is_test_module;
-use crate::meta::{Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
@@ -39,6 +39,8 @@ pub struct NoDevDepsInProd {
 }
 
 impl Rule for NoDevDepsInProd {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let mut c: NoDevDepsInProdConfig = parse_options("no-dev-deps-in-prod", value)?;
         if c.prod.is_empty() {

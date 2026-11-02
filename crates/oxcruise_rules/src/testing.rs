@@ -3,7 +3,7 @@
 //! Graphs are written as lines: `from -> to [as specifier] [kind kind ...]`, or a bare path for an
 //! isolated module. Extra tokens in brackets: `ignore=rule` suppresses a rule on that edge, and
 //! `ignore-file=rule` on a bare module line suppresses it for the file (`*` for all rules). Targets with a JS/TS extension are source modules; `core`
-//! kinds make a builtin, `unknown` an unresolved specifier, anything else an npm stub.
+//! kinds make a builtin, `unknown` an unresolved specifier, anything else a package file.
 //!
 //! Symbols: `names=a,b` on an edge sets the names it uses (`names=` none; without it, all);
 //! `reexport=x:y` (`x` read from the target, exported as `y`), `star` and `ns=name` make the
@@ -13,7 +13,7 @@
 use oxcruise_config::OxcruiseConfig;
 use oxcruise_core::{
     DeclaredDep, DeclaredManifest, DepKinds, DepSection, Edge, Export, ExportKind, ExportMember,
-    Graph, Loc, Module, ModuleId, ModuleKind, ModuleSystem, UsedNames,
+    Graph, Loc, Module, ModuleId, ModuleKind, ModuleSystem, Subject, UsedNames,
 };
 use oxcruise_resolve::WorkspacePackage;
 use rustc_hash::FxHashMap;
@@ -225,7 +225,7 @@ impl Tester {
                 })
                 .collect();
             let Some((from, to)) = spec.split_once("->") else {
-                let id = module_id(spec.trim(), ModuleKind::Source, &mut modules);
+                let id = module_id(spec.trim(), ModuleKind::Local, &mut modules);
                 let module = &mut modules[id as usize];
                 module.suppressed.extend(
                     tokens
@@ -253,21 +253,21 @@ impl Tester {
                     .unwrap_or_else(|| panic!("unknown kind `{k}` in test graph"));
             }
             let to_kind = if is_source(to) {
-                ModuleKind::Source
+                ModuleKind::Local
             } else if kinds.contains(DepKinds::CORE) {
-                ModuleKind::Core
+                ModuleKind::Builtin
             } else if kinds.contains(DepKinds::UNKNOWN) {
                 ModuleKind::Unresolved
             } else {
-                ModuleKind::Stub
+                ModuleKind::Package
             };
-            if to_kind == ModuleKind::Source {
+            if to_kind == ModuleKind::Local {
                 kinds |= DepKinds::LOCAL;
             }
             if !kinds.intersects(DepKinds::SYNTAX_ANY) {
                 kinds |= DepKinds::IMPORT;
             }
-            let f = module_id(from, ModuleKind::Source, &mut modules);
+            let f = module_id(from, ModuleKind::Local, &mut modules);
             let t = module_id(to, to_kind, &mut modules);
             let used = match tokens.iter().find_map(|t| t.strip_prefix("names=")) {
                 Some(list) => UsedNames::Names(
@@ -326,7 +326,7 @@ impl Tester {
         }
         // the deepest manifest above a source module governs it
         for m in &mut modules {
-            if m.kind != ModuleKind::Source {
+            if m.kind != ModuleKind::Local {
                 continue;
             }
             m.manifest = self
@@ -361,6 +361,7 @@ impl Tester {
             std::path::Path::new("/"),
             &self.workspace(),
             &self.manifests,
+            has_symbols(g),
         )
     }
 
@@ -403,7 +404,10 @@ pub fn render(g: &Graph, r: &RunResult) -> String {
                 "{} {} {}{}{}: {}",
                 v.severity.as_str(),
                 v.rule,
-                v.file.as_deref().unwrap_or(&g.module(v.from).path),
+                match &v.subject {
+                    Subject::File(f) => f,
+                    _ => &g.module(v.from).path,
+                },
                 loc,
                 to,
                 v.message
@@ -411,4 +415,11 @@ pub fn render(g: &Graph, r: &RunResult) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Test graphs are written by hand, so ask them: a project without exports and with only `require`
+/// edges reads as "no symbols".
+fn has_symbols(g: &Graph) -> bool {
+    g.modules().iter().any(|m| !m.exports.is_empty())
+        || g.edges().iter().any(|e| e.used != UsedNames::All)
 }

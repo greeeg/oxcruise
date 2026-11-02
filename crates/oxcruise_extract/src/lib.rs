@@ -88,8 +88,12 @@ fn parse_block(
         builder.parse_error.get_or_insert(msg);
         return;
     }
+    let first = visitor::BlockStart {
+        imports: builder.imports.len(),
+        exports: builder.exports.len(),
+    };
     visitor::collect_module_record(&ret.module_record, offset, builder);
-    visitor::collect_ast(&ret.program, offset, builder);
+    visitor::collect_ast(&ret.program, offset, first, builder);
     comments::collect(&ret.program, text, offset, builder);
 }
 

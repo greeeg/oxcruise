@@ -82,9 +82,9 @@ export function validatePlugin(value: unknown, source: string): PluginDefinition
     throw new Error(`${where}: \`meta.name\` must be a lowercase string like "acme"`);
   }
   for (const key of Object.keys(p)) {
-    if (!["meta", "rules", "reporters", "entries"].includes(key)) {
+    if (!["meta", "rules", "reporters", "entries", "needs"].includes(key)) {
       throw new Error(
-        `${where}: unknown property \`${key}\` (expected meta, rules, reporters, entries)`,
+        `${where}: unknown property \`${key}\` (expected meta, rules, reporters, entries, needs)`,
       );
     }
   }
@@ -93,6 +93,9 @@ export function validatePlugin(value: unknown, source: string): PluginDefinition
     !(Array.isArray(p.entries) && p.entries.every((e) => typeof e === "string"))
   ) {
     throw new Error(`${where}: \`entries\` must be an array of glob strings`);
+  }
+  if (p.needs !== undefined && !(Array.isArray(p.needs) && p.needs.every((n) => n === "symbols"))) {
+    throw new Error(`${where}: \`needs\` must be an array of "symbols"`);
   }
   for (const [name, rule] of Object.entries((p.rules ?? {}) as Record<string, unknown>)) {
     if (!NAME.test(name)) throw new Error(`${where}: invalid rule name \`${name}\``);
@@ -121,6 +124,8 @@ export interface LoadedMetadata {
   reporters: string[];
   /** Globs of modules the plugin declares as entry points. */
   entries: string[];
+  /** The plugin reads exports and used names (`needs: ["symbols"]`). */
+  symbols: boolean;
 }
 
 export async function loadPlugin(
@@ -151,5 +156,6 @@ export async function loadPlugin(
     rules: Object.keys(def.rules ?? {}),
     reporters: Object.keys(def.reporters ?? {}),
     entries: def.entries ?? [],
+    symbols: (def.needs ?? []).includes("symbols"),
   };
 }

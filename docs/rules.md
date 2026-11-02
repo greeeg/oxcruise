@@ -231,6 +231,8 @@ globs to `*.test.*`, `*.spec.*` and test directories); `oxcruise --production` t
 (`@vitest/*` next to `vitest`, `*-loader` next to `webpack`) count as used; `false`
 turns that off and a list of names keeps only those conventions.
 
+A finding is in a `package.json`, where no comment can suppress it: use `ignore`.
+
 ### no-unused-exports
 
 _Category: nursery, off by default. Since 0.1.0._

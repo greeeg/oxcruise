@@ -5,8 +5,9 @@
 //! over a channel; the graph thread decides what to explore next.
 
 use std::cell::RefCell;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, TryRecvError};
+use std::sync::mpsc;
 
 use oxc_allocator::Allocator;
 use std::collections::BTreeSet;
@@ -18,6 +19,7 @@ use oxcruise_core::{
 };
 use oxcruise_extract::{ExportFact, ImportFact, RawDependency, UsedRefs, extract};
 use oxcruise_resolve::{Manifest, ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
+use rayon::prelude::*;
 use rustc_hash::FxHashMap;
 
 use crate::options::CruiseOptions;
@@ -42,7 +44,7 @@ pub fn cruise(opts: &CruiseOptions) -> Result<CruiseOutput, String> {
         .num_threads(opts.threads.unwrap_or(0))
         .build()
         .map_err(|e| e.to_string())?;
-    let discovered = pool.install(|| discover(opts, &resolver, entries));
+    let discovered = discover(opts, &resolver, &pool, entries);
     Ok(freeze(opts, &resolver, discovered))
 }
 
@@ -191,22 +193,30 @@ fn is_static_es(dep: &RawDependency) -> bool {
         && !dep.kinds.intersects(other)
 }
 
-fn discover(opts: &CruiseOptions, resolver: &Resolver, entries: Vec<PathBuf>) -> Discovered {
+/// The graph is built on the calling thread, which sleeps while the pool parses; only the
+/// parse-and-resolve jobs run on the pool.
+fn discover(
+    opts: &CruiseOptions,
+    resolver: &Resolver,
+    pool: &rayon::ThreadPool,
+    entries: Vec<PathBuf>,
+) -> Discovered {
     let mut g = Discoverer {
         opts,
         resolver,
         nodes: vec![],
         index: FxHashMap::default(),
+        paths: FxHashMap::default(),
         pending: 0,
     };
-    let (tx, rx) = mpsc::channel::<(usize, Processed)>();
+    let (tx, rx) = mpsc::channel::<(usize, std::thread::Result<Processed>)>();
 
-    let g = rayon::scope(move |scope| {
+    let g = pool.in_place_scope(move |scope| {
         let mut queue: Vec<Work> = vec![];
         for e in entries {
             let rel = resolver.relative(&e);
             let not_followed = opts.do_not_follow.is_match(&rel);
-            let idx = g.node(NodeKey::Path(e), ModuleKind::Source, rel);
+            let idx = g.node(NodeKey::Path(e), ModuleKind::Local, rel);
             // doNotFollow also holds for entries: they are kept, but not explored.
             g.nodes[idx].not_followed = not_followed;
             g.reach(idx, 0, &mut queue);
@@ -222,7 +232,9 @@ fn discover(opts: &CruiseOptions, resolver: &Resolver, entries: Vec<PathBuf>) ->
                         g.pending += 1;
                         let tx = tx.clone();
                         scope.spawn(move |_| {
-                            let _ = tx.send((idx, process(resolver, opts, &path)));
+                            let done =
+                                catch_unwind(AssertUnwindSafe(|| process(resolver, opts, &path)));
+                            let _ = tx.send((idx, done));
                         });
                     }
                 }
@@ -231,21 +243,15 @@ fn discover(opts: &CruiseOptions, resolver: &Resolver, entries: Vec<PathBuf>) ->
         drain(&mut g, &mut queue);
 
         while g.pending > 0 {
-            match rx.try_recv() {
-                Ok((idx, processed)) => {
-                    g.pending -= 1;
-                    g.nodes[idx].processed = Some(processed);
-                    queue.push(Work::Expand(idx));
-                    drain(&mut g, &mut queue);
-                }
-                // Workers (including this one) must keep running jobs while we wait.
-                Err(TryRecvError::Empty) => {
-                    if rayon::yield_now() != Some(rayon::Yield::Executed) {
-                        std::thread::yield_now();
-                    }
-                }
-                Err(TryRecvError::Disconnected) => break,
-            }
+            let Ok((idx, done)) = rx.recv() else {
+                break;
+            };
+            g.pending -= 1;
+            // a panic in a worker is re-raised here rather than leaving us waiting for it
+            let processed = done.unwrap_or_else(|payload| resume_unwind(payload));
+            g.nodes[idx].processed = Some(processed);
+            queue.push(Work::Expand(idx));
+            drain(&mut g, &mut queue);
         }
         g
     });
@@ -257,6 +263,9 @@ struct Discoverer<'a> {
     resolver: &'a Resolver,
     nodes: Vec<Node>,
     index: FxHashMap<NodeKey, usize>,
+    /// Files seen as dependency targets, so a repeated one costs a lookup and nothing else;
+    /// `None` is a file the `ignore` patterns drop.
+    paths: FxHashMap<PathBuf, Option<usize>>,
     pending: usize,
 }
 
@@ -282,7 +291,7 @@ impl Discoverer<'_> {
 
     fn wants_exploring(&self, idx: usize, depth: u32) -> bool {
         let n = &self.nodes[idx];
-        n.kind == ModuleKind::Source
+        n.kind == ModuleKind::Local
             && !n.not_followed
             && self.opts.max_depth.is_none_or(|m| depth < m)
     }
@@ -309,18 +318,18 @@ impl Discoverer<'_> {
     /// Turn a processed file's resolved dependencies into nodes, and follow them.
     fn expand(&mut self, idx: usize, queue: &mut Vec<Work>) {
         if self.nodes[idx].out.is_none() {
-            let deps: Vec<_> = self.nodes[idx]
+            // taken out so `target_node` can borrow `self`
+            let processed = self.nodes[idx]
                 .processed
-                .as_ref()
-                .expect("expand needs a processed file")
+                .take()
+                .expect("expand needs a processed file");
+            let out = processed
                 .deps
                 .iter()
-                .map(|(_, r)| r.clone())
+                .enumerate()
+                .map(|(i, (_, r))| (i, self.target_node(r)))
                 .collect();
-            let mut out = Vec::with_capacity(deps.len());
-            for (i, r) in deps.iter().enumerate() {
-                out.push((i, self.target_node(r)));
-            }
+            self.nodes[idx].processed = Some(processed);
             self.nodes[idx].out = Some(out);
         }
         let depth = self.nodes[idx].depth;
@@ -345,43 +354,67 @@ impl Discoverer<'_> {
         let keep = |rel: &str| !opts.ignore.is_match(rel);
         match &r.target {
             Target::Skip => None,
-            Target::Core(name) => keep(name)
-                .then(|| self.node(NodeKey::Core(name.clone()), ModuleKind::Core, name.clone())),
+            Target::Core(name) => keep(name).then(|| {
+                self.node(
+                    NodeKey::Core(name.clone()),
+                    ModuleKind::Builtin,
+                    name.clone(),
+                )
+            }),
             // Unresolved specifiers become leaf modules in `freeze`.
             Target::Unresolved(_) => None,
             Target::Local(p) => {
+                if let Some(&known) = self.paths.get(p.as_path()) {
+                    return known;
+                }
                 let rel = self.resolver.relative(p);
                 if !keep(&rel) {
+                    self.paths.insert(p.clone(), None);
                     return None;
                 }
-                let i = self.node(NodeKey::Path(p.clone()), ModuleKind::Source, rel.clone());
-                if opts.do_not_follow.is_match(&rel) {
+                let not_followed = opts.do_not_follow.is_match(&rel);
+                let i = self.node(NodeKey::Path(p.clone()), ModuleKind::Local, rel);
+                if not_followed {
                     self.nodes[i].not_followed = true;
                 }
+                self.paths.insert(p.clone(), Some(i));
                 Some(i)
             }
             Target::Npm { path, .. } => {
+                if let Some(&known) = self.paths.get(path.as_path()) {
+                    return known;
+                }
                 let rel = self.resolver.relative(path);
                 if !keep(&rel) {
+                    self.paths.insert(path.clone(), None);
                     return None;
                 }
                 // node_modules are always leaves
-                Some(self.node(NodeKey::Path(path.clone()), ModuleKind::Stub, rel))
+                let i = self.node(NodeKey::Path(path.clone()), ModuleKind::Package, rel);
+                self.paths.insert(path.clone(), Some(i));
+                Some(i)
             }
         }
     }
 }
 
-fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOutput {
+fn freeze(opts: &CruiseOptions, resolver: &Resolver, mut d: Discovered) -> CruiseOutput {
     let ws = resolver.workspace();
     let mut modules: Vec<Module> = vec![];
     let mut spec_nodes: FxHashMap<String, u32> = FxHashMap::default();
+    // `package_of` scans every workspace package, and a folder's files share the answer
+    let mut package_of_dir: FxHashMap<&Path, Option<u32>> = FxHashMap::default();
     for n in &d.nodes {
         let mut m = Module::new(n.rel.clone(), n.kind);
         if let NodeKey::Path(p) = &n.key {
-            m.package = ws.package_of(p).map(|i| i as u32);
+            m.package = match p.parent() {
+                Some(dir) => *package_of_dir
+                    .entry(dir)
+                    .or_insert_with(|| ws.package_of(dir).map(|i| i as u32)),
+                None => ws.package_of(p).map(|i| i as u32),
+            };
         }
-        m.not_followed = n.not_followed || (n.kind == ModuleKind::Source && n.processed.is_none());
+        m.not_followed = n.not_followed || (n.kind == ModuleKind::Local && n.processed.is_none());
         if let Some(p) = &n.processed {
             m.parse_error = p.parse_error.clone();
             m.suppressed = p.file_suppressions.clone();
@@ -396,8 +429,8 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
     };
 
     let mut edges: Vec<Edge> = vec![];
-    for (from, n) in d.nodes.iter().enumerate() {
-        let (Some(p), Some(out)) = (&n.processed, &n.out) else {
+    for (from, n) in d.nodes.iter_mut().enumerate() {
+        let (Some(p), Some(out)) = (&mut n.processed, &n.out) else {
             continue;
         };
         // where each specifier of this file leads, for its re-exports
@@ -422,7 +455,7 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
             if matches!(res.target, Target::Unresolved(_)) {
                 kinds |= DepKinds::UNKNOWN;
             }
-            leads_to.entry(&dep.specifier).or_insert(to);
+            note_target(&mut leads_to, dep, to);
             let used = if !opts.extract.symbols || !is_static_es(dep) {
                 UsedNames::All
             } else {
@@ -442,25 +475,15 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
                 used,
             });
         }
-        modules[from].exports = p
-            .exports
-            .iter()
-            .map(|e| Export {
-                name: e.name.clone(),
-                kind: e.kind,
-                is_type: e.is_type,
-                from: e
+        modules[from].exports = std::mem::take(&mut p.exports)
+            .into_iter()
+            .map(|e| {
+                let from = e
                     .from
                     .as_deref()
                     .and_then(|s| leads_to.get(s))
-                    .map(|&t| ModuleId(t)),
-                imported: e.imported.clone(),
-                loc: e.loc.unwrap_or_default(),
-                suppressed: e.suppressed.clone(),
-                members: e.members.clone(),
-                used_in_file: e.used_in_file,
-                duplicate_of: e.duplicate_of.clone(),
-                fix: e.fix,
+                    .map(|&t| ModuleId(t));
+                export_of(e, from)
             })
             .collect();
     }
@@ -470,6 +493,34 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, d: Discovered) -> CruiseOut
         root: opts.root.clone(),
         workspace: ws.packages.clone(),
         manifests,
+    }
+}
+
+/// Remember where `dep` leads, for the re-exports that read from its specifier. An ES
+/// `export … from` decides: another dependency on the same specifier (a `require`) may resolve to
+/// another file when the package's `exports` differ by condition.
+fn note_target<'a>(leads_to: &mut FxHashMap<&'a str, u32>, dep: &'a RawDependency, to: u32) {
+    if dep.kinds.contains(DepKinds::EXPORT) && dep.module_system == ModuleSystem::Es6 {
+        leads_to.insert(&dep.specifier, to);
+    } else {
+        leads_to.entry(&dep.specifier).or_insert(to);
+    }
+}
+
+/// The graph's export for a fact, with the module a re-export reads from.
+fn export_of(e: ExportFact, from: Option<ModuleId>) -> Export {
+    Export {
+        name: e.name,
+        kind: e.kind,
+        is_type: e.is_type,
+        from,
+        imported: e.imported,
+        loc: e.loc.unwrap_or_default(),
+        suppressed: e.suppressed,
+        members: e.members,
+        used_in_file: e.used_in_file,
+        duplicate_of: e.duplicate_of,
+        fix: e.fix,
     }
 }
 
@@ -485,7 +536,7 @@ fn attach_manifests(
     let mut owner: Vec<(usize, PathBuf)> = vec![];
     for (i, n) in d.nodes.iter().enumerate() {
         let NodeKey::Path(p) = &n.key else { continue };
-        if n.kind != ModuleKind::Source {
+        if n.kind != ModuleKind::Local {
             continue;
         }
         if let Some(m) = p.parent().and_then(|dir| resolver.nearest_manifest(dir)) {
@@ -503,7 +554,8 @@ fn attach_manifests(
     for (node, dir) in &owner {
         modules[*node].manifest = Some(index[dir]);
     }
-    dirs.iter()
-        .map(|dir| by_dir[*dir].declared(&opts.root))
+    // reading and scanning each file is independent; `collect` keeps the order of `dirs`
+    dirs.par_iter()
+        .map(|dir| by_dir[*dir].declared(&opts.root, opts.manifest_peers))
         .collect()
 }

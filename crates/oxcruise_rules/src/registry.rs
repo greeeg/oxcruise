@@ -4,7 +4,7 @@ use oxcruise_core::{EdgeId, ModuleId};
 
 use crate::conventions::ConventionFilter;
 use crate::declarative::CompiledRule;
-use crate::meta::{Analyses, Category, Rule, RuleCtx, RuleMeta};
+use crate::meta::{Analyses, Category, Hooks, Rule, RuleCtx, RuleMeta};
 use crate::rules::*;
 
 /// Static description of a rule, for `--rules` and docs.
@@ -34,6 +34,14 @@ macro_rules! register_rules {
                 None
             }
 
+            /// Whether the built-in rule `name` has a `production` option (`--production`).
+            pub fn has_production_option(name: &str) -> bool {
+                $(if name == <$ty as RuleMeta>::NAME {
+                    return <$ty as Rule>::has_production_option();
+                })*
+                false
+            }
+
             pub fn requirements(&self) -> Analyses {
                 match self {
                     $(RuleEnum::$ty(r) => r.requirements(),)*
@@ -48,6 +56,14 @@ macro_rules! register_rules {
                 }
             }
 
+            /// The hooks this rule implements.
+            pub fn hooks(&self) -> Hooks {
+                match self {
+                    $(RuleEnum::$ty(_) => <$ty as Rule>::HOOKS,)*
+                    RuleEnum::Declarative(r) => r.hooks(),
+                }
+            }
+
             pub fn check_module(&self, m: ModuleId, cx: &RuleCtx<'_>) {
                 match self {
                     $(RuleEnum::$ty(r) => r.check_module(m, cx),)*
@@ -58,7 +74,7 @@ macro_rules! register_rules {
             pub fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
                 match self {
                     $(RuleEnum::$ty(r) => r.check_edge(e, cx),)*
-                    RuleEnum::Declarative(r) => r.check_edge(e, cx),
+                    RuleEnum::Declarative(_) => {}
                 }
             }
 

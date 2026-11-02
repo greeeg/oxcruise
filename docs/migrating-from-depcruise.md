@@ -40,7 +40,7 @@ dropped with a warning too.
 | `options.doNotFollow` | `doNotFollow` (node_modules are always leaves) | |
 | `options.exclude` | `ignorePatterns` | |
 | `options.includeOnly` | dropped | start from the right `entries`, list the rest in `ignorePatterns` |
-| `options.maxDepth` | dropped | the `--max-depth` flag (for `dot` and `mermaid`) |
+| `options.maxDepth` | dropped | the `--max-depth` flag (a deeper module is not in the graph at all) |
 | `options.tsConfig.fileName` | `resolve.tsconfig` | |
 | `enhancedResolveOptions.conditionNames` | `resolve.conditions` (`import`, `require`, `node`, `default` are always tried) | |
 | `enhancedResolveOptions.extensions`, `mainFields` | dropped | the resolver defaults |

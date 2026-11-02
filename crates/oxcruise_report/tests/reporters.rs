@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use oxcruise_config::OxcruiseConfig;
 use oxcruise_graph::{CruiseOptions, cruise};
-use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
+use oxcruise_report::{
+    CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, Totals, render,
+};
 use oxcruise_rules::{Engine, builtin_rules};
 
 fn fixture() -> PathBuf {
@@ -16,16 +18,19 @@ fn result() -> CruiseResult {
     let root = fixture();
     let out = cruise(&CruiseOptions::new(&root, vec!["packages".into()])).unwrap();
     let config = OxcruiseConfig::default();
-    let run =
-        Engine::new(&config, None)
-            .unwrap()
-            .run(&out.graph, &root, &out.workspace, &out.manifests);
+    let run = Engine::new(&config, None).unwrap().run(
+        &out.graph,
+        &root,
+        &out.workspace,
+        &out.manifests,
+        false,
+    );
     CruiseResult::build(
         &out.graph,
         &out.workspace,
         root,
         &run.violations,
-        run.suppressed,
+        Totals::of(&run.violations, run.suppressed),
         run.warnings,
         None,
     )

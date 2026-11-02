@@ -1,0 +1,4 @@
+{
+  "categories": { "correctness": "off", "suspicious": "off" },
+  "rules": { "no-unused-exports": "warn" }
+}
