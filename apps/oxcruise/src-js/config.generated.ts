@@ -21,14 +21,14 @@ export type ToSpec = (string | string[]) | ToCondition;
  * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
  * via the `definition` "OneOrMany2".
  */
-export type OneOrMany2 = Kind | Kind[];
+export type OneOrMany2 = ModuleKind | ModuleKind[];
 /**
- * What a dependency points to.
+ * What a module is. The names are the ones the config (`to.kind`), the JSON and plugins use.
  *
  * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
- * via the `definition` "Kind".
+ * via the `definition` "ModuleKind".
  */
-export type Kind = "local" | "package" | "builtin" | "unresolved";
+export type ModuleKind = "local" | "package" | "builtin" | "unresolved";
 /**
  * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
  * via the `definition` "OneOrMany3".
@@ -75,11 +75,11 @@ export interface OxcruiseConfig {
   /**
    * Matching modules stay in the graph, but their imports are not parsed.
    */
-  doNotFollow?: string[];
+  doNotFollow?: string | string[];
   /**
    * Files, directories or globs to start from. Default: `["."]`.
    */
-  entries?: string[];
+  entries?: string | string[];
   /**
    * Paths to other config files, merged underneath this one.
    */
@@ -91,7 +91,7 @@ export interface OxcruiseConfig {
   /**
    * Modules matching these globs are not part of the graph. `.gitignore` is always honoured.
    */
-  ignorePatterns?: string[];
+  ignorePatterns?: string | string[];
   /**
    * JS/TS plugin modules (paths or package names).
    */
@@ -104,6 +104,11 @@ export interface OxcruiseConfig {
   rules?: {
     [k: string]: RuleEntry;
   };
+  /**
+   * Extract exports and the names each import uses, for `json` output and plugins; rules that
+   * need them turn it on anyway.
+   */
+  symbols?: boolean;
 }
 /**
  * A forbidden dependency: an import from `from` to `to` is a violation.
@@ -139,7 +144,8 @@ export interface ToCondition {
    */
   dynamic?: boolean | null;
   /**
-   * What the dependency points to; any of these.
+   * What the dependency points to; any of these. Default: every kind, except for `reachable`
+   * rules, which look at `local` and `package` modules only.
    */
   kind?: OneOrMany2 | null;
   path?: OneOrMany | null;
@@ -175,7 +181,7 @@ export interface Override {
   /**
    * Globs of the importing module this override applies to.
    */
-  files: string[];
+  files: string | string[];
   rules?: {
     [k: string]: RuleEntry;
   };

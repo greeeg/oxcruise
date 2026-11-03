@@ -4,10 +4,15 @@ use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 ///
 /// Globs use `*` within a segment and `**` across segments. A glob also
 /// matches everything beneath a directory it matches, so `src/legacy` and
-/// `src/legacy/**` are equivalent.
+/// `src/legacy/**` are equivalent. A leading `!` negates a glob, as in the rule patterns: a
+/// path matches when some positive glob matches and no negated one does, and a list of only
+/// negations means "everything except".
 #[derive(Debug, Clone)]
 pub struct PathMatcher {
-    globs: GlobSet,
+    positive: GlobSet,
+    negative: GlobSet,
+    /// No positive glob: the negated ones then select everything else.
+    only_negations: bool,
     empty: bool,
 }
 
@@ -19,20 +24,38 @@ impl Default for PathMatcher {
 
 impl PathMatcher {
     pub fn new<S: AsRef<str>>(patterns: &[S]) -> Result<Self, String> {
-        let mut globs = GlobSetBuilder::new();
+        let (mut positive, mut negative) = (GlobSetBuilder::new(), GlobSetBuilder::new());
+        let mut any_positive = false;
         for p in patterns {
-            let g = p.as_ref();
+            let (set, g) = match p.as_ref().strip_prefix('!') {
+                Some(neg) => (&mut negative, neg),
+                None => {
+                    any_positive = true;
+                    (&mut positive, p.as_ref())
+                }
+            };
             let g = g.strip_prefix("./").unwrap_or(g);
-            for pat in [g.to_string(), format!("{}/**", g.trim_end_matches('/'))] {
+            // `dir/**` also matches `dir` itself, like the rule patterns
+            let base = g.strip_suffix("/**").unwrap_or(g);
+            let pats = [
+                g.to_string(),
+                format!("{}/**", base.trim_end_matches('/')),
+                base.to_string(),
+            ];
+            for pat in pats {
                 let glob = GlobBuilder::new(&pat)
                     .literal_separator(true)
+                    // globs use `/`; `\` escapes on every platform (globset's Windows default is off)
+                    .backslash_escape(true)
                     .build()
                     .map_err(|e| format!("invalid glob `{g}`: {e}"))?;
-                globs.add(glob);
+                set.add(glob);
             }
         }
         Ok(Self {
-            globs: globs.build().map_err(|e| e.to_string())?,
+            positive: positive.build().map_err(|e| e.to_string())?,
+            negative: negative.build().map_err(|e| e.to_string())?,
+            only_negations: !patterns.is_empty() && !any_positive,
             empty: patterns.is_empty(),
         })
     }
@@ -42,7 +65,9 @@ impl PathMatcher {
     }
 
     pub fn is_match(&self, path: &str) -> bool {
-        !self.empty && self.globs.is_match(path)
+        !self.empty
+            && (self.only_negations || self.positive.is_match(path))
+            && !self.negative.is_match(path)
     }
 }
 
@@ -61,6 +86,18 @@ mod tests {
         let m = PathMatcher::new(&["**/*.test.ts"]).unwrap();
         assert!(m.is_match("a/b/c.test.ts"));
         assert!(m.is_match("c.test.ts"));
+    }
+
+    #[test]
+    fn negation_follows_the_rule_patterns() {
+        let m = PathMatcher::new(&["src/**", "!src/keep/**"]).unwrap();
+        assert!(m.is_match("src/a.ts"));
+        assert!(!m.is_match("src/keep/a.ts"));
+        assert!(!m.is_match("lib/a.ts"));
+        // only negations: everything except
+        let m = PathMatcher::new(&["!src/keep"]).unwrap();
+        assert!(m.is_match("lib/a.ts"));
+        assert!(!m.is_match("src/keep/deep/a.ts"));
     }
 
     #[test]

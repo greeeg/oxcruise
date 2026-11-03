@@ -1,10 +1,20 @@
 use std::cell::RefCell;
 use std::path::Path;
+use std::sync::Mutex;
 
 use bitflags::bitflags;
-use oxcruise_core::{CycleStep, Edge, EdgeId, Graph, Module, ModuleId, Severity, Violation};
-use oxcruise_graph::analyses::{Scc, distinct_dependents, strongly_connected};
+use oxcruise_core::{
+    CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Severity,
+    Subject, Violation,
+};
+use oxcruise_graph::analyses::{
+    ExportUsage, Scc, distinct_dependents, export_usage, strongly_connected,
+};
 use oxcruise_resolve::WorkspacePackage;
+use rayon::prelude::*;
+
+use crate::conventions::ConventionFilter;
+use crate::entries::{self, EntryInputs, EntrySet};
 
 pub use oxcruise_config::Category;
 
@@ -33,6 +43,24 @@ bitflags! {
         const CYCLES_RUNTIME = 1 << 1;
         /// Distinct dependent counts per module.
         const DEPENDENTS = 1 << 2;
+        /// The entry points of the project (`RuleCtx::entries`). Implies `MANIFESTS`.
+        const ENTRIES = 1 << 3;
+        /// Exports and used names, extracted while parsing (`Module::exports`, `Edge::used`).
+        const SYMBOLS = 1 << 4;
+        /// The `package.json` declarations (`RuleCtx::manifests`).
+        const MANIFESTS = 1 << 5;
+        /// The peer dependencies of each declared package (`DeclaredDep::peers`). Implies `MANIFESTS`.
+        const DEP_PEERS = 1 << 6;
+    }
+}
+
+bitflags! {
+    /// The `check_*` hooks a rule implements; the engine skips the passes of the others.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Hooks: u8 {
+        const MODULE = 1;
+        const EDGE = 1 << 1;
+        const GRAPH = 1 << 2;
     }
 }
 
@@ -42,10 +70,23 @@ pub struct AnalysisCache {
     pub scc_all: Option<Scc>,
     pub scc_runtime: Option<Scc>,
     pub dependents: Option<Vec<u32>>,
+    /// The entry points the rules that asked for them take together (the union of their
+    /// convention filters).
+    pub entries: Option<EntrySet>,
+    /// The entry points with default options. Computed whenever the graph carries symbols.
+    pub default_entries: Option<EntrySet>,
+    /// What the exports of the project are used by, from `default_entries`. It does not depend
+    /// on which rules are on, so every report agrees on it.
+    pub usage: Option<ExportUsage>,
 }
 
 impl AnalysisCache {
-    pub fn compute(graph: &Graph, wanted: Analyses) -> Self {
+    pub fn compute(
+        graph: &Graph,
+        wanted: Analyses,
+        entries: &EntryInputs<'_>,
+        symbols: bool,
+    ) -> Self {
         // Independent analyses run in parallel.
         let (scc, (rt, dep)) = rayon::join(
             || {
@@ -62,19 +103,47 @@ impl AnalysisCache {
                     },
                     || {
                         wanted.contains(Analyses::DEPENDENTS).then(|| {
-                            graph
-                                .module_ids()
-                                .map(|m| distinct_dependents(graph, m))
+                            (0..graph.module_count() as u32)
+                                .into_par_iter()
+                                .map(|m| distinct_dependents(graph, ModuleId(m)))
                                 .collect::<Vec<_>>()
                         })
                     },
                 )
             },
         );
+        let default = [ConventionFilter::default()];
+        // The usage of the whole project always goes with the default entries; rules that
+        // take other options compute their own.
+        let default_entries = (symbols || wanted.contains(Analyses::ENTRIES)).then(|| {
+            entries::compute(
+                graph,
+                &EntryInputs {
+                    manifests: entries.manifests,
+                    conventions: &default,
+                    plugin_entries: entries.plugin_entries,
+                },
+            )
+        });
+        let usage = default_entries
+            .as_ref()
+            .filter(|_| symbols)
+            .map(|e| export_usage(graph, &e.all(), &|_| false));
+        // a default filter allows every convention, so it makes the others redundant
+        let rules_entries = wanted.contains(Analyses::ENTRIES).then(|| {
+            if entries.conventions.contains(&default[0]) {
+                default_entries.clone().expect("computed for ENTRIES")
+            } else {
+                entries::compute(graph, entries)
+            }
+        });
         Self {
             scc_all: scc,
             scc_runtime: rt,
             dependents: dep,
+            entries: rules_entries,
+            default_entries,
+            usage,
         }
     }
 
@@ -101,7 +170,10 @@ pub struct Shared<'a> {
     pub graph: &'a Graph,
     pub root: &'a Path,
     pub workspace: &'a [WorkspacePackage],
+    pub manifests: &'a [DeclaredManifest],
     pub analyses: &'a AnalysisCache,
+    /// Notes rules leave for the user (`RuleCtx::warn`), in no particular order.
+    pub warnings: Mutex<Vec<String>>,
 }
 
 /// Per-task context: shared state plus a private violation buffer, so rules
@@ -129,11 +201,32 @@ impl<'a> RuleCtx<'a> {
     pub fn analyses(&self) -> &'a AnalysisCache {
         self.shared.analyses
     }
+    pub fn manifests(&self) -> &'a [DeclaredManifest] {
+        self.shared.manifests
+    }
+    /// The shared entry points. Only available to rules that require `Analyses::ENTRIES`.
+    pub fn entries(&self) -> &'a EntrySet {
+        self.shared
+            .analyses
+            .entries
+            .as_ref()
+            .expect("ENTRIES analysis was not requested by any rule")
+    }
     pub fn module(&self, m: ModuleId) -> &'a Module {
         self.shared.graph.module(m)
     }
     pub fn edge(&self, e: EdgeId) -> &'a Edge {
         self.shared.graph.edge(e)
+    }
+
+    /// A note for the user that is not a violation, such as a rule that cannot find what it needs
+    /// and so reports nothing. The same note from several places is shown once.
+    pub fn warn(&self, message: impl Into<String>) {
+        self.shared
+            .warnings
+            .lock()
+            .expect("poisoned")
+            .push(message.into());
     }
 
     /// Violation on a whole module.
@@ -167,7 +260,48 @@ impl<'a> RuleCtx<'a> {
             message: message.into(),
             loc: edge.loc,
             path,
+            subject: Subject::Module,
+            fix: None,
         });
+    }
+
+    /// Violation on export number `export` of `m` (or one of its members, at `loc`).
+    pub fn report_export(
+        &self,
+        m: ModuleId,
+        export: usize,
+        loc: Option<Loc>,
+        message: impl Into<String>,
+        fixable: bool,
+    ) {
+        let module = self.module(m);
+        let mut v = Violation::module(self.rule, self.severity, m, message.into());
+        v.loc = loc.or(Some(module.exports[export].loc));
+        v.subject = Subject::Export(export as u32);
+        v.fix = module.exports[export]
+            .fix
+            .filter(|_| fixable)
+            .map(|(s, e)| Fix {
+                file: module.path.clone(),
+                edits: vec![(s, e, String::new())],
+            });
+        self.out.borrow_mut().push(v);
+    }
+
+    /// Violation in a file that is not a module, such as a `package.json`. `from` only orders it.
+    pub fn report_file(
+        &self,
+        from: ModuleId,
+        file: &str,
+        loc: Loc,
+        message: impl Into<String>,
+        fix: Option<Fix>,
+    ) {
+        let mut v = Violation::module(self.rule, self.severity, from, message.into());
+        v.fix = fix;
+        v.loc = Some(loc);
+        v.subject = Subject::File(file.to_string());
+        self.out.borrow_mut().push(v);
     }
 
     /// Push a fully built violation (for module-level findings that carry a target and path).
@@ -189,6 +323,20 @@ pub trait Rule: RuleMeta + Sized + Default + std::fmt::Debug + Send + Sync {
     fn requirements(&self) -> Analyses {
         Analyses::empty()
     }
+
+    /// Whether the rule has a `production` option, which `--production` turns on.
+    fn has_production_option() -> bool {
+        false
+    }
+
+    /// Which tool conventions this rule counts as entry points (rules that need `ENTRIES`).
+    fn conventions(&self) -> ConventionFilter {
+        ConventionFilter::default()
+    }
+
+    /// The hooks below that this rule overrides. A hook missing here is never called, so keep
+    /// it in step with the `check_*` methods; the default runs all of them.
+    const HOOKS: Hooks = Hooks::all();
 
     fn check_module(&self, _m: ModuleId, _cx: &RuleCtx<'_>) {}
     fn check_edge(&self, _e: EdgeId, _cx: &RuleCtx<'_>) {}

@@ -152,10 +152,10 @@ function run(cmd: string, argv: string[], cwd: string): string {
 
 type OxDep = {
   to: string;
-  to_kind: "source" | "stub" | "core" | "unresolved";
+  toKind: "local" | "package" | "builtin" | "unresolved";
   specifier: string;
   kinds: string[];
-  module_system: string;
+  moduleSystem: string;
 };
 type OxResult = { modules: { path: string; kind: string; dependencies: OxDep[] }[] };
 
@@ -181,17 +181,17 @@ function fromOxcruise(json: string): Result {
     dependencies: m.dependencies.map((d) => {
       // dependency-cruiser reports only what an unresolvable dependency resolves to (`unknown`)
       const kinds = d.kinds.filter(
-        (k) => !OX_ONLY.has(k) && !(d.to_kind === "unresolved" && SYNTAX.has(k)),
+        (k) => !OX_ONLY.has(k) && !(d.toKind === "unresolved" && SYNTAX.has(k)),
       );
       return {
         resolved: d.to,
         // dependency-cruiser strips the `node:` prefix of built-in modules
-        module: d.to_kind === "core" ? d.specifier.replace(/^node:/, "") : d.specifier,
+        module: d.toKind === "builtin" ? d.specifier.replace(/^node:/, "") : d.specifier,
         dependencyTypes: kinds,
-        couldNotResolve: d.to_kind === "unresolved",
-        coreModule: d.to_kind === "core",
+        couldNotResolve: d.toKind === "unresolved",
+        coreModule: d.toKind === "builtin",
         dynamic: d.kinds.includes("dynamic-import"),
-        moduleSystem: d.module_system,
+        moduleSystem: d.moduleSystem,
         url: d.kinds.includes("url") || d.kinds.includes("worker"),
       };
     }),
@@ -200,7 +200,7 @@ function fromOxcruise(json: string): Result {
   const seen = new Set(modules.map((m) => m.source));
   for (const m of ox.modules)
     for (const d of m.dependencies)
-      if (d.to_kind === "unresolved" && !seen.has(d.to)) {
+      if (d.toKind === "unresolved" && !seen.has(d.to)) {
         seen.add(d.to);
         modules.push({ source: d.to, dependencies: [] });
       }

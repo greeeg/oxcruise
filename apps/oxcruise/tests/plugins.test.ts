@@ -61,7 +61,13 @@ describe("loading", () => {
   test("loads a plugin by path and reports its qualified names", async () => {
     write("a.mjs", plugin("acme"));
     const meta = await loadPlugin({ specifier: "./a.mjs", cwd: dir }, registry);
-    expect(meta).toEqual({ name: "acme", rules: ["r"], reporters: ["rep"] });
+    expect(meta).toEqual({
+      name: "acme",
+      rules: ["r"],
+      reporters: ["rep"],
+      entries: [],
+      symbols: false,
+    });
     expect(registry.rule("acme/r").rule.create).toBeTypeOf("function");
     expect(registry.reporter("acme/rep")({} as never)).toBe("x");
   });
@@ -74,6 +80,27 @@ describe("loading", () => {
     write("node_modules/oxcruise-plugin-pkg/i.js", plugin("pkg"));
     const meta = await loadPlugin({ specifier: "pkg", cwd: dir }, registry);
     expect(meta.name).toBe("pkg");
+  });
+
+  test("a plugin can declare entry points", async () => {
+    write("e.mjs", plugin("ent", `, entries: ["**/*.stories.tsx", "app/routes/**"]`));
+    const meta = await loadPlugin({ specifier: "./e.mjs", cwd: dir }, registry);
+    expect(meta.entries).toEqual(["**/*.stories.tsx", "app/routes/**"]);
+    write("bad.mjs", plugin("bad", `, entries: "src/**"`));
+    await expect(loadPlugin({ specifier: "./bad.mjs", cwd: dir }, registry)).rejects.toThrow(
+      /`entries` must be an array of glob strings/,
+    );
+  });
+
+  test("a plugin can ask for symbols", async () => {
+    write("s.mjs", plugin("sym", `, needs: ["symbols"]`));
+    expect((await loadPlugin({ specifier: "./s.mjs", cwd: dir }, registry)).symbols).toBe(true);
+    write("n.mjs", plugin("nosym"));
+    expect((await loadPlugin({ specifier: "./n.mjs", cwd: dir }, registry)).symbols).toBe(false);
+    write("bad-needs.mjs", plugin("badneeds", `, needs: ["everything"]`));
+    await expect(loadPlugin({ specifier: "./bad-needs.mjs", cwd: dir }, registry)).rejects.toThrow(
+      /`needs` must be an array of "symbols"/,
+    );
   });
 
   test("an alias replaces meta.name", async () => {
@@ -163,12 +190,22 @@ describe("rule options", () => {
   test("defaults fill the gaps and configured values win", () => {
     expect(withDefaults(schema, undefined)).toEqual({ max: 15, name: "x" });
     expect(withDefaults(schema, null)).toEqual({ max: 15, name: "x" });
-    expect(withDefaults(schema, { max: 3, extra: true })).toEqual({
-      max: 3,
-      name: "x",
-      extra: true,
-    });
+    expect(withDefaults(schema, { max: 3 })).toEqual({ max: 3, name: "x" });
     expect(withDefaults(undefined, { a: 1 })).toEqual({ a: 1 });
     expect(withDefaults(schema, ["not", "an", "object"])).toEqual({ max: 15, name: "x" });
+  });
+
+  test("a schema rejects unknown keys and values of the wrong type, naming the rule", () => {
+    expect(() => withDefaults(schema, { mx: 3 }, "acme/limit")).toThrow(
+      "invalid options for `acme/limit`: unknown option `mx` (known: `max`, `name`, `plain`)",
+    );
+    expect(() => withDefaults(schema, { max: "3" }, "acme/limit")).toThrow(
+      "invalid options for `acme/limit`: option `max` must be of type number, got string",
+    );
+    expect(() => withDefaults({ list: { type: "array" } }, { list: {} }, "r")).toThrow(
+      "must be of type array, got object",
+    );
+    expect(withDefaults({ list: { type: "array" } }, { list: [] })).toEqual({ list: [] });
+    expect(() => withDefaults({}, { a: 1 }, "r")).toThrow("(it takes none)");
   });
 });

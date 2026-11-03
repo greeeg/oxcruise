@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"src/a.ts -> used/sub/path as used/sub/path [npm]\",\n\"src/a.ts -> @scope/pkg/x as @scope/pkg/x [npm]\",])"
+---
+error no-unused-deps package.json:3:5: `unused` is in `dependencies` but no module imports it
+error no-unused-deps package.json:6:5: `peer` is in `peerDependencies` but no module imports it

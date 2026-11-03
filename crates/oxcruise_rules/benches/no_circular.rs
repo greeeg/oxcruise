@@ -16,7 +16,7 @@ fn parts(n: usize) -> (Vec<Module>, Vec<Edge>) {
         state
     };
     let modules = (0..n)
-        .map(|i| Module::new(format!("src/m{i:07}.ts"), ModuleKind::Source))
+        .map(|i| Module::new(format!("src/m{i:07}.ts"), ModuleKind::Local))
         .collect();
     let mut edges = Vec::with_capacity(n * 6);
     for i in 0..n {
@@ -35,6 +35,7 @@ fn parts(n: usize) -> (Vec<Module>, Vec<Edge>) {
                     module_system: ModuleSystem::Es6,
                     loc: None,
                     suppressed: vec![],
+                    used: oxcruise_core::UsedNames::All,
                 });
             }
         }

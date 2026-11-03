@@ -2,12 +2,29 @@ use std::path::PathBuf;
 
 use clap::{ArgGroup, Parser};
 
-/// Flags that only make sense for a check; the file-writing modes refuse them.
+/// Flags that only make sense for a check; the other modes refuse them.
 const CHECK_ONLY: &[&str] = &[
-    "paths",
     "format",
+    "paths",
     "quiet",
     "ignore_pattern",
+    "production",
+    "symbols",
+    "fix",
+    "max_depth",
+    "max_warnings",
+    "deny_warnings",
+    "threads",
+];
+
+/// [`CHECK_ONLY`] without `--format`, which `--rules` takes (`-f json`).
+const CHECK_ONLY_BESIDES_FORMAT: &[&str] = &[
+    "paths",
+    "quiet",
+    "ignore_pattern",
+    "production",
+    "symbols",
+    "fix",
     "max_depth",
     "max_warnings",
     "deny_warnings",
@@ -43,10 +60,10 @@ pub struct Cli {
     )]
     pub migrate: Option<Option<PathBuf>>,
     /// List the built-in rules by category; `-f json` prints them as JSON
-    #[arg(long, help_heading = "Mode Options")]
+    #[arg(long, help_heading = "Mode Options", conflicts_with_all = CHECK_ONLY_BESIDES_FORMAT)]
     pub rules: bool,
     /// Print the resolved config (extends applied, every category with its level) as JSON
-    #[arg(long, help_heading = "Mode Options")]
+    #[arg(long, help_heading = "Mode Options", conflicts_with_all = CHECK_ONLY)]
     pub print_config: bool,
 
     /// Config to read; with --init or --migrate, the file to write
@@ -56,7 +73,7 @@ pub struct Cli {
     /// Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
     #[arg(long, value_name = "GLOB", help_heading = "Input Options")]
     pub ignore_pattern: Vec<String>,
-    /// Follow dependencies at most this many hops from the entries (dot and mermaid output)
+    /// Follow dependencies at most this many hops from the entries; deeper modules are not in the graph, so no output or rule sees them
     #[arg(long, value_name = "N", help_heading = "Input Options")]
     pub max_depth: Option<u32>,
 
@@ -69,6 +86,21 @@ pub struct Cli {
         help_heading = "Output Options"
     )]
     pub format: String,
+    /// Extract exports and the names each import uses, for `json` output and plugins
+    /// (rules that need them turn it on anyway)
+    #[arg(long, help_heading = "Input Options")]
+    pub symbols: bool,
+
+    /// Apply the automatic repairs of `no-unused-exports` and `no-unused-deps` (drop the `export`
+    /// keyword or list entry, remove the `package.json` entry); run again for what that unlocks
+    #[arg(long, help_heading = "Output Options")]
+    pub fix: bool,
+
+    /// Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are
+    /// left out, and `devDependencies` are not checked
+    #[arg(long, help_heading = "Input Options")]
+    pub production: bool,
+
     /// Report errors only (warnings still count for the warning limits)
     #[arg(long, help_heading = "Output Options")]
     pub quiet: bool,
@@ -111,5 +143,16 @@ impl Cli {
         } else {
             Mode::Check
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_flag_lists_agree() {
+        assert_eq!(CHECK_ONLY[0], "format");
+        assert_eq!(&CHECK_ONLY[1..], CHECK_ONLY_BESIDES_FORMAT);
     }
 }

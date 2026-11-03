@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use oxcruise_core::{EdgeId, ModuleId};
 
+use crate::conventions::ConventionFilter;
 use crate::declarative::CompiledRule;
-use crate::meta::{Analyses, Category, Rule, RuleCtx, RuleMeta};
+use crate::meta::{Analyses, Category, Hooks, Rule, RuleCtx, RuleMeta};
 use crate::rules::*;
 
 /// Static description of a rule, for `--rules` and docs.
@@ -33,10 +34,33 @@ macro_rules! register_rules {
                 None
             }
 
+            /// Whether the built-in rule `name` has a `production` option (`--production`).
+            pub fn has_production_option(name: &str) -> bool {
+                $(if name == <$ty as RuleMeta>::NAME {
+                    return <$ty as Rule>::has_production_option();
+                })*
+                false
+            }
+
             pub fn requirements(&self) -> Analyses {
                 match self {
                     $(RuleEnum::$ty(r) => r.requirements(),)*
                     RuleEnum::Declarative(r) => r.requirements(),
+                }
+            }
+
+            pub fn conventions(&self) -> ConventionFilter {
+                match self {
+                    $(RuleEnum::$ty(r) => r.conventions(),)*
+                    RuleEnum::Declarative(_) => ConventionFilter::default(),
+                }
+            }
+
+            /// The hooks this rule implements.
+            pub fn hooks(&self) -> Hooks {
+                match self {
+                    $(RuleEnum::$ty(_) => <$ty as Rule>::HOOKS,)*
+                    RuleEnum::Declarative(r) => r.hooks(),
                 }
             }
 
@@ -50,7 +74,7 @@ macro_rules! register_rules {
             pub fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
                 match self {
                     $(RuleEnum::$ty(r) => r.check_edge(e, cx),)*
-                    RuleEnum::Declarative(r) => r.check_edge(e, cx),
+                    RuleEnum::Declarative(_) => {}
                 }
             }
 
@@ -90,4 +114,7 @@ register_rules! {
     Layers,
     InternalModules,
     NoCrossPackageRelative,
+    NoUnusedExports,
+    NoUnusedDeps,
+    NoUnusedFiles,
 }

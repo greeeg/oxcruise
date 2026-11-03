@@ -335,7 +335,7 @@ fn unknown_rule_suggests_a_name() {
 #[test]
 fn every_builtin_documents_itself() {
     let rules = oxcruise_rules::builtin_rules();
-    assert_eq!(rules.len(), 13);
+    assert_eq!(rules.len(), 16);
     for r in &rules {
         assert!(r.docs.len() > 20, "{} has no docs", r.name);
         assert!(

@@ -85,7 +85,17 @@ export default definePlugin({
 import { cruise } from "oxcruise";
 const g = await cruise({ paths: ["src"] });
 expect(g.module("src/ui/page.ts")?.dependsOn("src/db/**")).toBe(false);
+
+// exports and who uses them (extracts symbols, so it costs an extra walk; a plugin asks for them
+// with `definePlugin({ needs: ["symbols"], … })`, the CLI with `--symbols` or `"symbols": true`)
+const s = await cruise({ paths: ["src"], symbols: true });
+expect(s.module("src/index.ts")!.unusedExports()).toEqual([]);
+expect(s.whoImports("src/db/client.ts", "query").every((m) => m.path.startsWith("src/repo/"))).toBe(true);
 ```
+
+Unused exports, dependencies and files (modelled on [Knip](https://knip.dev)) are the nursery rules
+`no-unused-exports`, `no-unused-deps` and `no-unused-files`: enable them in `rules`, add `--production` (`cruise({ production: true })`) to leave tests
+out, and `--fix` to apply the automatic repairs.
 
 ## Documentation
 

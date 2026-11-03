@@ -1,0 +1,9 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: report(&o)
+---
+exit: 0
+--- stdout
+
+--- stderr
+warning: no-unused-files: no entry point found (package.json entries, conventions, `entries` option); nothing is reported

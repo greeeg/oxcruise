@@ -3,8 +3,8 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use super::{file_has_marker, in_test_dir};
-use crate::meta::{Rule, RuleCtx, parse_options};
+use super::is_test_module;
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
@@ -39,6 +39,8 @@ pub struct NoDevDepsInProd {
 }
 
 impl Rule for NoDevDepsInProd {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let mut c: NoDevDepsInProdConfig = parse_options("no-dev-deps-in-prod", value)?;
         if c.prod.is_empty() {
@@ -62,10 +64,10 @@ impl Rule for NoDevDepsInProd {
         }
         let path = &cx.module(edge.from).path;
         let none = Captures::default();
-        let is_test = file_has_marker(path, "test")
-            || file_has_marker(path, "spec")
-            || in_test_dir(path)
-            || self.test.as_ref().is_some_and(|t| t.is_match(path, &none));
+        let is_test = self.test.as_ref().map_or_else(
+            || is_test_module(path, &PathPatterns::empty()),
+            |t| is_test_module(path, t),
+        );
         let is_prod = self.prod.as_ref().is_none_or(|p| p.is_match(path, &none));
         if is_prod && !is_test {
             cx.report_edge(

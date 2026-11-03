@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "exports(json!({ \"includeEntryExports\": true })).fail(&lines)"
+---
+error no-unused-exports api.ts:3:1: unused export `b`
+error no-unused-exports app.ts:2:1: unused export `main`

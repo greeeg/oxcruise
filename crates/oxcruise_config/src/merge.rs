@@ -24,6 +24,7 @@ impl OxcruiseConfig {
     /// * Lists of patterns and entries: the child replaces when non-empty.
     /// * `categories`, `rules`, `resolve.alias`: merged by key, the child's entry wins.
     /// * `forbid`/`overrides`/`calls`/`jsPlugins`: concatenated, base first.
+    /// * `symbols`: on when either is.
     pub fn layered(&self, child: &OxcruiseConfig) -> OxcruiseConfig {
         let mut categories = self.categories.clone();
         categories.extend(child.categories.clone());
@@ -53,6 +54,7 @@ impl OxcruiseConfig {
                 },
             },
             calls: concat(&self.calls, &child.calls),
+            symbols: self.symbols || child.symbols,
             js_plugins: concat(&self.js_plugins, &child.js_plugins),
         }
     }

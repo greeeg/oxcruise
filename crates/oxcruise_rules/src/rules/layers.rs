@@ -6,7 +6,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
@@ -50,6 +50,8 @@ impl Layers {
 }
 
 impl Rule for Layers {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: LayersConfig = parse_options("layers", value)?;
         for (from, tos) in &c.allow {
@@ -77,7 +79,7 @@ impl Rule for Layers {
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         let (from, to) = (cx.module(edge.from), cx.module(edge.to));
-        if to.kind != ModuleKind::Source {
+        if to.kind != ModuleKind::Local {
             return;
         }
         let (Some(a), Some(b)) = (self.layer_of(&from.path), self.layer_of(&to.path)) else {

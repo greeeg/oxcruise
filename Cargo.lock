@@ -1287,6 +1287,7 @@ name = "oxcruise_core"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -1324,6 +1325,7 @@ dependencies = [
  "rayon",
  "regex",
  "rustc-hash",
+ "tempfile",
 ]
 
 [[package]]

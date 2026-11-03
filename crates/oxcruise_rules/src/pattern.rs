@@ -8,7 +8,7 @@
 //!
 //! Everything compiles to the `regex` crate, so matching is linear-time.
 
-use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
 use regex::Regex;
 use rustc_hash::FxHashMap;
@@ -38,7 +38,7 @@ enum Item {
 #[derive(Debug)]
 struct Template {
     source: String,
-    cache: Mutex<FxHashMap<String, Option<Regex>>>,
+    cache: RwLock<FxHashMap<String, Option<Arc<Regex>>>>,
 }
 
 impl Item {
@@ -47,7 +47,7 @@ impl Item {
         if !capturing && placeholder_spans(src).next().is_some() {
             return Ok(Item::Template(Template {
                 source: src.to_string(),
-                cache: Mutex::default(),
+                cache: RwLock::default(),
             }));
         }
         Regex::new(&glob_to_regex(src, capturing))
@@ -86,6 +86,14 @@ impl PathPatterns {
         self.positive.is_empty() && self.negative.is_empty()
     }
 
+    /// Does some glob refer to a capture? If not, a match depends on the path alone.
+    pub fn refers_to_captures(&self) -> bool {
+        self.positive
+            .iter()
+            .chain(&self.negative)
+            .any(|i| matches!(i, Item::Template(_)))
+    }
+
     /// Does the list match `path`? Patterns that refer to captures that `caps` lacks never
     /// match, so a negated one then excludes nothing. An empty list matches nothing.
     pub fn is_match(&self, path: &str, caps: &Captures) -> bool {
@@ -106,6 +114,10 @@ impl PathPatterns {
         let mut caps = Captures::default();
         if !self.positive.is_empty() {
             caps = self.positive.iter().find_map(|i| match i {
+                // no groups: nothing to extract, and `is_match` is cheaper than `captures`
+                Item::Static(re) if re.captures_len() == 1 => {
+                    re.is_match(path).then(Captures::default)
+                }
                 Item::Static(re) => re.captures(path).map(|c| {
                     let mut caps = Captures::default();
                     for (idx, name) in re.capture_names().enumerate().skip(1) {
@@ -123,13 +135,33 @@ impl PathPatterns {
 }
 
 impl Template {
-    fn regex(&self, caps: &Captures) -> Option<Regex> {
-        let (substituted, key) = substitute(&self.source, caps)?;
-        let mut cache = self.cache.lock().expect("poisoned");
-        cache
-            .entry(key)
-            .or_insert_with(|| Regex::new(&glob_to_regex(&substituted, false)).ok())
-            .clone()
+    /// Shared, not cloned: a `Regex` clone starts a new scratch-space pool, which costs more than
+    /// a match.
+    fn regex(&self, caps: &Captures) -> Option<Arc<Regex>> {
+        thread_local! {
+            static KEY: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+        }
+        // the key alone decides a hit; it is built in a reused buffer, and the substituted glob
+        // and an owned key only on a miss
+        KEY.with_borrow_mut(|key| {
+            key.clear();
+            if !cache_key(&self.source, caps, key) {
+                return None;
+            }
+            if let Some(hit) = self.cache.read().expect("poisoned").get(key.as_str()) {
+                return hit.clone();
+            }
+            let (substituted, _) = substitute(&self.source, caps)?;
+            let compiled = Regex::new(&glob_to_regex(&substituted, false))
+                .ok()
+                .map(Arc::new);
+            self.cache
+                .write()
+                .expect("poisoned")
+                .entry(key.clone())
+                .or_insert(compiled)
+                .clone()
+        })
     }
 }
 
@@ -158,6 +190,19 @@ fn is_ident(s: &str) -> bool {
     c.next()
         .is_some_and(|f| f.is_ascii_alphabetic() || f == '_')
         && c.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Write the cache key of a template under `caps` into `key`: the captured values it refers to.
+/// `false` when a placeholder has no capture.
+fn cache_key(src: &str, caps: &Captures, key: &mut String) -> bool {
+    for (_, _, name) in placeholder_spans(src) {
+        let Some(v) = caps.get(name) else {
+            return false;
+        };
+        key.push_str(v);
+        key.push('\0');
+    }
+    true
 }
 
 /// Replace references with captured text. Returns the new source and a cache key.
@@ -283,6 +328,28 @@ mod tests {
     }
     fn none() -> Captures {
         Captures::default()
+    }
+
+    /// `tests/fixtures/glob-cases.json` is also run by the JS `matchesGlob` (apps/oxcruise).
+    #[test]
+    fn shared_glob_table() {
+        let table: serde_json::Value =
+            serde_json::from_str(include_str!("../../../tests/fixtures/glob-cases.json")).unwrap();
+        for case in table["cases"].as_array().unwrap() {
+            let (glob, path, want) = (
+                case[0].as_str().unwrap(),
+                case[1].as_str().unwrap(),
+                case[2].as_bool().unwrap(),
+            );
+            let p = pats(&[glob], Role::Referencing);
+            assert_eq!(
+                p.is_match(path, &none()),
+                want,
+                "PathPatterns: {glob} vs {path}"
+            );
+            let m = oxcruise_graph::PathMatcher::new(&[glob]).unwrap();
+            assert_eq!(m.is_match(path), want, "PathMatcher: {glob} vs {path}");
+        }
     }
 
     #[test]

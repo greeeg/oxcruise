@@ -17,6 +17,7 @@ use oxcruise_core::{LineIndex, Span};
 
 pub use facts::{
     ExportFact, ExportKind, ExtractOptions, FileFacts, ImportFact, RawDependency, Suppression,
+    UsedRefs,
 };
 
 /// Extensions oxcruise will parse as source.
@@ -59,6 +60,15 @@ pub fn extract(
             Err(e) => builder.parse_error = Some(e.to_string()),
         }
     }
+    if builder.opts.symbols && matches!(ext, "vue" | "svelte" | "astro") {
+        // Templates use bindings the script blocks never mention, so nothing can be narrowed.
+        for i in &mut builder.imports {
+            i.refs = UsedRefs::Opaque;
+        }
+        for e in &mut builder.exports {
+            e.used_in_file = true;
+        }
+    }
     builder.finish()
 }
 
@@ -78,8 +88,12 @@ fn parse_block(
         builder.parse_error.get_or_insert(msg);
         return;
     }
+    let first = visitor::BlockStart {
+        imports: builder.imports.len(),
+        exports: builder.exports.len(),
+    };
     visitor::collect_module_record(&ret.module_record, offset, builder);
-    visitor::collect_ast(&ret.program, offset, builder);
+    visitor::collect_ast(&ret.program, offset, first, builder);
     comments::collect(&ret.program, text, offset, builder);
 }
 

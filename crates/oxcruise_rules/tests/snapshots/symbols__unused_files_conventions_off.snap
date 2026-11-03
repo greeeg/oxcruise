@@ -1,0 +1,8 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "files(json!({\n    \"conventions\": [\"vitest\"]\n})).with_manifest(\"\", &manifest).fail(&lines)"
+---
+error no-unused-files app/helpers.ts: this module cannot be reached from any entry point
+error no-unused-files app/page.tsx: this module cannot be reached from any entry point
+error no-unused-files components/button.tsx: this module cannot be reached from any entry point
+error no-unused-files src/unused.ts: this module cannot be reached from any entry point

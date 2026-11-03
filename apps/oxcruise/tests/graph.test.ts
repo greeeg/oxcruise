@@ -12,6 +12,17 @@ const expected = JSON.parse(readFileSync(new URL("monorepo.graph.json", dir), "u
     package: string | null;
     notFollowed: boolean;
     dependents: number;
+    exports: {
+      name: string;
+      kind: string;
+      type: boolean;
+      line: number;
+      col: number;
+      from: string | null;
+      imported: string | null;
+      used: boolean;
+      usedMembers: "*" | string[];
+    }[];
   }[];
   edges: {
     from: string;
@@ -22,6 +33,7 @@ const expected = JSON.parse(readFileSync(new URL("monorepo.graph.json", dir), "u
     col: number | null;
     typeOnly: boolean;
     circular: boolean;
+    names: "*" | string[];
   }[];
 };
 
@@ -40,6 +52,26 @@ describe("graph buffer written by Rust", () => {
       expect(m.notFollowed).toBe(want.notFollowed);
       expect(m.dependentCount).toBe(want.dependents);
     });
+  });
+
+  test("exports and used names decode", () => {
+    const g = graph();
+    expect(g.symbols).toBe(true);
+    g.modules.forEach((m, i) => {
+      const want = expected.modules[i]!.exports;
+      expect(m.exports.map((x) => x.name)).toEqual(want.map((x) => x.name));
+      m.exports.forEach((x, j) => {
+        const w = want[j]!;
+        expect([x.kind, x.isType, x.used]).toEqual([w.kind, w.type, w.used]);
+        expect(x.usedMembers).toEqual(w.usedMembers);
+        expect(x.loc).toEqual({ line: w.line, col: w.col });
+        expect(x.from?.path ?? null).toBe(w.from);
+        expect(x.imported ?? null).toBe(w.imported);
+      });
+    });
+    g.edges.forEach((d, i) => expect(d.names).toEqual(expected.edges[i]!.names));
+    expect(expected.modules.some((m) => m.exports.length > 0)).toBe(true);
+    expect(expected.edges.some((e) => Array.isArray(e.names))).toBe(true);
   });
 
   test("every dependency decodes, including the 64-bit kinds", () => {
@@ -61,7 +93,7 @@ describe("graph buffer written by Rust", () => {
   test("module() and per-module dependencies follow the CSR sections", () => {
     const g = graph();
     const index = g.module("packages/app/src/index.ts")!;
-    expect(index.kind).toBe("source");
+    expect(index.kind).toBe("local");
     expect(index.package).toBe("@acme/app");
     const specs = index.dependencies.map((d) => d.specifier);
     expect(specs).toContain("./util");

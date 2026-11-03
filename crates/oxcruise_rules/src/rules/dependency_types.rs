@@ -5,7 +5,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 declare_rule! {
@@ -18,6 +18,8 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoDeprecated;
 impl Rule for NoDeprecated {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if !edge.kinds.contains(DepKinds::DEPRECATED) {
@@ -51,6 +53,8 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoUndeclaredDeps;
 impl Rule for NoUndeclaredDeps {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if edge
@@ -89,6 +93,8 @@ pub struct NoUnresolvable {
     ignore: Option<PathPatterns>,
 }
 impl Rule for NoUnresolvable {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: NoUnresolvableConfig = parse_options("no-unresolvable", value)?;
         Ok(Self {
@@ -129,6 +135,8 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoDuplicateDeps;
 impl Rule for NoDuplicateDeps {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if !edge.is_type_only() && (edge.kinds & NPM_SECTIONS).bits().count_ones() > 1 {
@@ -154,6 +162,8 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoOptionalDeps;
 impl Rule for NoOptionalDeps {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if edge.kinds.contains(DepKinds::NPM_OPTIONAL) {
@@ -177,6 +187,8 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoPeerDeps;
 impl Rule for NoPeerDeps {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if edge.kinds.contains(DepKinds::NPM_PEER) {

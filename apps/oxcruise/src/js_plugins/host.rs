@@ -6,16 +6,19 @@
 
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use napi::Status;
 use napi::bindgen_prelude::{Buffer, Promise, block_on};
 use napi::threadsafe_function::ThreadsafeFunction;
 use oxcruise_config::{ConfigError, JsConfigLoader};
 use oxcruise_core::{EdgeId, Graph, ModuleId};
+use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_report::ExternalReporters;
 use oxcruise_resolve::WorkspacePackage;
 use oxcruise_rules::{
-    ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget, ExternalViolation, PluginRef,
+    AnalysisCache, ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalTarget,
+    ExternalViolation, PluginRef,
 };
 use serde::Deserialize;
 
@@ -61,11 +64,25 @@ struct LoadedPlugin {
     rules: Vec<String>,
     #[serde(default)]
     reporters: Vec<String>,
+    /// Globs of modules the plugin declares as entry points.
+    #[serde(default)]
+    entries: Vec<String>,
+    /// The plugin reads exports and used names (`needs: ["symbols"]`).
+    #[serde(default)]
+    symbols: bool,
 }
+
+/// A graph buffer with the `(modules, edges)` of the graph it encodes.
+type Encoded = ((usize, usize), Vec<u8>);
 
 pub struct Host {
     cb: Callbacks,
     plugins: Mutex<Vec<LoadedPlugin>>,
+    /// The graph as last sent to the plugin rules, for `cruise()` to hand back to JS instead of
+    /// encoding it again. `(modules, edges)` guards against a different graph.
+    encoded: Mutex<Option<Encoded>>,
+    /// Keep a copy of the buffer in `encoded`; only `cruise()` reuses it.
+    keep_encoded: AtomicBool,
 }
 
 impl Host {
@@ -73,7 +90,20 @@ impl Host {
         Self {
             cb,
             plugins: Mutex::new(vec![]),
+            encoded: Mutex::new(None),
+            keep_encoded: AtomicBool::new(false),
         }
+    }
+
+    /// Remember the buffer sent to plugin rules, for `take_encoded`.
+    pub fn keep_encoded_graph(&self) {
+        self.keep_encoded.store(true, Ordering::Relaxed);
+    }
+
+    /// The buffer of `graph` that plugin rules were given, if they ran on this graph.
+    pub fn take_encoded(&self, graph: &Graph) -> Option<Vec<u8>> {
+        let (shape, bytes) = self.encoded.lock().expect("poisoned").take()?;
+        (shape == (graph.module_count(), graph.edge_count())).then_some(bytes)
     }
 }
 
@@ -100,12 +130,28 @@ impl ExternalRules for Host {
         Ok(())
     }
 
+    fn entries(&self) -> Vec<String> {
+        let plugins = self.plugins.lock().expect("poisoned");
+        plugins
+            .iter()
+            .flat_map(|p| p.entries.iter().cloned())
+            .collect()
+    }
+
+    fn needs_symbols(&self) -> bool {
+        self.plugins
+            .lock()
+            .expect("poisoned")
+            .iter()
+            .any(|p| p.symbols)
+    }
+
     fn rule_exists(&self, name: &str) -> bool {
         self.plugins
             .lock()
             .expect("poisoned")
             .iter()
-            .any(|p| p.rules.iter().any(|r| format!("{}/{r}", p.name) == name))
+            .any(|p| p.rules.iter().any(|r| is_qualified(name, &p.name, r)))
     }
 
     fn run(
@@ -113,8 +159,15 @@ impl ExternalRules for Host {
         graph: &Graph,
         workspace: &[WorkspacePackage],
         rules: &[ExternalRuleSpec],
+        usage: Option<&ExportUsage>,
+        analyses: &AnalysisCache,
     ) -> Result<Vec<ExternalViolation>, String> {
-        let buffer = Buffer::from(graph_buffer::encode(graph, workspace));
+        let bytes = graph_buffer::encode_with(graph, workspace, usage, analyses);
+        let shape = (graph.module_count(), graph.edge_count());
+        if self.keep_encoded.load(Ordering::Relaxed) {
+            *self.encoded.lock().expect("poisoned") = Some((shape, bytes.clone()));
+        }
+        let buffer = Buffer::from(bytes);
         let specs: Vec<_> = rules
             .iter()
             .map(|r| {
@@ -142,10 +195,19 @@ impl ExternalRules for Host {
     }
 }
 
+/// Is `name` the plugin's `plugin/item`?
+fn is_qualified(name: &str, plugin: &str, item: &str) -> bool {
+    name.strip_prefix(plugin)
+        .and_then(|rest| rest.strip_prefix('/'))
+        == Some(item)
+}
+
 #[derive(Deserialize)]
 struct RawViolation {
     id: u32,
     module: Option<u32>,
+    /// With `module`: the index of the export in the module's exports.
+    export: Option<u32>,
     edge: Option<u32>,
     message: String,
 }
@@ -166,14 +228,23 @@ fn parse_violations(
                 v.id
             ));
         }
-        let target = match (v.module, v.edge) {
-            (Some(m), None) if (m as usize) < graph.module_count() => {
+        let target = match (v.module, v.export, v.edge) {
+            (Some(m), None, None) if (m as usize) < graph.module_count() => {
                 ExternalTarget::Module(ModuleId(m))
             }
-            (None, Some(e)) if (e as usize) < graph.edge_count() => ExternalTarget::Edge(EdgeId(e)),
+            (Some(m), Some(x), None)
+                if (m as usize) < graph.module_count()
+                    && (x as usize) < graph.module(ModuleId(m)).exports.len() =>
+            {
+                ExternalTarget::Export(ModuleId(m), x)
+            }
+            (None, None, Some(e)) if (e as usize) < graph.edge_count() => {
+                ExternalTarget::Edge(EdgeId(e))
+            }
             _ => {
                 return Err(
-                    "plugin violation must name exactly one existing module or dependency".into(),
+                    "plugin violation must name exactly one existing module, export or dependency"
+                        .into(),
                 );
             }
         };
@@ -188,11 +259,12 @@ fn parse_violations(
 
 impl ExternalReporters for Host {
     fn render(&self, name: &str, result_json: &str) -> Result<String, String> {
-        let known = self.plugins.lock().expect("poisoned").iter().any(|p| {
-            p.reporters
-                .iter()
-                .any(|r| format!("{}/{r}", p.name) == name)
-        });
+        let known = self
+            .plugins
+            .lock()
+            .expect("poisoned")
+            .iter()
+            .any(|p| p.reporters.iter().any(|r| is_qualified(name, &p.name, r)));
         if !known {
             return Err(format!(
                 "no loaded plugin provides the reporter `{name}`; is its plugin listed in `jsPlugins`?"

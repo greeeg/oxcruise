@@ -29,19 +29,13 @@
     },
     "doNotFollow": {
       "description": "Matching modules stay in the graph, but their imports are not parsed.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/OneOrMany",
+      "default": []
     },
     "entries": {
       "description": "Files, directories or globs to start from. Default: `[\".\"]`.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/OneOrMany",
+      "default": []
     },
     "extends": {
       "description": "Paths to other config files, merged underneath this one.",
@@ -61,11 +55,8 @@
     },
     "ignorePatterns": {
       "description": "Modules matching these globs are not part of the graph. `.gitignore` is always honoured.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/OneOrMany",
+      "default": []
     },
     "jsPlugins": {
       "description": "JS/TS plugin modules (paths or package names).",
@@ -97,6 +88,11 @@
         "$ref": "#/$defs/RuleEntry"
       },
       "default": {}
+    },
+    "symbols": {
+      "description": "Extract exports and the names each import uses, for `json` output and plugins; rules that\nneed them turn it on anyway.",
+      "type": "boolean",
+      "default": false
     }
   },
   "additionalProperties": false,
@@ -175,16 +171,25 @@
         }
       ]
     },
-    "Kind": {
-      "description": "What a dependency points to.",
+    "Level": {
+      "description": "Severity of a rule. `off` disables it.",
+      "type": "string",
+      "enum": [
+        "off",
+        "warn",
+        "error"
+      ]
+    },
+    "ModuleKind": {
+      "description": "What a module is. The names are the ones the config (`to.kind`), the JSON and plugins use.",
       "oneOf": [
         {
-          "description": "A file of the project.",
+          "description": "A file of the project, parsed.",
           "type": "string",
           "const": "local"
         },
         {
-          "description": "A file inside `node_modules`.",
+          "description": "A file inside `node_modules`: resolved, not parsed.",
           "type": "string",
           "const": "package"
         },
@@ -198,15 +203,6 @@
           "type": "string",
           "const": "unresolved"
         }
-      ]
-    },
-    "Level": {
-      "description": "Severity of a rule. `off` disables it.",
-      "type": "string",
-      "enum": [
-        "off",
-        "warn",
-        "error"
       ]
     },
     "OneOrMany": {
@@ -225,12 +221,12 @@
     "OneOrMany2": {
       "anyOf": [
         {
-          "$ref": "#/$defs/Kind"
+          "$ref": "#/$defs/ModuleKind"
         },
         {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/Kind"
+            "$ref": "#/$defs/ModuleKind"
           }
         }
       ]
@@ -253,10 +249,7 @@
       "properties": {
         "files": {
           "description": "Globs of the importing module this override applies to.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/OneOrMany"
         },
         "rules": {
           "type": "object",
@@ -358,7 +351,7 @@
           "default": null
         },
         "kind": {
-          "description": "What the dependency points to; any of these.",
+          "description": "What the dependency points to; any of these. Default: every kind, except for `reachable`\nrules, which look at `local` and `package` modules only.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany2"

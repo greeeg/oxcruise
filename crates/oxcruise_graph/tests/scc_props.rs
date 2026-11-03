@@ -6,7 +6,7 @@ use proptest::prelude::*;
 
 fn build(n: usize, pairs: &[(usize, usize)]) -> Graph {
     let modules = (0..n)
-        .map(|i| Module::new(format!("m{i:02}.ts"), ModuleKind::Source))
+        .map(|i| Module::new(format!("m{i:02}.ts"), ModuleKind::Local))
         .collect();
     let edges = pairs
         .iter()
@@ -19,6 +19,7 @@ fn build(n: usize, pairs: &[(usize, usize)]) -> Graph {
             module_system: ModuleSystem::Es6,
             loc: None,
             suppressed: vec![],
+            used: oxcruise_core::UsedNames::All,
         })
         .collect();
     Graph::build(modules, edges)
@@ -128,7 +129,7 @@ proptest! {
         let pairs: Vec<_> = (0..n).map(|i| (i, (i + 1) % n)).collect();
         let mut g_edges: Vec<Edge> = build(n, &pairs).edges().to_vec();
         g_edges[0].kinds |= DepKinds::TYPE_ONLY;
-        let modules = (0..n).map(|i| Module::new(format!("m{i:02}.ts"), ModuleKind::Source)).collect();
+        let modules = (0..n).map(|i| Module::new(format!("m{i:02}.ts"), ModuleKind::Local)).collect();
         let g = Graph::build(modules, g_edges);
         let all = strongly_connected(&g, &|_| true);
         let runtime = strongly_connected(&g, &|e| !e.is_type_only());

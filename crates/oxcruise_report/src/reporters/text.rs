@@ -9,7 +9,7 @@ pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
     for m in result
         .modules
         .iter()
-        .filter(|m| m.kind == ModuleKind::Source)
+        .filter(|m| m.kind == ModuleKind::Local)
     {
         for d in &m.dependencies {
             let flags: Vec<&str> = d

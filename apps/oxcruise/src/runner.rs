@@ -6,8 +6,11 @@ use std::time::Instant;
 use clap::Parser;
 use oxcruise_config::{Category, JsConfigLoader, NodeSubprocessLoader};
 use oxcruise_core::Severity;
+use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_graph::cruise;
-use oxcruise_report::{CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, render};
+use oxcruise_report::{
+    CruiseResult, ExternalReporters, OutputFormat, ReporterOptions, Totals, render,
+};
 use oxcruise_rules::{Engine, ExternalRules, PluginRef, builtin_rules};
 
 use crate::args::{Cli, Mode};
@@ -22,6 +25,8 @@ pub struct Analysis {
     /// Sorted, with suppressed violations removed.
     pub violations: Vec<oxcruise_core::Violation>,
     pub suppressed: usize,
+    /// Which exports are used, when symbols were extracted.
+    pub usage: Option<ExportUsage>,
     pub errors: usize,
     pub warnings: usize,
 }
@@ -216,9 +221,34 @@ impl CliRunner {
             workspace,
             violations,
             suppressed,
+            usage,
             errors,
             warnings,
         } = analysis;
+        let (violations, errors, warnings) = if args.fix {
+            match crate::fix::apply(&cwd, violations) {
+                Ok(applied) => {
+                    let count = |s| applied.fixed.iter().filter(|v| v.severity == s).count();
+                    let (fixed_errors, fixed_warnings) =
+                        (count(Severity::Error), count(Severity::Warn));
+                    if !applied.fixed.is_empty() {
+                        let _ = writeln!(
+                            err,
+                            "fixed {} problem(s); run again to see what that unlocked",
+                            applied.fixed.len()
+                        );
+                    }
+                    (
+                        applied.remaining,
+                        errors - fixed_errors,
+                        warnings - fixed_warnings,
+                    )
+                }
+                Err(e) => return fail(err, e),
+            }
+        } else {
+            (violations, errors, warnings)
+        };
         // the counts above already include the warnings that are not shown
         let violations = if args.quiet {
             violations
@@ -233,8 +263,20 @@ impl CliRunner {
             &workspace,
             cwd.clone(),
             &violations,
-            suppressed,
+            // `--quiet` hides warnings, it does not make them go away
+            Totals {
+                error: errors,
+                warn: warnings,
+                suppressed,
+            },
             vec![],
+            usage
+                .as_ref()
+                .map(|u| {
+                    Box::new(move |m, name: &str| u.is_used(m, name))
+                        as Box<dyn Fn(_, &str) -> bool>
+                })
+                .as_deref(),
         );
 
         let reporter_opts = ReporterOptions {
@@ -315,7 +357,12 @@ impl CliRunner {
             return Err(fail(err, e));
         }
         let engine = match Engine::new(&config, self.external_rules.clone()) {
-            Ok(e) => e,
+            Ok(mut e) => {
+                if args.production {
+                    e.set_production();
+                }
+                e
+            }
             Err(errors) => {
                 for e in errors {
                     let _ = writeln!(err, "error: {e}");
@@ -323,15 +370,34 @@ impl CliRunner {
                 return Err(CliRunResult::InvalidOptions);
             }
         };
-        let opts = match options::build(&cwd, &config, args) {
+        let mut opts = match options::build(&cwd, &config, args) {
             Ok(o) => o,
             Err(e) => return Err(fail(err, e)),
         };
+        // symbols cost a second walk over every file, so they are extracted only when asked for
+        // (`symbols`, `--symbols`), or when a rule or a plugin reads them
+        opts.extract.symbols = engine.wants_symbols()
+            || config.symbols
+            || args.symbols
+            || self
+                .external_rules
+                .as_ref()
+                .is_some_and(|x| x.needs_symbols());
+        // what is used depends on the manifests (entry points), whichever rules are on
+        opts.manifests = engine.wants_manifests() || opts.extract.symbols;
+        opts.manifest_peers = engine.wants_peers();
+        let symbols = opts.extract.symbols;
         let output = match cruise(&opts) {
             Ok(o) => o,
             Err(e) => return Err(fail(err, e)),
         };
-        let run = engine.run(&output.graph, &cwd, &output.workspace);
+        let run = engine.run(
+            &output.graph,
+            &cwd,
+            &output.workspace,
+            &output.manifests,
+            symbols,
+        );
         if !run.fatal.is_empty() {
             for f in &run.fatal {
                 let _ = writeln!(err, "error: {f}");
@@ -346,12 +412,16 @@ impl CliRunner {
         for w in &run.warnings {
             let _ = writeln!(err, "warning: {w}");
         }
+        let usage = run
+            .usage
+            .or_else(|| symbols.then(|| ExportUsage::empty(output.graph.module_count())));
         Ok(Analysis {
             cwd,
             graph: output.graph,
             workspace: output.workspace,
             violations: run.violations,
             suppressed: run.suppressed,
+            usage,
             errors,
             warnings,
         })

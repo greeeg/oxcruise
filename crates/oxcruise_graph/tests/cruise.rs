@@ -54,16 +54,16 @@ fn discovers_the_fixture_monorepo() {
     assert!(kinds("./missing").contains(DepKinds::UNKNOWN));
     assert!(kinds("@acme/lib").contains(DepKinds::ALIASED_WORKSPACE));
 
-    // stubs
+    // package files
     let lodash = g
         .modules()
         .iter()
         .find(|m| m.path.contains("node_modules/lodash"))
         .unwrap();
-    assert_eq!(lodash.kind, ModuleKind::Stub);
+    assert_eq!(lodash.kind, ModuleKind::Package);
     let missing = g.find("./missing").unwrap();
     assert_eq!(g.module(missing).kind, ModuleKind::Unresolved);
-    assert_eq!(g.module(g.find("fs").unwrap()).kind, ModuleKind::Core);
+    assert_eq!(g.module(g.find("fs").unwrap()).kind, ModuleKind::Builtin);
 
     // type-only edge keeps its flag, with a line and column
     let helpers = "packages/app/src/helpers.ts";
@@ -155,4 +155,67 @@ fn glob_entries_and_missing_entry() {
     let g = cruise(&o).unwrap().graph;
     assert!(g.find("packages/lib/src/index.ts").is_some());
     assert!(cruise(&CruiseOptions::new(fixture(), vec!["nope".into()])).is_err());
+}
+
+/// A package with one dependency, `host`, whose installed manifest has the peer `peer`.
+fn peers_project() -> tempfile::TempDir {
+    let d = tempfile::tempdir().unwrap();
+    let write = |p: &str, text: &str| {
+        let path = d.path().join(p);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    write(
+        "package.json",
+        r#"{ "name": "p", "dependencies": { "host": "1.0.0" } }"#,
+    );
+    write("src/index.ts", "export const a = 1;\n");
+    write(
+        "node_modules/host/package.json",
+        r#"{ "name": "host", "peerDependencies": { "peer": "*" } }"#,
+    );
+    d
+}
+
+#[test]
+fn peers_of_declared_packages_are_read_only_on_request() {
+    let d = peers_project();
+    let mut o = CruiseOptions::new(d.path(), vec!["src".into()]);
+    o.manifests = true;
+    let without = cruise(&o).unwrap();
+    assert_eq!(without.manifests.len(), 1);
+    assert!(without.manifests[0].deps[0].peers.is_empty());
+
+    o.manifest_peers = true;
+    let with = cruise(&o).unwrap();
+    assert_eq!(with.manifests[0].deps[0].peers, ["peer"]);
+}
+
+#[test]
+fn a_reexport_reads_from_the_es_resolution_of_its_specifier() {
+    let d = tempfile::tempdir().unwrap();
+    let write = |p: &str, text: &str| {
+        let path = d.path().join(p);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    write(
+        "node_modules/dual/package.json",
+        r#"{ "name": "dual", "exports": { "import": "./esm.js", "require": "./cjs.js" } }"#,
+    );
+    write("node_modules/dual/esm.js", "export const a = 1;\n");
+    write("node_modules/dual/cjs.js", "exports.a = 1;\n");
+    // the `require` comes first, and resolves to another file than the `export … from`
+    write(
+        "src/index.ts",
+        "const legacy = require(\"dual\");\nexport { a } from \"dual\";\n",
+    );
+    // the resolver follows symlinks (macOS temp dirs live under the `/var` link), so the root must too
+    let mut o = CruiseOptions::new(d.path().canonicalize().unwrap(), vec!["src".into()]);
+    o.extract.symbols = true;
+    let out = cruise(&o).unwrap();
+    let g = &out.graph;
+    let index = g.module(g.find("src/index.ts").unwrap());
+    let from = index.exports[0].from.expect("a re-export has a source");
+    assert_eq!(g.module(from).path, "node_modules/dual/esm.js");
 }

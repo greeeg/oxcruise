@@ -1,7 +1,7 @@
 use oxcruise_core::{EdgeId, ModuleKind};
 use oxcruise_macros::declare_rule;
 
-use crate::meta::{Rule, RuleCtx};
+use crate::meta::{Hooks, Rule, RuleCtx};
 
 declare_rule! {
     /// ### What it does
@@ -18,13 +18,15 @@ declare_rule! {
 #[derive(Debug, Default)]
 pub struct NoCrossPackageRelative;
 impl Rule for NoCrossPackageRelative {
+    const HOOKS: Hooks = Hooks::EDGE;
+
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
         let edge = cx.edge(e);
         if !(edge.specifier.starts_with("./") || edge.specifier.starts_with("../")) {
             return;
         }
         let (from, to) = (cx.module(edge.from), cx.module(edge.to));
-        if to.kind != ModuleKind::Source {
+        if to.kind != ModuleKind::Local {
             return;
         }
         if let (Some(a), Some(b)) = (from.package, to.package)

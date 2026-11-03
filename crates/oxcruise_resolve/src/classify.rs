@@ -110,7 +110,7 @@ fn npm(r: &Resolver, from_dir: &Path, spec: &str, path: &Path, package: String) 
     if kinds.is_empty() {
         kinds = DepKinds::NPM_NO_PKG;
     }
-    if package_deprecated(path, &package) {
+    if package_deprecated(r, path, &package) {
         kinds |= DepKinds::DEPRECATED;
     }
     Resolved {
@@ -136,7 +136,7 @@ fn types_counterpart(name: &str) -> String {
     }
 }
 
-fn package_deprecated(path: &Path, package: &str) -> bool {
+fn package_deprecated(r: &Resolver, path: &Path, package: &str) -> bool {
     // <...>/node_modules/<package>/package.json
     let comps: Vec<_> = path.components().collect();
     let Some(idx) = comps
@@ -147,8 +147,11 @@ fn package_deprecated(path: &Path, package: &str) -> bool {
     };
     let mut dir: PathBuf = comps[..=idx].iter().collect();
     dir.push(package);
-    crate::Manifest::read(&dir)
-        .is_some_and(|m| m.deprecated.is_some_and(|d| !d.is_null() && d != false))
+    r.manifests.at(&dir).is_some_and(|m| {
+        m.deprecated
+            .as_ref()
+            .is_some_and(|d| !d.is_null() && *d != false)
+    })
 }
 
 /// `a/b/node_modules/@scope/pkg/x.js` -> `@scope/pkg` (last `node_modules` wins, which handles pnpm stores).

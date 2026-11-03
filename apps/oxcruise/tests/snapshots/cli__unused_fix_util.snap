@@ -1,0 +1,14 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: "read(\"src/util.ts\")"
+---
+export const helper = () => 1;
+export const testOnly = () => 2;
+const dead = 3;
+// oxcruise-ignore-next-line no-unused-exports
+export const kept = 4;
+export enum Color {
+  Red,
+  Green,
+}
+type Unused = string;

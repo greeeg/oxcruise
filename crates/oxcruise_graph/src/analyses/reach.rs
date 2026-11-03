@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use oxcruise_core::{CycleStep, Edge, EdgeId, Graph, ModuleId};
 
 use super::BitSet;
@@ -10,6 +8,8 @@ use super::BitSet;
 pub struct Reach {
     pub reached: BitSet,
     pred: Vec<Option<EdgeId>>,
+    /// Modules reached by the last search, in visiting order.
+    visited: Vec<ModuleId>,
 }
 
 impl Reach {
@@ -49,23 +49,66 @@ impl Reach {
 
 /// Breadth-first search over edges accepted by `keep`. Start modules are reached at depth zero.
 pub fn reach_from(g: &Graph, starts: &[ModuleId], keep: &dyn Fn(&Edge) -> bool) -> Reach {
-    let n = g.module_count();
-    let mut reached = BitSet::new(n);
-    let mut pred = vec![None; n];
-    let mut q = VecDeque::new();
-    for &s in starts {
-        if reached.insert(s.idx()) {
-            q.push_back(s);
+    let mut reach = Reach::new(g.module_count());
+    reach.run(g, starts, keep);
+    reach
+}
+
+impl Reach {
+    /// An empty result for a graph of `n` modules, to be filled by [`Reach::run`].
+    pub fn new(n: usize) -> Self {
+        Self {
+            reached: BitSet::new(n),
+            pred: vec![None; n],
+            visited: vec![],
         }
     }
-    while let Some(m) = q.pop_front() {
-        for id in g.out_edge_ids(m) {
-            let e = g.edge(id);
-            if keep(e) && reached.insert(e.to.idx()) {
-                pred[e.to.idx()] = Some(id);
-                q.push_back(e.to);
+
+    /// Search again into the same buffers. Only what the previous search touched is cleared, so
+    /// many searches from different starts cost what they visit, not the size of the graph.
+    pub fn run(&mut self, g: &Graph, starts: &[ModuleId], keep: &dyn Fn(&Edge) -> bool) {
+        assert_eq!(self.pred.len(), g.module_count(), "graph size changed");
+        for m in self.visited.drain(..) {
+            self.pred[m.idx()] = None;
+        }
+        self.reached.clear();
+        for &s in starts {
+            if self.reached.insert(s.idx()) {
+                self.visited.push(s);
+            }
+        }
+        // `visited` doubles as the queue: it only grows, and `head` walks it
+        let mut head = 0;
+        while let Some(&m) = self.visited.get(head) {
+            head += 1;
+            for id in g.out_edge_ids(m) {
+                let e = g.edge(id);
+                if keep(e) && self.reached.insert(e.to.idx()) {
+                    self.pred[e.to.idx()] = Some(id);
+                    self.visited.push(e.to);
+                }
             }
         }
     }
-    Reach { reached, pred }
+}
+
+/// The modules with a path of at least one edge to some module of `targets`.
+pub fn can_reach(g: &Graph, targets: &BitSet) -> BitSet {
+    let mut found = BitSet::new(g.module_count());
+    let mut queue: Vec<ModuleId> = vec![];
+    let visit_dependents = |m: ModuleId, found: &mut BitSet, queue: &mut Vec<ModuleId>| {
+        for &id in g.in_edge_ids(m) {
+            let from = g.edge(id).from;
+            if found.insert(from.idx()) {
+                queue.push(from);
+            }
+        }
+    };
+    for t in targets.iter() {
+        visit_dependents(ModuleId(t as u32), &mut found, &mut queue);
+    }
+    while let Some(m) = queue.pop() {
+        visit_dependents(m, &mut found, &mut queue);
+    }
+    found
 }

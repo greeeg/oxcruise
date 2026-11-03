@@ -1,0 +1,4 @@
+{
+  // the build goes to dist
+  "compilerOptions": { "outDir": "dist", "rootDir": "src" }
+}

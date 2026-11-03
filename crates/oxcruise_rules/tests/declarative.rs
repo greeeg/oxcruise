@@ -136,6 +136,35 @@ fn reachable() {
 }
 
 #[test]
+fn reachable_with_no_target_reachable() {
+    // the targets exist, but nothing from `from` leads to them (the walk is skipped for those)
+    let tester = t(json!({
+        "forbid": [{ "name": "ui-must-not-reach-db", "from": "src/ui/**", "to": { "path": "src/db/**", "reachable": true } }]
+    }));
+    tester.pass(&[
+        "src/ui/a.ts -> src/domain/b.ts",
+        "src/ui/b.ts -> src/ui/a.ts",
+        "src/db/q.ts -> src/ui/a.ts",
+        "src/db/conn.ts -> src/db/q.ts",
+    ]);
+    // a cycle through the target does not make it reachable from itself by mistake
+    tester.pass(&[
+        "src/db/q.ts -> src/db/q.ts",
+        "src/ui/a.ts -> src/domain/b.ts",
+    ]);
+    // only one of several `from` modules reaches the target
+    let r = tester.fail(&[
+        "src/ui/a.ts -> src/domain/b.ts",
+        "src/ui/c.ts -> src/domain/d.ts",
+        "src/domain/d.ts -> src/db/q.ts",
+    ]);
+    assert!(
+        r.contains("src/ui/c.ts") && !r.contains("src/ui/a.ts ->"),
+        "{r}"
+    );
+}
+
+#[test]
 fn unsupported_combinations_are_errors() {
     for (to, needle) in [
         (json!({ "reachable": false }), "`reachable: false`"),
@@ -272,6 +301,49 @@ fn dead_rules_are_always_reported() {
     }));
     let r = tester.run(&["src/a.ts -> src/b.ts"]);
     insta::assert_snapshot!("dead_rules", r.warnings.join("\n"));
+}
+
+#[test]
+fn an_engine_keeps_nothing_from_one_run_to_the_next() {
+    let config = || {
+        json!({
+            "categories": { "correctness": "off", "suspicious": "off" },
+            "forbid": [{
+                "name": "ui-must-not-reach-db", "from": "src/ui/**",
+                "to": { "path": "src/db/**", "reachable": true }
+            }]
+        })
+    };
+    let new_engine =
+        || oxcruise_rules::Engine::new(&serde_json::from_value(config()).unwrap(), None).unwrap();
+    let engine = new_engine();
+    let tester = t(config());
+    let run = |e: &oxcruise_rules::Engine, lines: &[&str]| {
+        let r = e.run(
+            &tester.graph(lines),
+            std::path::Path::new("/"),
+            &[],
+            &[],
+            false,
+        );
+        (r.violations.len(), r.warnings)
+    };
+
+    let a = ["src/ui/a.ts -> src/mid.ts", "src/mid.ts -> src/db/x.ts"];
+    // the rule has nothing to match here: `from` hits and the reachability shortcut of graph A
+    // must not leak into this run
+    let b = [
+        "src/other/b.ts -> src/db/x.ts",
+        "src/db/y.ts",
+        "src/z.ts",
+        "src/w.ts",
+    ];
+    assert_eq!(run(&engine, &a).0, 1);
+    let second = run(&engine, &b);
+    let fresh = run(&new_engine(), &b);
+    assert_eq!(second, fresh);
+    assert_eq!(second.0, 0);
+    assert_eq!(second.1.len(), 1, "{:?}", second.1);
 }
 
 #[test]

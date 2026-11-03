@@ -1,0 +1,8 @@
+{
+  "categories": { "correctness": "off", "suspicious": "off" },
+  "rules": {
+    "no-unused-exports": "warn",
+    "no-unused-deps": ["error", { "sections": ["dependencies", "devDependencies"] }],
+    "no-unused-files": "error"
+  }
+}

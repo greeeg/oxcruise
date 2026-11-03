@@ -11,6 +11,7 @@ fn opts() -> ExtractOptions {
             "need".into(),
             "window.require".into(),
         ],
+        ..Default::default()
     }
 }
 

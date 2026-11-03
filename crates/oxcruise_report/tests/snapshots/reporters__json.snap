@@ -3,12 +3,12 @@ source: crates/oxcruise_report/tests/reporters.rs
 expression: "rendered(\"json\", &plain())"
 ---
 {
-  "version": 1,
+  "version": 2,
   "modules": [
     {
       "path": "fs",
-      "kind": "core",
-      "not_followed": false,
+      "kind": "builtin",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -17,8 +17,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "node_modules/fsevents/index.js",
-      "kind": "stub",
-      "not_followed": false,
+      "kind": "package",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -27,8 +27,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "node_modules/left-pad/index.js",
-      "kind": "stub",
-      "not_followed": false,
+      "kind": "package",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -37,8 +37,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "node_modules/lodash/index.js",
-      "kind": "stub",
-      "not_followed": false,
+      "kind": "package",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -47,8 +47,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "node_modules/react/index.js",
-      "kind": "stub",
-      "not_followed": false,
+      "kind": "package",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -57,8 +57,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "node_modules/vitest/index.js",
-      "kind": "stub",
-      "not_followed": false,
+      "kind": "package",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -67,9 +67,9 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/cjs-thing.js",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -78,20 +78,20 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/cycle-a.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "packages/app/src/cycle-b.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./cycle-b",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 19,
           "circular": true,
@@ -126,20 +126,20 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/cycle-b.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "packages/app/src/cycle-a.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./cycle-a",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 19,
           "circular": true,
@@ -173,24 +173,24 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/helpers.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "packages/app/src/util.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./util",
           "kinds": [
             "local",
             "type-only",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 27,
-          "circular": false
+          "circular": true
         }
       ],
       "dependents": [
@@ -200,20 +200,20 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/index.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "./missing",
-          "to_kind": "unresolved",
+          "toKind": "unresolved",
           "specifier": "./missing",
           "kinds": [
             "unknown",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 11,
           "col": 22,
           "circular": false,
@@ -226,40 +226,40 @@ expression: "rendered(\"json\", &plain())"
         },
         {
           "to": "fs",
-          "to_kind": "core",
+          "toKind": "builtin",
           "specifier": "node:fs",
           "kinds": [
             "core",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 9,
           "col": 16,
           "circular": false
         },
         {
           "to": "node_modules/fsevents/index.js",
-          "to_kind": "stub",
+          "toKind": "package",
           "specifier": "fsevents",
           "kinds": [
             "npm-optional",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 7,
           "col": 22,
           "circular": false
         },
         {
           "to": "node_modules/left-pad/index.js",
-          "to_kind": "stub",
+          "toKind": "package",
           "specifier": "left-pad",
           "kinds": [
             "npm-no-pkg",
             "deprecated",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 8,
           "col": 21,
           "circular": false,
@@ -276,39 +276,39 @@ expression: "rendered(\"json\", &plain())"
         },
         {
           "to": "node_modules/lodash/index.js",
-          "to_kind": "stub",
+          "toKind": "package",
           "specifier": "lodash",
           "kinds": [
             "npm",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 4,
           "col": 15,
           "circular": false
         },
         {
           "to": "node_modules/react/index.js",
-          "to_kind": "stub",
+          "toKind": "package",
           "specifier": "react",
           "kinds": [
             "npm-peer",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 6,
           "col": 19,
           "circular": false
         },
         {
           "to": "node_modules/vitest/index.js",
-          "to_kind": "stub",
+          "toKind": "package",
           "specifier": "vitest",
           "kinds": [
             "npm-dev",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 5,
           "col": 22,
           "circular": false,
@@ -321,33 +321,33 @@ expression: "rendered(\"json\", &plain())"
         },
         {
           "to": "packages/app/src/cjs-thing.js",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./cjs-thing",
           "kinds": [
             "local",
             "require"
           ],
-          "module_system": "cjs",
+          "moduleSystem": "cjs",
           "line": 14,
           "col": 21,
           "circular": false
         },
         {
           "to": "packages/app/src/cycle-a.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./cycle-a",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 13,
           "col": 19,
           "circular": false
         },
         {
           "to": "packages/app/src/helpers.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "@app/helpers",
           "kinds": [
             "local",
@@ -356,14 +356,14 @@ expression: "rendered(\"json\", &plain())"
             "aliased-tsconfig-paths",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 2,
           "col": 24,
           "circular": false
         },
         {
           "to": "packages/app/src/internal/secret.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "#internal/secret",
           "kinds": [
             "local",
@@ -371,40 +371,40 @@ expression: "rendered(\"json\", &plain())"
             "aliased-subpath-import",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 3,
           "col": 24,
           "circular": false
         },
         {
           "to": "packages/app/src/lazy.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./lazy",
           "kinds": [
             "local",
             "dynamic-import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 15,
           "col": 8,
           "circular": false
         },
         {
           "to": "packages/app/src/util.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./util",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 22,
           "circular": false
         },
         {
           "to": "packages/lib/src/index.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "@acme/lib",
           "kinds": [
             "local",
@@ -412,21 +412,21 @@ expression: "rendered(\"json\", &plain())"
             "aliased-workspace",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 12,
           "col": 24,
           "circular": false
         },
         {
           "to": "sys",
-          "to_kind": "core",
+          "toKind": "builtin",
           "specifier": "sys",
           "kinds": [
             "core",
             "deprecated",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 10,
           "col": 17,
           "circular": false,
@@ -442,9 +442,9 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/internal/secret.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -453,9 +453,9 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/lazy.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -464,29 +464,29 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/orphan.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": true,
       "dependencies": [],
       "dependents": []
     },
     {
       "path": "packages/app/src/suppressed.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "./also-nope",
-          "to_kind": "unresolved",
+          "toKind": "unresolved",
           "specifier": "./also-nope",
           "kinds": [
             "unknown",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 3,
           "col": 8,
           "circular": false,
@@ -499,13 +499,13 @@ expression: "rendered(\"json\", &plain())"
         },
         {
           "to": "./nope",
-          "to_kind": "unresolved",
+          "toKind": "unresolved",
           "specifier": "./nope",
           "kinds": [
             "unknown",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 2,
           "col": 8,
           "circular": false
@@ -515,9 +515,9 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/thing.test.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -526,20 +526,20 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/uses-test.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "packages/app/src/thing.test.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./thing.test",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 19,
           "circular": false,
@@ -555,23 +555,23 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/app/src/util.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/app",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "packages/app/src/helpers.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "./helpers",
           "kinds": [
             "local",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 24,
-          "circular": false
+          "circular": true
         }
       ],
       "dependents": [
@@ -581,20 +581,20 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/lib/src/index.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/lib",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [
         {
           "to": "@app/helpers",
-          "to_kind": "unresolved",
+          "toKind": "unresolved",
           "specifier": "@app/helpers",
           "kinds": [
             "unknown",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 2,
           "col": 24,
           "circular": false,
@@ -607,7 +607,7 @@ expression: "rendered(\"json\", &plain())"
         },
         {
           "to": "packages/lib/src/inner.ts",
-          "to_kind": "source",
+          "toKind": "local",
           "specifier": "@lib/inner",
           "kinds": [
             "local",
@@ -616,7 +616,7 @@ expression: "rendered(\"json\", &plain())"
             "aliased-tsconfig-paths",
             "import"
           ],
-          "module_system": "es6",
+          "moduleSystem": "es6",
           "line": 1,
           "col": 23,
           "circular": false
@@ -628,9 +628,9 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "packages/lib/src/inner.ts",
-      "kind": "source",
+      "kind": "local",
       "package": "@acme/lib",
-      "not_followed": false,
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -639,8 +639,8 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "path": "sys",
-      "kind": "core",
-      "not_followed": false,
+      "kind": "builtin",
+      "notFollowed": false,
       "orphan": false,
       "dependencies": [],
       "dependents": [
@@ -674,7 +674,7 @@ expression: "rendered(\"json\", &plain())"
           ]
         }
       ],
-      "specifier_len": 11
+      "specifierLen": 11
     },
     {
       "rule": "no-dev-deps-in-prod",
@@ -685,7 +685,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 5,
       "col": 22,
       "message": "production code imports dev dependency `vitest`",
-      "specifier_len": 8
+      "specifierLen": 8
     },
     {
       "rule": "no-undeclared-deps",
@@ -696,7 +696,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 8,
       "col": 21,
       "message": "`left-pad` is not declared in package.json",
-      "specifier_len": 10
+      "specifierLen": 10
     },
     {
       "rule": "no-unresolvable",
@@ -707,7 +707,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 11,
       "col": 22,
       "message": "cannot resolve `./missing`",
-      "specifier_len": 11
+      "specifierLen": 11
     },
     {
       "rule": "no-unresolvable",
@@ -718,7 +718,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 3,
       "col": 8,
       "message": "cannot resolve `./also-nope`",
-      "specifier_len": 13
+      "specifierLen": 13
     },
     {
       "rule": "no-test-imports",
@@ -729,7 +729,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 1,
       "col": 19,
       "message": "production code imports test code `packages/app/src/thing.test.ts`",
-      "specifier_len": 14
+      "specifierLen": 14
     },
     {
       "rule": "no-unresolvable",
@@ -740,7 +740,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 2,
       "col": 24,
       "message": "cannot resolve `@app/helpers`",
-      "specifier_len": 14
+      "specifierLen": 14
     },
     {
       "rule": "no-deprecated",
@@ -751,7 +751,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 8,
       "col": 21,
       "message": "`left-pad` is deprecated by its maintainers",
-      "specifier_len": 10
+      "specifierLen": 10
     },
     {
       "rule": "no-deprecated",
@@ -762,7 +762,7 @@ expression: "rendered(\"json\", &plain())"
       "line": 10,
       "col": 17,
       "message": "`sys` is a deprecated Node.js module",
-      "specifier_len": 5
+      "specifierLen": 5
     },
     {
       "rule": "no-orphans",
@@ -776,8 +776,8 @@ expression: "rendered(\"json\", &plain())"
     "error": 7,
     "warn": 3,
     "suppressed": 1,
-    "total_modules": 25,
-    "total_dependencies": 24
+    "totalModules": 21,
+    "totalDependencies": 24
   },
   "warnings": []
 }

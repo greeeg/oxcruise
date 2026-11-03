@@ -93,5 +93,6 @@ expression: cfg
   "calls": [
     "need"
   ],
+  "symbols": false,
   "jsPlugins": []
 }

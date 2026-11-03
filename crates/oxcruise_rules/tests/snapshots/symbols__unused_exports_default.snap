@@ -1,0 +1,7 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "exports(Value::Null).fail(&lines)"
+---
+error no-unused-exports lib.ts:3:1: unused export `b`
+error no-unused-exports lib.ts:3:1: unused export `inFile`
+error no-unused-exports lib.ts:3:1: unused type export `T`
