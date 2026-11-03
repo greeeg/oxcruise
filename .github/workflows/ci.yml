@@ -57,6 +57,8 @@ jobs:
       - run: cargo install just --locked
       - run: just config-ts
       - run: git diff --exit-code -- npm/oxcruise/configuration_schema.json apps/oxcruise/src-js
+      - run: node tasks/npm/sync-readme.mjs
+      - run: git diff --exit-code -- npm/oxcruise/README.md npm/oxcruise/LICENSE
 
   website:
     runs-on: ubuntu-latest

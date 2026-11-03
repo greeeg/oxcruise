@@ -10,6 +10,10 @@ pre-commit:
       run: cargo fmt --all
       stage_fixed: true
 
+    - name: sync-readme
+      glob: "{README.md,LICENSE,tasks/npm/sync-readme.mjs}"
+      run: node tasks/npm/sync-readme.mjs && git add npm/oxcruise/README.md npm/oxcruise/LICENSE
+
     - name: oxfmt
       glob: "*.{js,mjs,cjs,ts,mts,cts}"
       run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}

@@ -65,6 +65,10 @@ conformance:
 bench:
     cargo bench --workspace
 
+# Copy README.md and LICENSE into npm/oxcruise/ with absolute links (the pre-commit hook does this too)
+sync-readme:
+    node tasks/npm/sync-readme.mjs
+
 # Generate the rule pages of the website (website/src) from the built-in rule documentation
 rule-docs:
     cargo run -q -p oxcruise -- --rules -f json | node tasks/website/rules-md.mjs website/src

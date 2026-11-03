@@ -87,6 +87,13 @@ try {
   rmSync(join(platformDir, `oxcruise.${t}.node`));
   const tarballs = readdirSync(packs).map((f) => join(packs, f));
   check("packed the main and platform packages", tarballs.length === 2, tarballs.join(", "));
+  const main = tarballs.find((f) => /oxcruise-\d/.test(f));
+  const listing = main ? run("tar", ["-tzf", main]) : "";
+  check(
+    "the main package has the README and LICENSE",
+    listing.includes("package/README.md") && listing.includes("package/LICENSE"),
+    listing,
+  );
 
   // 2. a fresh project
   const proj = join(work, "project");
