@@ -10,6 +10,7 @@ description: "All keys of the oxcruise config file."
 The oxcruise config file.
 Oxcruise reads `oxcruise.config.ts` or `.oxcruiserc.json`. See [Configuration](/guide/configuration) for a guide.
 The config rejects keys that this page does not list.
+A key of type `string` or a list takes globs. A leading `!` negates a glob: `["src/**", "!src/**/*.test.ts"]`.
 
 ## $schema
 
@@ -27,7 +28,7 @@ Names of functions whose first string argument is a dependency, for example `jes
 
 Type: object of [`Level`](#level), by name.
 
-The level of each category of built-in rules. The default is `correctness: error, suspicious: warn`.
+The level of each category of built-in rules. The categories are `correctness`, `suspicious`, `style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.
 
 ## doNotFollow
 
@@ -57,7 +58,7 @@ Forbidden dependencies, written as rules.
 
 Type: `string` or a list.
 
-Globs of modules to leave out of the graph. Oxcruise always uses the rules of `.gitignore` too.
+Globs of modules to leave out of the graph. Oxcruise also uses the rules of `.gitignore` when it looks for modules.
 
 ## jsPlugins
 
@@ -172,7 +173,7 @@ How oxcruise resolves imports.
 
 ### RuleEntry
 
-The setting of a rule: a level, or an array of a level and an options object. For example `"error"` or `["error", { "max": 5 }]`.
+The setting of a rule: a level, or an array of a level and an options object. For example `"error"` or `["error", { "includeTypeOnly": true }]`.
 
 One of:
 
