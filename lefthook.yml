@@ -14,12 +14,3 @@ pre-commit:
       glob: "*.{js,mjs,cjs,ts,mts,cts}"
       run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
-
-pre-push:
-  jobs:
-    - name: clippy
-      glob: "*.{rs,toml}"
-      # Same as `just lint`, inlined so pushing doesn't require `just` to be installed.
-      run: |
-        cargo clippy --workspace --all-targets -- -D warnings
-        cargo clippy -p oxcruise --lib --features napi -- -D warnings

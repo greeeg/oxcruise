@@ -136,7 +136,6 @@ just website-dev           # the documentation site (website/); `just website-ge
 ```
 
 Requires Rust (stable), Node ≥ 22.18 and pnpm. `pnpm install` also installs the git hooks ([lefthook](https://lefthook.dev)):
-`pre-commit` formats staged Rust (rustfmt) and JS/TS ([oxfmt](https://oxc.rs/docs/guide/usage/formatter)) files, `pre-push` runs
-`just lint`. CI checks the same formatting, so `git commit --no-verify` only defers the failure.
+`pre-commit` formats staged Rust (rustfmt) and JS/TS ([oxfmt](https://oxc.rs/docs/guide/usage/formatter)) files. CI checks the same formatting, so `git commit --no-verify` only defers the failure.
 
 Licensed MIT; see [NOTICE](NOTICE) for attributions.
