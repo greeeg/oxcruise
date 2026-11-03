@@ -19,4 +19,7 @@ pre-push:
   jobs:
     - name: clippy
       glob: "*.{rs,toml}"
-      run: just lint
+      # Same as `just lint`, inlined so pushing doesn't require `just` to be installed.
+      run: |
+        cargo clippy --workspace --all-targets -- -D warnings
+        cargo clippy -p oxcruise --lib --features napi -- -D warnings
