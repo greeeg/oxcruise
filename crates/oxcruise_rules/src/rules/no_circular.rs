@@ -28,28 +28,29 @@ const DEFAULT_MAX_CYCLES_PER_COMPONENT: u32 = 100;
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports dependencies that are part of a circular chain of imports and
-    /// shows the shortest cycle through each of them.
+    /// Reports dependencies that are part of a circular chain of imports.
+    /// The message shows the shortest cycle through each dependency.
     ///
     /// ### Why is this bad?
     ///
-    /// Cycles make modules impossible to load, test or reason about in
-    /// isolation, and can cause `undefined` values at runtime.
+    /// A cycle makes modules hard to load, to test and to understand alone.
+    /// A cycle can also cause `undefined` values at runtime.
     ///
     /// ### Options
     ///
-    /// `includeTypeOnly`: also count type-only imports, which are erased at runtime. Off by
-    /// default, so a cycle that exists only through `import type` is not reported.
+    /// * `includeTypeOnly`: also count type-only imports. The default is `false`.
+    ///   A type-only import does not exist at runtime, so a cycle through `import type` is not a runtime cycle.
+    /// * `ignore`: globs of modules to remove from the graph before the search for cycles.
+    ///   Use it for a barrel file that many paths include.
+    ///   To limit the rule to some modules instead, use `overrides`.
+    /// * `maxCyclesPerComponent`: the number of dependencies to search in each strongly connected component.
+    ///   The default is `100`. Use `0` to search all dependencies.
     ///
-    /// `ignore`: globs of modules removed from the graph before cycles are searched, for example
-    /// a barrel file everything legitimately goes through. Use `overrides` to scope the rule to
-    /// some files instead.
-    ///
-    /// `maxCyclesPerComponent`: a large tangle of modules has one cycle per dependency, and
-    /// finding each costs a search of the whole tangle. Only this many dependencies per strongly
-    /// connected component (the first ones in graph order, 100 by default) are searched; one
-    /// extra violation on the component's first module says how many were left out. `0` searches
-    /// them all.
+    /// A strongly connected component is a group of modules that import each other.
+    /// It has one cycle for each dependency, and each search reads the whole group.
+    /// The rule searches only the first dependencies of a group, in graph order.
+    /// It then reports one extra violation on the first module of the group.
+    /// That violation gives the number of dependencies that the rule did not search.
     NoCircular, category = correctness, version = "0.1.0", config = NoCircularConfig
 }
 

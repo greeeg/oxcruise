@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Severity of a rule. `off` disables it.
+/// The level of a rule. `off` disables the rule, `warn` reports violations as warnings, and `error` reports them as errors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
@@ -48,7 +48,8 @@ fn paths<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error
     Ok(Paths::deserialize(d)?.to_vec())
 }
 
-/// A rule entry: `"error"`, or `["error", { ...options }]`.
+/// The setting of a rule: a level, or an array of a level and an options object.
+/// For example `"error"` or `["error", { "includeTypeOnly": true }]`.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum RuleEntry {
@@ -134,15 +135,16 @@ impl Category {
     }
 }
 
+/// How oxcruise resolves imports.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct ResolveSection {
-    /// One tsconfig used for every file. Default: the nearest tsconfig of each file.
+    /// The tsconfig for every file. By default, each file uses the nearest tsconfig.
     pub tsconfig: Option<String>,
-    /// Export/import condition names tried before `import`/`require`, `node` and `default`,
-    /// e.g. `["source"]` to resolve workspace packages to their source.
+    /// Export and import condition names. Oxcruise tries them before `import`, `require`, `node` and `default`.
+    /// For example, use `["source"]` to resolve workspace packages to their source.
     pub conditions: Vec<String>,
-    /// Aliases: `{ "~": "./src" }`.
+    /// Path aliases. For example `{ "~": "./src" }`.
     pub alias: BTreeMap<String, OneOrMany<String>>,
 }
 
@@ -158,7 +160,9 @@ pub enum Relation {
     DescendantOfFromParent,
     /// `to` is in a sibling folder of `from`'s folder.
     Sibling,
+    /// `to` is in the same workspace package as `from`.
     SamePackage,
+    /// `to` is in another workspace package than `from`.
     CrossPackage,
 }
 
@@ -169,15 +173,16 @@ pub use oxcruise_core::ModuleKind as Kind;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct ToCondition {
+    /// Globs that the target of the dependency must match.
     pub path: Option<Paths>,
-    /// What the dependency points to; any of these. Default: every kind, except for `reachable`
-    /// rules, which look at `local` and `package` modules only.
+    /// What the dependency points to. A dependency matches when it has any of these kinds.
+    /// By default, every kind matches, except for `reachable` rules, which check only `local` and `package` modules.
     pub kind: Option<OneOrMany<Kind>>,
-    /// The dependency is `import type` / `export type` only.
+    /// The dependency is only `import type` or `export type`.
     pub type_only: Option<bool>,
     /// The dependency is a dynamic `import()`.
     pub dynamic: Option<bool>,
-    /// How `to` relates to `from`; any of these.
+    /// How `to` relates to `from`. A dependency matches when it has any of these relations.
     pub relation: Option<OneOrMany<Relation>>,
     /// `to` is reachable from `from` through other modules.
     pub reachable: Option<bool>,
@@ -188,6 +193,7 @@ pub struct ToCondition {
 pub enum ToSpec {
     /// Globs the dependency's target must match.
     Paths(Paths),
+    /// An object with conditions on the dependency and its target.
     Cond(ToCondition),
 }
 
@@ -206,45 +212,54 @@ impl<'de> Deserialize<'de> for ToSpec {
     }
 }
 
-/// A forbidden dependency: an import from `from` to `to` is a violation.
+/// A dependency that the project does not allow.
+/// An import from a module that matches `from` to a target that matches `to` is a violation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ForbidRule {
+    /// The name of the rule. Reports and `overrides` use it.
     pub name: String,
-    /// Why the dependency is forbidden; shown instead of the generic message.
+    /// Why the dependency is forbidden. Oxcruise shows it instead of the generic message.
     pub message: Option<String>,
+    /// The level of the rule.
     #[serde(default)]
     pub severity: Level,
-    /// Globs of the importing module. `{name}` captures a path segment for use in `to`.
+    /// Globs of the importing module. `{name}` captures a path segment, and `to` can use the capture.
     pub from: Option<Paths>,
+    /// The target of the dependency: globs, or an object with conditions.
     pub to: Option<ToSpec>,
 }
 
+/// Changes the settings of rules for some modules.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Override {
-    /// Globs of the importing module this override applies to.
+    /// Globs of the importing modules that this override applies to.
     #[serde(deserialize_with = "paths")]
     #[schemars(with = "Paths")]
     pub files: Vec<String>,
+    /// The rules to change, by name.
     #[serde(default)]
     pub rules: BTreeMap<String, RuleEntry>,
 }
 
-/// A JS/TS plugin: a path or package name, or the same with the name its rules are registered under.
+/// A JS or TS plugin: a path or package name, or an object that also gives the prefix of its rules.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum JsPlugin {
-    /// `"./tools/acme.ts"` or `"acme"` (resolved as `oxcruise-plugin-acme`, then `acme`).
+    /// A path, such as `"./tools/acme.ts"`, or a package name, such as `"acme"`.
+    /// For a package name, oxcruise tries `oxcruise-plugin-acme` first and then `acme`.
     Path(String),
+    /// An object with the specifier of the plugin and the prefix of its rules.
     Aliased(AliasedPlugin),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AliasedPlugin {
-    /// Rules are named `<name>/<rule>`, instead of using the plugin's own `meta.name`.
+    /// The prefix of the rules: `<name>/<rule>`. It replaces the `meta.name` of the plugin.
     pub name: String,
+    /// A path or a package name.
     pub specifier: String,
 }
 
@@ -263,41 +278,45 @@ impl JsPlugin {
     }
 }
 
-/// The oxcruise configuration file.
+/// The oxcruise config file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct OxcruiseConfig {
+    /// The URL or path of the JSON schema, for editors.
     #[serde(rename = "$schema")]
     #[schemars(rename = "$schema")]
     pub schema: Option<String>,
-    /// Paths to other config files, merged underneath this one.
+    /// Paths to other config files. Their settings are the base, and this file changes them.
     pub extends: Vec<String>,
-    /// Files, directories or globs to start from. Default: `["."]`.
+    /// Files, directories or globs where the graph starts. The default is `["."]`.
     #[serde(deserialize_with = "paths")]
     #[schemars(with = "Paths")]
     pub entries: Vec<String>,
-    /// Modules matching these globs are not part of the graph. `.gitignore` is always honoured.
+    /// Globs of modules to leave out of the graph. Oxcruise also uses the rules of `.gitignore` when it looks for modules.
     #[serde(deserialize_with = "paths")]
     #[schemars(with = "Paths")]
     pub ignore_patterns: Vec<String>,
-    /// Matching modules stay in the graph, but their imports are not parsed.
+    /// Globs of modules that stay in the graph. Oxcruise does not parse their imports.
     #[serde(deserialize_with = "paths")]
     #[schemars(with = "Paths")]
     pub do_not_follow: Vec<String>,
-    /// Switch groups of built-in rules on or off. Default: `correctness: error, suspicious: warn`.
+    /// The level of each category of built-in rules. The categories are `correctness`, `suspicious`,
+    /// `style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.
     pub categories: BTreeMap<Category, Level>,
-    /// Built-in and plugin rules by name. A rule listed here wins over its category.
+    /// The built-in and plugin rules, by name. A rule listed here wins over its category.
     pub rules: BTreeMap<String, RuleEntry>,
-    /// Ad-hoc forbidden dependencies.
+    /// Forbidden dependencies, written as rules.
     pub forbid: Vec<ForbidRule>,
+    /// Settings that change rules for some modules.
     pub overrides: Vec<Override>,
+    /// How oxcruise resolves imports.
     pub resolve: ResolveSection,
-    /// Callee names whose first string argument is a dependency, e.g. `jest.mock`.
+    /// Names of functions whose first string argument is a dependency, for example `jest.mock`.
     pub calls: Vec<String>,
-    /// Extract exports and the names each import uses, for `json` output and plugins; rules that
-    /// need them turn it on anyway.
+    /// Extract exports and the names that each import uses, for `json` output and plugins.
+    /// Rules that need them enable this option.
     pub symbols: bool,
-    /// JS/TS plugin modules (paths or package names).
+    /// JS or TS plugins: paths or package names.
     pub js_plugins: Vec<JsPlugin>,
 }
 

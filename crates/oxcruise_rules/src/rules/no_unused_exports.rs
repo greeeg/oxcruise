@@ -55,35 +55,49 @@ impl Default for NoUnusedExportsConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports exports that no other module imports, members of enums and namespaces that nothing
-    /// reads, and bindings exported under two names.
+    /// Reports exports that no other module imports. The rule also reports:
+    ///
+    /// * members of enums and namespaces that no code reads
+    /// * bindings that a module exports under two names
     ///
     /// ### Why is this bad?
     ///
-    /// An unused export is dead code, and it keeps what it uses alive. It also hides which
-    /// parts of a module are really its interface.
+    /// An unused export is dead code, and it keeps the code that it uses alive.
+    /// It also hides the real interface of a module.
     ///
     /// ### How it works
     ///
-    /// Every static import marks the names it uses (`import { a }`, `ns.a` of a namespace
-    /// import, `E.X` of an enum), and the marks travel through `export { a } from` and
-    /// `export *` to the module that defines the name. Anything used some other way (a
-    /// `require`, a dynamic `import()`, a namespace passed around as a value) counts as using
-    /// everything. The exports of entry points are public API and are not reported: modules that
-    /// no other module imports, `package.json` entry points, the files that the tools you use load
-    /// by convention, and the `entries` option.
+    /// Each static import marks the names that it uses.
+    /// For example `import { a }`, `ns.a` of a namespace import, and `E.X` of an enum.
+    /// A mark travels through `export { a } from` and `export *` to the module that defines the name.
+    /// Any other use counts as use of everything.
+    /// Examples are a `require`, a dynamic `import()`, and a namespace that code passes around as a value.
+    ///
+    /// The rule does not report the exports of entry points, because they are public API. The entry points are:
+    ///
+    /// * modules that no other module imports
+    /// * the files that `package.json` lists as entry points
+    /// * the files that the tools you use load by convention
+    /// * the modules that the `entries` option lists
     ///
     /// ### Options
     ///
-    /// `production`: leave tests out (`test` adds globs to `*.test.*`, `*.spec.*` and test
-    /// directories), so an export that only a test uses is reported; `oxcruise --production`
-    /// turns it on. `entries`: extra globs for public modules. `conventions`: `false` or a list of names to use
-    /// only some tool conventions. `includeEntryExports`: check entry points too.
-    /// `ignoreExportsUsedInFile`: skip exports that their own file uses. `types`, `members`:
-    /// turn off the report of unused types and unused enum or namespace members. `ignore`:
-    /// globs of modules to skip.
+    /// * `production`: leave tests out. An export that only a test uses is then a violation.
+    ///   `oxcruise --production` enables it.
+    /// * `test`: globs of test modules. These globs add to `*.test.*`, `*.spec.*` and test directories.
+    /// * `entries`: globs of more public modules.
+    /// * `conventions`: `false`, or a list of names, to use only some tool conventions.
+    /// * `includeEntryExports`: also check the exports of entry points.
+    /// * `ignoreExportsUsedInFile`: skip an export that its own file uses.
+    /// * `types`: set to `false` to skip unused types and interfaces.
+    /// * `members`: set to `false` to skip unused members of enums and namespaces.
+    /// * `ignore`: globs of modules to skip.
     ///
-    /// Suppress one export with `// oxcruise-ignore-next-line no-unused-exports` above it.
+    /// To suppress one export, put `// oxcruise-ignore-next-line no-unused-exports` above it.
+    ///
+    /// ### Fix
+    ///
+    /// This rule is fixable. `oxcruise --fix` removes the `export` keyword, or removes the name from an export list.
     NoUnusedExports, category = nursery, version = "0.1.0", config = NoUnusedExportsConfig
 }
 

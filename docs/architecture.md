@@ -38,7 +38,7 @@ Each row is a problem in dependency-cruiser (with the issues that report it) and
 | `crates/oxcruise_report` | `CruiseResult` model and the reporters. |
 | `apps/oxcruise` | One crate that is both a binary and a `cdylib`. `CliRunner`, `CliRunResult`, and with the `napi` feature the addon entry points and the plugin host. `src-js/` is the Node side. |
 | `npm/oxcruise` | The published package; `npm/<triple>` are the `@oxcruise/binding-*` platform packages. |
-| `tasks/` | `conformance` (diff against dependency-cruiser), `benchmark`, `smoke` (npm pack), `website` (rule docs). |
+| `tasks/` | `conformance` (diff against dependency-cruiser), `benchmark`, `smoke` (npm pack), `website` (generators for the reference pages of the documentation site and its text checker). |
 
 ## Data flow
 
@@ -70,6 +70,8 @@ threads). `maxDepth` tracks the *minimum* depth of every module, so a module fir
 still explored when a shorter one turns up.
 
 ## Extraction
+
+The user-facing list of languages and dependency kinds is [Languages](../website/src/pages/features/languages.mdx).
 
 | Kind (depcruise name) | Source |
 |---|---|
@@ -117,7 +119,7 @@ lists exports and names only then. Without it, nothing changes in speed or outpu
   source with the tsconfig `outDir`/`rootDir`, following relative `extends`; an `extends` that names a package is not
   followed), `index`/`main`/`cli` files, the **conventions** of the tools the
   package declares (`conventions.json`: tests, routes, configs, and the packages those tools load by name; the table is
-  in [rules.md](rules.md#conventions)), plugin `entries`, and modules marked `oxcruise-ignore-file`.
+  in the [rules reference](../website/src/pages/reference/rules/index.mdx#conventions)), plugin `entries`, and modules marked `oxcruise-ignore-file`.
 * Production mode (`--production`, or `production: true`) leaves tests out as entries and as importers, and skips
   `devDependencies`. `--fix` applies the repairs the rules attach (drop `export`, drop a list entry, drop a
   `package.json` member); edits that overlap wait for the next run.
@@ -131,7 +133,7 @@ export, and instead of 200+ plugins evaluating tool configs there is one small J
 
 * Two `oxc_resolver` instances share config: ESM (`import`, `node`, `default`) and CJS (`require`, ...). A
   dependency written with `require()`/`import =` uses the CJS one, everything else the ESM one, like Node. This is
-  a deliberate difference from dependency-cruiser, which merges the conditions (see [conformance](conformance.md)).
+  a deliberate difference from dependency-cruiser, which merges the conditions (see [Differences](../website/src/pages/migration/differences.mdx)).
 * Extensions are explicit and ordered source-first, declaration files last, so a package with no `main` resolves to
   `index.js`, not `index.d.ts`. They are never inferred from installed tooling (#988).
 * `resolve.conditions: ["source"]` puts the `source` condition first so workspace packages resolve to source, not `dist`.
@@ -142,70 +144,32 @@ export, and instead of 200+ plugins evaluating tool configs there is one small J
 
 ## Configuration
 
-One file, found in the working directory: `oxcruise.config.ts` or `.oxcruiserc.json` (comments and trailing commas
-allowed). `--config` names another. dependency-cruiser configs are not read by a check; `oxcruise --migrate` converts
-one, and `oxcruise --init` writes a starter config. With neither file, the defaults apply.
+One file, found in the working directory: `oxcruise.config.ts` or `.oxcruiserc.json`. The user guide is in the
+website: [Configuration](../website/src/pages/guide/configuration.mdx), [Monorepos](../website/src/pages/guide/monorepos.mdx),
+[Forbid rules](../website/src/pages/features/forbid-rules.mdx) and the generated
+[config reference](../website/src/pages/reference/config.mdx). Design notes:
 
-```ts
-// oxcruise.config.ts
-import { defineConfig } from "oxcruise";
-
-export default defineConfig({
-  extends: ["../../oxcruise.base.json"],      // file paths only
-  entries: ["src"],                            // default ["."]
-  ignorePatterns: ["src/generated/**"],        // .gitignore is always honoured; node_modules are always leaves
-  doNotFollow: ["**/*.spec.ts"],               // kept in the graph, imports not parsed
-  categories: { correctness: "error", suspicious: "warn" },    // this is the default
-  rules: {
-    "no-circular": "error",
-    "no-dev-deps-in-prod": ["error", { prod: ["src/**"], test: ["**/*.test.ts"] }],
-    layers: ["error", { layers: { ui: "src/ui/**", domain: "src/domain/**" }, allow: { ui: ["domain"], domain: [] } }],
-    "acme/max-fan-out": ["warn", { max: 20 }], // plugin rule
-  },
-  forbid: [
-    { name: "feature-isolation", message: "features must not import each other",
-      from: "src/features/{feature}/**",
-      to: ["src/features/**", "!src/features/{feature}/**"] },
-    { name: "no-node-in-browser", from: "src/web/**", to: { kind: "builtin" } },
-    { name: "ui-never-reaches-db", from: "src/ui/**", to: { path: "src/db/**", reachable: true } },
-  ],
-  overrides: [{ files: ["scripts/**"], rules: { "no-dev-deps-in-prod": "off" } }],
-  resolve: { tsconfig: "tsconfig.app.json", conditions: ["source"], alias: { "~": "./src" } },
-  calls: ["jest.mock"],                        // callees whose first string argument is a dependency
-  jsPlugins: ["./tools/acme-plugin.ts"],
-});
-```
-
-* **Categories** switch built-in rules on and off together, as in oxlint: `correctness` (default `error`),
-  `suspicious` (`warn`), and `style`, `restriction`, `nursery` (off). An entry in `rules` wins over its category; a
-  rule that is off by its category can still be enabled there, with options.
-* **Levels** are `off`, `warn`, `error`. There is no `info`.
-* **Paths are globs**, in one string or a list. `{name}` in a `from` glob captures a path segment and is substituted
-  wherever `{name}` appears on the `to` side. A leading `!` negates: a list matches when some positive glob matches and
-  no negated one does, and a list of only negations means "everything except". Negated globs may use captures.
-* **`forbid`** is the only declarative rule kind: `from` (globs) and `to` (globs, or an object with `path`, `kind`
-  (`local`, `package`, `builtin`, `unresolved`), `typeOnly`, `dynamic`, `relation`, `reachable`). The level is the
-  rule's own `severity` (default `error`); `overrides` may change it per file by name. A rule whose `from` or
-  `to.path` matches nothing is reported on stderr. Without `kind` a rule matches every kind of target, built-in
-  modules and unresolved specifiers included, except a `reachable` rule, which looks at `local` and `package`
-  modules. The module kinds are the same in the config, the JSON result and the plugin API.
-* **Relations**: `same-folder`, `descendant-of-from`, `descendant-of-from-parent`, `sibling`, `same-package`,
-  `cross-package`; a list means any of them.
-* **Resolution**: `resolve.conditions` are tried before `import`/`require`, `node`, `default`; `resolve.tsconfig`
-  names one tsconfig for every file (default: the nearest one per file).
-* **Always on**: JSDoc imports, triple-slash directives, `new URL(..., import.meta.url)` dependencies.
-* `entries`, `ignorePatterns`, `doNotFollow` and `overrides[].files` take one glob or a list, like `forbid.from`.
-* **Layering of configs**: `extends` entries first; lists are replaced by the child when non-empty, `categories`,
-  `rules` and `resolve.alias` merge by key (the child wins), `forbid`/`overrides`/`calls`/`jsPlugins` concatenate.
-* **Overrides** can change a rule's severity and options for importing modules matching `files`; the engine runs
-  one variant of the rule per distinct effective setting, limited to the modules it applies to.
-  A whole-graph finding (`no-unused-deps`) belongs to the module it is reported on: the first module of the
-  package that declares the dependency.
-* **CLI-only**: `--max-warnings`, `--deny-warnings`, `--max-depth` (deeper modules are not in the graph, so every output and rule leaves them out), `--ignore-pattern`,
-  `--production` and `--fix` (for the `no-unused-*` rules; `--fix` is refused with `--init`, `--migrate`, `--rules`
-  and `--print-config`, and does not chase cascades: run again).
-* The schema is generated (`just schema-json`) into `npm/oxcruise/configuration_schema.json`; the TypeScript types
-  from it (`just config-ts`).
+* **Schema.** `OxcruiseConfig` (serde + schemars, `deny_unknown_fields`) is the source of truth. The schema
+  (`just schema-json`, into `npm/oxcruise/configuration_schema.json`), the TypeScript types (`just config-ts`) and the
+  config reference page (`just config-docs`) are generated from it. The doc comments of the config types are the text of
+  the reference page and follow [website/STYLE.md](../website/STYLE.md).
+* **Layering.** `extends` entries are layered first (`OxcruiseConfig::layered` in `crates/oxcruise_config/src/merge.rs`):
+  non-empty lists replace, `categories`, `rules` and `resolve.alias` merge by key, `forbid`, `overrides`, `calls` and
+  `jsPlugins` concatenate.
+* **Paths are globs**, compiled to regexes for the linear-time `regex` crate. `{name}` in a `from` glob captures a path
+  segment and is substituted wherever `{name}` appears on the `to` side; a leading `!` negates.
+* **`forbid`** is the only declarative rule kind. The compiler validates every rule and reports all errors at once. A
+  rule whose `from` or `to.path` matches nothing is reported on stderr. Without `kind` a rule matches every kind of
+  target; a `reachable` rule looks at `local` and `package` modules. The module kinds are the same in the config, the
+  JSON result and the plugin API.
+* **Overrides** change a rule's severity and options for importing modules matching `files`. The engine runs one variant of
+  the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`no-unused-deps`)
+  belongs to the module it is reported on: the first module of the package that declares the dependency.
+* **CLI-only settings** (`--max-warnings`, `--deny-warnings`, `--max-depth`, `--ignore-pattern`, `--production`, `--fix`)
+  are in the [CLI reference](../website/src/pages/reference/cli.mdx). `--max-depth` leaves deeper modules out of the graph,
+  so every output and rule leaves them out. `--fix` does not chase cascades: run again.
+* **Loading.** The standalone binary evaluates a TS or JS config by spawning `node`; the addon evaluates it in the host
+  Node. dependency-cruiser configs are not read by a check; `--migrate` converts one.
 
 ## Rules
 
@@ -213,62 +177,22 @@ export default defineConfig({
 implements `check_module`, `check_edge` and/or `check_graph`, and declares the analyses it needs in `requirements()`.
 Violations go into a per-task buffer, so rules never lock under `par_iter`.
 
-Built-in, by category: **correctness** `no-circular` (runtime cycles; `includeTypeOnly`, `ignore`),
-`no-unresolvable`, `no-undeclared-deps`, `no-dev-deps-in-prod`, `no-test-imports`, `no-cross-package-relative`;
-**suspicious** `no-orphans`, `no-deprecated`, `no-duplicate-deps`; **restriction** `no-optional-deps`, `no-peer-deps`,
-`layers`, `internal-modules`; **nursery** `no-unused-exports`, `no-unused-deps`, `no-unused-files`
-(see [Symbols](#symbols)). See [rules.md](rules.md).
+The rule documentation is generated into the website (`just rule-docs`): the doc comments of `declare_rule!` are the text
+of the [rules reference](../website/src/pages/reference/rules/index.mdx), so they follow
+[website/STYLE.md](../website/STYLE.md). The categories are described in
+[Rules and categories](../website/src/pages/features/rules-and-categories.mdx).
 
 Cycles are reported **once per distinct cycle**, not once per edge, and a cycle counts as suppressed when any one of
 its edges carries the suppression comment.
 
 ## JS plugins
 
-Plugins see the **finished graph**, so there is one batched call per run, not one per file.
+Plugins see the **finished graph**, so there is one batched call per run, not one per file. The user documentation is in
+[JS plugins](../website/src/pages/features/js-plugins.mdx) and
+[Write a JS plugin](../website/src/pages/features/writing-js-plugins.mdx); the types are in
+`apps/oxcruise/src-js/plugins/types.ts`.
 
-```ts
-// tools/acme-plugin.ts
-import { definePlugin } from "oxcruise/plugin";
-
-export default definePlugin({
-  meta: { name: "acme" },
-  rules: {
-    "max-fan-out": {
-      meta: { docs: "Limit local fan-out", schema: { max: { type: "number", default: 15 } } },
-      create(ctx) {
-        return {
-          module(m) {
-            const n = m.dependencies.filter((d) => d.is("local")).length;
-            if (n > ctx.options.max) ctx.report({ module: m, message: `fan-out ${n} > ${ctx.options.max}` });
-          },
-          // dependency(d) {}, graph(g) {}, before(g) {}, after(g) {}
-        };
-      },
-    },
-  },
-  reporters: { "json-lines": (result) => result.violations.map((v) => JSON.stringify(v)).join("\n") + "\n" },
-});
-```
-
-* `Graph`: `modules`, `edges`, `module(path)`, `cycles()`, `reach(from)`, `packages`, `folders`.
-  `Module`: `path`, `kind`, `package`, `dependencies`, `dependents`, `dependentCount`, `exports`, `is(kind)`.
-  `Dependency`: `from`, `to`, `specifier`, `kinds`, `is(kind)`, `loc`, `typeOnly`, `circular`, `cycle`, `unresolved`,
-  `names`. Symbols (see [Symbols](#symbols)) are present when the plugin declares `needs: ["symbols"]` (check
-  `graph.symbols`): `Module.exports` is
-  `{ module, name, kind, isType, used, loc, from, imported }[]`, `Dependency.names` is `"*"` or the names used, and
-  `graph.importersOf(module, name)` lists the modules that import an export, following re-exports. `used` does not
-  depend on any rule's options: it is computed over the shared entry points.
-* `ctx.report({ module | dependency | export, message })`: a rule can report on a module, a dependency, or an export
-  (`needs: ["symbols"]`); `ctx.severity` is the level the rule is configured with.
-* A plugin can declare entry points with static globs, `definePlugin({ meta, entries: ["**/*.stories.tsx"], … })`;
-  they are public API for `Export.used`, `no-unused-exports` and `no-unused-files`, like conventions.
-* Specifiers: a relative path, or a package (`acme` is tried as `oxcruise-plugin-acme`, then `acme`). In `jsPlugins`
-  an entry can be `{ "name": "team", "specifier": "./acme.ts" }` to register the rules as `team/*`.
-* A rule that declares `meta.schema` gets the same checking as a built-in rule: an option that is not in the schema,
-  or whose `typeof` is not its `type` (`array` for lists), stops the run with the rule and option named.
-  `Module.dependencies` are sorted by target path, then specifier.
-* Rules are configured as `plugin/rule`; reporters are selected with `-f plugin/reporter`.
-* TypeScript plugins and configs run through Node's native type stripping (Node ≥ 22.18).
+* A rule that declares `meta.schema` gets the same checking as a built-in rule.
 * A plugin that throws, or reports something malformed, fails the run with exit code 2.
 * Suppression comments apply to plugin rules like any other.
 
@@ -288,27 +212,21 @@ configs are evaluated by spawning `node`.
 
 ## Reporters and CLI
 
-`default` (source snippets, underlined specifiers, cycles drawn as loops), `long` (adds rule docs), `json`
-(native, versioned), `github` (annotations), `dot`, `mermaid`, `text`, and plugin reporters (`-f plugin/reporter`).
+The reporters are in `crates/oxcruise_report`; the formats are described in
+[Output formats](../website/src/pages/features/output-formats.mdx) and the flags in the generated
+[CLI reference](../website/src/pages/reference/cli.mdx).
 
-The `json` result (and what plugin reporters receive) uses camelCase names, like the config and the JS API
-(`notFollowed`, `toKind`, `moduleSystem`, `isType`, `specifierLen`, `parseError`, `summary.totalModules`).
-**Version 2 renamed these from snake_case**, and renamed the module kinds `source | stub | core | unresolved`
-(`kind`, `toKind`) to `local | package | builtin | unresolved`, the names `forbid[].to.kind` and the JS API use; check
-`version` before reading older saved results. A dependency's `circular` is true when it lies on an import cycle of the
-whole graph, type-only imports included, whether or not a rule reports it (`no-circular` ignores type-only
-imports by default: `includeTypeOnly`); its `cycle` and `rules` are what the rules
-reported. `--quiet` hides warnings but `summary.warn` still counts them. An export has `line`/`col` only when its
-location is known, and `from`/`imported` when it re-exports. A violation's `kind`
-is `dependency`, `module`, `cycle`, `reachability`, `export` (`from` is the module) or `file` (`from` is the path of a
-`package.json`). `summary.totalModules` counts the entries of `modules`, which leave out unresolved specifiers, and
-`dependents` leave out the module itself.
+The `json` result (and what plugin reporters receive) is versioned (`version`) and uses camelCase names, like the config
+and the JS API. **Version 2 renamed these from snake_case**, and renamed the module kinds
+`source | stub | core | unresolved` to `local | package | builtin | unresolved`. A dependency's `circular` is true when it
+lies on an import cycle of the whole graph, type-only imports included, whether or not a rule reports it; its `cycle` and
+`rules` are what the rules reported. `--quiet` hides warnings but `summary.warn` still counts them.
+`summary.totalModules` counts the entries of `modules`, which leave out unresolved specifiers, and `dependents` leave out
+the module itself.
 
-`oxcruise [paths…]`, plus mode flags that replace it: `--init`, `--migrate[=FILE]`, `--rules` and `--print-config`
-(one at a time; `--init` and `--migrate` never overwrite, and no mode takes the flags of a check, except `--rules -f json`). Flags: `-c`, `-f`, `--quiet`, `--ignore-pattern`,
-`--max-depth`, `--max-warnings`, `--deny-warnings`, `--production`, `--fix`, `--threads`, `--cwd`. Color follows the terminal, `NO_COLOR` and
-`FORCE_COLOR`. Exit code 1 for
-errors, 2 for a bad invocation or config.
+`oxcruise [paths…]`, plus mode flags that replace it: `--init`, `--migrate[=FILE]`, `--rules` and `--print-config` (one at
+a time; `--init` and `--migrate` never overwrite, and no mode takes the flags of a check, except `--rules -f json`).
+Exit code 1 for errors, 2 for a bad invocation or config.
 
 ## Where this differs from the original plan
 
@@ -330,5 +248,5 @@ Honest list, so the plan and the code are not confused:
 * The release workflow is drafted but has never run, and nothing has been published.
 * Only Linux/arm64 was built and tested while developing; the other platform targets are untested.
 
-See [conformance.md](conformance.md) for the behavioural differences from dependency-cruiser 18.7 and
-[migrating-from-depcruise.md](migrating-from-depcruise.md) for moving a project over.
+See [Differences](../website/src/pages/migration/differences.mdx) for the behavioural differences from dependency-cruiser
+18.7 and [Migrate from dependency-cruiser](../website/src/pages/migration/dependency-cruiser.mdx) for moving a project over.

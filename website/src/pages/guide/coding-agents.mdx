@@ -1,0 +1,40 @@
+---
+title: "Coding agents"
+description: "Tell a coding agent how to run Oxcruise and read its output."
+---
+
+# Coding agents
+
+A coding agent can use Oxcruise to check that its changes keep the architecture of your project.
+This page gives text that you can add to the instructions of an agent, for example `AGENTS.md`.
+
+## Add instructions
+
+```md
+## Module graph checks
+
+- Run `npx oxcruise` after you change imports or move files.
+- Fix every error. Do not add `oxcruise-ignore` comments unless the user asks.
+- For a machine-readable result, run `npx oxcruise -f json`.
+  Read `violations` for the findings and `summary` for the counts.
+- To see why a rule exists, run `npx oxcruise -f long`.
+- Never edit `oxcruise.config.ts` to hide a violation. Ask the user first.
+```
+
+## What the agent reads
+
+The `json` format has these top-level keys:
+
+| Key | Content |
+|---|---|
+| `version` | The version of the format. |
+| `modules` | Each module, with its dependencies and dependents. |
+| `violations` | Each violation, with `rule`, `severity`, `from`, `to`, `line`, `col` and `message`. |
+| `summary` | The counts of errors, warnings, suppressed violations, modules and dependencies. |
+| `warnings` | An empty list. Warnings about the config go to stderr. |
+
+The `long` format adds the documentation of each rule to the default output.
+
+## Use the programmatic API
+
+An agent can also write an architecture test. See [Programmatic API](/features/programmatic-api).

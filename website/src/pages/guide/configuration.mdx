@@ -1,0 +1,112 @@
+---
+title: "Configuration"
+description: "How Oxcruise finds and reads its config file, and what the main keys do."
+---
+
+# Configuration
+
+This page explains the config file. For a list of all keys, see the [config reference](/reference/config).
+
+## Find the config file
+
+Oxcruise looks in the working directory for one of these files:
+
+| File | Format |
+|---|---|
+| `oxcruise.config.ts` | TypeScript, with `defineConfig` |
+| `.oxcruiserc.json` | JSON, with comments and trailing commas allowed |
+
+Oxcruise searches only the working directory, not the folders above it. If both files exist, it reads `oxcruise.config.ts` and ignores `.oxcruiserc.json`.
+
+Use `--config <FILE>` to read another file. Use `--cwd <DIR>` to run as if the command started in another folder.
+Without a config file, Oxcruise uses the defaults.
+
+Oxcruise does not read `.dependency-cruiser.*` files in a check. Use [`--migrate`](/migration/dependency-cruiser) to convert one.
+
+:::note
+Oxcruise runs a TypeScript config file with the native type stripping of Node.js. This needs Node.js 22.18 or later.
+:::
+
+## An example
+
+```ts
+// oxcruise.config.ts
+import { defineConfig } from "oxcruise";
+
+export default defineConfig({
+  extends: ["../../oxcruise.base.json"],
+  entries: ["src"],
+  ignorePatterns: ["src/generated/**"],
+  doNotFollow: ["**/*.spec.ts"],
+  categories: { correctness: "error", suspicious: "warn" },
+  rules: {
+    "no-circular": "error",
+    "no-dev-deps-in-prod": ["error", { prod: ["src/**"], test: ["**/*.test.ts"] }],
+    layers: [
+      "error",
+      { layers: { ui: "src/ui/**", domain: "src/domain/**" }, allow: { ui: ["domain"], domain: [] } },
+    ],
+  },
+  forbid: [
+    {
+      name: "feature-isolation",
+      message: "Features must not import each other.",
+      from: "src/features/{feature}/**",
+      to: ["src/features/**", "!src/features/{feature}/**"],
+    },
+  ],
+  overrides: [{ files: ["scripts/**"], rules: { "no-dev-deps-in-prod": "off" } }],
+  resolve: { tsconfig: "tsconfig.app.json", conditions: ["source"], alias: { "~": "./src" } },
+  calls: ["jest.mock"],
+  jsPlugins: ["./tools/acme-plugin.ts"],
+});
+```
+
+## The main keys
+
+| Key | What it does |
+|---|---|
+| `extends` | Paths to base config files. See [Monorepos](/guide/monorepos#share-a-config-with-extends). |
+| `entries` | Files, directories or globs where the graph starts. The default is the current folder. |
+| `ignorePatterns` | Globs of modules to leave out of the graph. See [Ignore files](/features/ignore-files). |
+| `doNotFollow` | Globs of modules that stay in the graph. Oxcruise does not parse their imports. |
+| `categories` | The level of each category of built-in rules. See [Rules and categories](/features/rules-and-categories). |
+| `rules` | The level and options of single rules. A rule here wins over its category. |
+| `forbid` | Your own rules for forbidden dependencies. See [Forbid rules](/features/forbid-rules). |
+| `overrides` | Changes to rules for some modules. See [Monorepos](/guide/monorepos). |
+| `resolve` | How Oxcruise resolves imports: the `tsconfig`, export conditions and aliases. |
+| `calls` | Names of functions whose first string argument is a dependency, such as `jest.mock`. |
+| `jsPlugins` | Plugins that add rules and reporters. See [JS plugins](/features/js-plugins). |
+| `symbols` | Extract exports and the names that each import uses. See [Unused code](/features/unused-code). |
+
+Every key that takes globs accepts one string or a list of strings.
+A `!` at the start of a glob negates it.
+
+## Resolve imports
+
+Each module uses the `tsconfig.json` that is nearest to it. Set `resolve.tsconfig` to use one tsconfig for all modules.
+
+Oxcruise tries the names in `resolve.conditions` before the `import`, `require`, `node` and `default` conditions.
+Add `"source"` to resolve workspace packages to their source files and not to their `dist` folder.
+
+## Always on
+
+These dependencies need no setting:
+
+* JSDoc imports: `@import` tags and `import("x")` types
+* Triple-slash directives
+* `new URL("./x", import.meta.url)` and `new Worker(new URL(...))`
+
+## Check the result
+
+Run `npx oxcruise --print-config`. Oxcruise prints the config as JSON after it merges `extends` and shows the level of every category.
+
+## Editor support
+
+Add a `$schema` key to a JSON file to get completion and checks in your editor:
+
+```json
+{
+  "$schema": "./node_modules/oxcruise/configuration_schema.json"
+}
+```

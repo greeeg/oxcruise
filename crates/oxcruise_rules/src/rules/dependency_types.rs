@@ -11,8 +11,10 @@ use crate::pattern::{Captures, PathPatterns, Role};
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports imports of Node.js built-in modules that Node has deprecated, such as `sys` or
-    /// `punycode`, and of npm packages whose `package.json` marks them as deprecated.
+    /// Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
+    ///
+    /// Node.js deprecates built-in modules such as `sys` and `punycode`.
+    /// An npm package has a deprecation mark in its own `package.json`.
     NoDeprecated, category = suspicious, version = "0.1.0"
 }
 #[derive(Debug, Default)]
@@ -46,8 +48,8 @@ declare_rule! {
     ///
     /// ### Why is this bad?
     ///
-    /// The import only works because of hoisting or a transitive install, and
-    /// breaks when the dependency tree changes.
+    /// The import works only because of hoisting or a transitive install.
+    /// It breaks when the dependency tree changes.
     NoUndeclaredDeps, category = correctness, version = "0.1.0"
 }
 #[derive(Debug, Default)]
@@ -80,12 +82,12 @@ pub struct NoUnresolvableConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports imports that could not be resolved to a file or package.
+    /// Reports an import that oxcruise cannot resolve to a file or a package.
     ///
     /// ### Options
     ///
-    /// `ignore`: globs matched against the import specifier and the importing module's path,
-    /// for virtual modules and generated code.
+    /// * `ignore`: globs for virtual modules and generated code.
+    ///   The rule matches each glob against the import specifier and against the path of the importing module.
     NoUnresolvable, category = correctness, version = "0.1.0", config = NoUnresolvableConfig
 }
 #[derive(Debug, Default)]
@@ -128,8 +130,9 @@ const NPM_SECTIONS: DepKinds = DepKinds::NPM
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports packages declared in more than one `package.json` section, for example both
-    /// `dependencies` and `devDependencies`. Type-only imports are ignored.
+    /// Reports a package that more than one `package.json` section declares,
+    /// for example both `dependencies` and `devDependencies`.
+    /// The rule ignores type-only imports.
     NoDuplicateDeps, category = suspicious, version = "0.1.0"
 }
 #[derive(Debug, Default)]
@@ -156,7 +159,8 @@ impl Rule for NoDuplicateDeps {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports use of optional dependencies, which may not be installed.
+    /// Reports use of optional dependencies.
+    /// An install can skip an optional dependency, so the package may not exist at runtime.
     NoOptionalDeps, category = restriction, version = "0.1.0"
 }
 #[derive(Debug, Default)]
@@ -181,7 +185,8 @@ impl Rule for NoOptionalDeps {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports use of peer dependencies, which the consuming project must provide.
+    /// Reports use of peer dependencies.
+    /// The consuming project must provide a peer dependency.
     NoPeerDeps, category = restriction, version = "0.1.0"
 }
 #[derive(Debug, Default)]

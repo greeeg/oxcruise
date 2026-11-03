@@ -1,0 +1,74 @@
+---
+title: "CI and other setup"
+description: "Run Oxcruise in GitHub Actions, in a Git hook and with warning limits."
+---
+
+# CI and other setup
+
+This page shows how to run Oxcruise in CI and in other automatic tools.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | The run found no errors. |
+| `1` | The run found errors. Warnings also give `1` when you use `--deny-warnings`, or `--max-warnings` and there are too many. |
+| `2` | The invocation or the config file is bad. |
+
+## Handle warnings
+
+By default, warnings do not change the exit code. Two flags change this:
+
+* `--deny-warnings` makes any warning an error.
+* `--max-warnings <N>` makes the run fail when there are more than `N` warnings.
+
+`--quiet` hides warnings from the output. They still count for the two limits.
+
+## GitHub Actions
+
+Use the `github` format. GitHub shows each violation as an annotation on the changed file.
+
+```yaml
+name: oxcruise
+on: [push, pull_request]
+
+jobs:
+  oxcruise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx oxcruise -f github
+```
+
+## A Git hook
+
+A check reads the whole graph, so run it for the project and not for single files.
+This `lefthook.yml` runs Oxcruise before each push:
+
+```yaml
+pre-push:
+  commands:
+    oxcruise:
+      run: npx oxcruise --deny-warnings
+```
+
+## Save the graph as a picture
+
+The `dot` format needs [Graphviz](https://graphviz.org). The `mermaid` format works in many Markdown viewers.
+
+```sh
+npx oxcruise src -f dot | dot -Tsvg > graph.svg
+npx oxcruise src -f mermaid > graph.mmd
+```
+
+## Machine-readable output
+
+The `json` format has the whole graph and all violations. See [Output formats](/features/output-formats).
+
+```sh
+npx oxcruise -f json > oxcruise.json
+```

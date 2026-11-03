@@ -1,0 +1,67 @@
+---
+title: "Languages"
+description: "The languages and dependency forms that Oxcruise understands."
+---
+
+# Languages
+
+Oxcruise parses files with the oxc parser. You do not install `typescript` or a Vue compiler.
+
+## Supported files
+
+* JavaScript: `.js`, `.mjs`, `.cjs`, `.jsx`
+* TypeScript: `.ts`, `.mts`, `.cts`, `.tsx`
+* Vue, Svelte and Astro single-file components
+
+For `.vue`, `.svelte` and `.astro` files, Oxcruise reads each `<script>` block and the Astro frontmatter.
+It parses each block alone and maps the positions back to the file.
+
+## Type-only imports
+
+Oxcruise knows exactly which dependencies exist only at compile time. A dependency is `type-only` when:
+
+* the statement is `import type` or `export type`
+* every specifier of the statement is `type`, as in `import { type A, type B } from "x"`
+
+The [`no-circular`](/reference/rules/no-circular) rule ignores type-only dependencies by default.
+It removes them from the graph before it looks for cycles.
+Set `includeTypeOnly: true` to count them.
+
+## Dependency kinds
+
+Each dependency has one or more kinds. The `json` format and the plugin API list them.
+
+| Kind | Source |
+|---|---|
+| `import`, `export` | `import … from`, `export … from` |
+| `type-only` | `import type`, or every specifier is `type` |
+| `dynamic-import` | `import("x")` with a string or a template literal without expressions |
+| `require` | `require("x")` |
+| `import-equals`, `type-import` | `import x = require("x")`, `import("x").T` |
+| `triple-slash-*` | `/// <reference path>`, `/// <reference types>` and `<amd-dependency>` before the first statement |
+| `jsdoc*` | `@import {X} from "x"` and `import("x")` in JSDoc |
+| `amd-define` | `define([...])` and `require([...])`. Oxcruise looks for these only in files that have no ES module syntax. |
+| `url`, `worker` | `new URL("./x", import.meta.url)`, and `new Worker(new URL(...))` or `new SharedWorker(new URL(...))` |
+| `call` | A function that you list in the `calls` key, such as `jest.mock` |
+
+The resolver adds more kinds. They say what the target is:
+
+| Kind | Meaning |
+|---|---|
+| `core` | A built-in module of Node.js. |
+| `local`, `localmodule` | A module in the project. |
+| `npm`, `npm-dev`, `npm-optional`, `npm-peer`, `npm-bundled` | A package, by the section of `package.json` that declares it. |
+| `npm-no-pkg`, `npm-unknown` | A package that no `package.json` declares, or that Oxcruise cannot place. |
+| `aliased`, `aliased-tsconfig`, `aliased-tsconfig-paths`, `aliased-tsconfig-base-url`, `aliased-subpath-import`, `aliased-workspace`, `aliased-webpack` | A specifier that an alias maps to its target. The kind names the source of the alias. |
+| `deprecated` | A built-in module that Node.js has deprecated. |
+| `unknown`, `undetermined` | A specifier that Oxcruise cannot resolve, or whose kind it cannot decide. |
+| `pre-compilation-only` | A dependency that exists only before compilation. |
+
+The `amd-require` kind is in the format, but Oxcruise never emits it.
+
+Oxcruise merges imports that have the same specifier, the same module system and the same type-only state.
+The merged dependency has the kinds of all of them, and the position of the first one.
+
+## Not supported
+
+Oxcruise does not read CSS `@import`.

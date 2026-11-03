@@ -70,7 +70,8 @@ export default defineConfig({
 ```
 
 The config is one `oxcruise.config.ts` or `.oxcruiserc.json` (comments allowed), `$schema` for editors. See
-[Configuration](docs/architecture.md#configuration) for every key.
+[Configuration](website/src/pages/guide/configuration.mdx) and the [config reference](website/src/pages/reference/config.mdx)
+for every key.
 
 A plugin rule and the programmatic API:
 
@@ -99,17 +100,29 @@ out, and `--fix` to apply the automatic repairs.
 
 ## Documentation
 
-* [Architecture and design](docs/architecture.md): the gaps it closes, how it works, the plugin API, and where the
+The documentation site is in [`website/`](website) (built with [Vocs](https://vocs.dev); see [`website/README.md`](website/README.md)).
+Until it has a URL, read the pages in `website/src/pages`:
+
+* Guide: [Quickstart](website/src/pages/guide/quickstart.mdx), [Configuration](website/src/pages/guide/configuration.mdx),
+  [Monorepos](website/src/pages/guide/monorepos.mdx), [CI](website/src/pages/guide/ci.mdx),
+  [Coding agents](website/src/pages/guide/coding-agents.mdx)
+* Features: [Rules and categories](website/src/pages/features/rules-and-categories.mdx),
+  [Forbid rules](website/src/pages/features/forbid-rules.mdx), [Unused code](website/src/pages/features/unused-code.mdx),
+  [Output formats](website/src/pages/features/output-formats.mdx), [JS plugins](website/src/pages/features/js-plugins.mdx),
+  [Programmatic API](website/src/pages/features/programmatic-api.mdx)
+* Migration: [From dependency-cruiser](website/src/pages/migration/dependency-cruiser.mdx),
+  [Differences (conformance with 18.7)](website/src/pages/migration/differences.mdx)
+* Reference: [CLI](website/src/pages/reference/cli.mdx), [config](website/src/pages/reference/config.mdx),
+  [rules](website/src/pages/reference/rules/index.mdx)
+* For contributors: [Architecture and design](docs/architecture.md), the gaps it closes, how it works, and where the
   implementation differs from the original plan.
-* [Rules](docs/rules.md)
-* [Migrating from dependency-cruiser](docs/migrating-from-depcruise.md)
-* [Conformance with dependency-cruiser 18.7](docs/conformance.md)
 
 ## Status
 
-Early. The core, rules, reporters, CLI, JS plugins and npm packaging are implemented and tested on Linux/arm64. Nothing
-is published, the release workflow has not run, and other platforms are untested. Not built yet: baseline, cache, LSP and
-`--watch`, SARIF and other CI reporters, unused-export detection. [Details](docs/architecture.md#where-this-differs-from-the-original-plan).
+Early. The core, rules (including the nursery rules `no-unused-exports`, `no-unused-deps` and `no-unused-files`), reporters,
+CLI, JS plugins and npm packaging are implemented and tested on Linux/arm64. Nothing is published, the release workflow has
+not run, and other platforms are untested. Not built yet: baseline, cache, LSP and `--watch`, SARIF and other CI reporters.
+[Details](docs/architecture.md#where-this-differs-from-the-original-plan).
 
 ## Development
 
@@ -119,6 +132,7 @@ just oxcruise-node-debug   # build the napi addon + bundle the JS (needed by the
 just smoke                 # npm pack, install the tarballs into a fresh project, run npx oxcruise
 just conformance           # diff against dependency-cruiser 18.7
 just bench
+just website-dev           # the documentation site (website/); `just website-gen` regenerates its reference pages
 ```
 
 Requires Rust (stable), Node ≥ 22.18 and pnpm. `pnpm install` also installs the git hooks ([lefthook](https://lefthook.dev)):

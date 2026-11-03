@@ -1,0 +1,128 @@
+---
+title: "Migrate from dependency-cruiser"
+description: "Convert a dependency-cruiser config with oxcruise --migrate and learn what changes."
+---
+
+# Migrate from dependency-cruiser
+
+The config of Oxcruise is much smaller than the config of dependency-cruiser.
+Oxcruise does not read `.dependency-cruiser.*` files in a check.
+The `oxcruise --migrate` command converts one and says what it could not convert.
+
+## Run the migration
+
+```sh
+npx oxcruise --migrate
+npx oxcruise --migrate -c .oxcruiserc.json
+npx oxcruise --migrate=config/.dependency-cruiser.cjs -c config/oxcruise.config.ts
+```
+
+* The first command reads `.dependency-cruiser.json`, `.js`, `.cjs` or `.mjs`. It writes `oxcruise.config.ts`.
+* `-c` names the file to write. A `.json` name gives a JSON file.
+* `--migrate=FILE` names the file to read.
+
+`--migrate` never overwrites a file. When the target exists, the command stops with "already exists".
+Delete the file or choose another name with `-c`.
+
+## How the conversion works
+
+The conversion is conservative:
+
+* A path regex becomes a glob only when it has a common shape. See [Regex to glob](#regex-to-glob).
+* Oxcruise drops a whole rule that uses a condition that it does not have, with a named warning.
+  Dropping only the condition would make the rule broader than you wrote it.
+* A regex that does not convert drops its rule, with a named warning.
+* When the target is a TypeScript file, every warning is also in that file, as a `// TODO:` comment. A `.json` target has no comments, so the warnings go to stderr only.
+* Oxcruise drops `allowed` and `required` sections with a warning.
+
+## What maps
+
+| dependency-cruiser | Oxcruise | If dropped, use instead |
+|---|---|---|
+| `forbidden[]` | `forbid[]`. `comment` becomes `message`. | |
+| `from.path`, `pathNot` (regex) | `from`: a glob or a list. `pathNot` becomes a `!glob` in the same list. | |
+| `to.path`, `pathNot` (regex) | `to`: a glob or a list, or `to.path` | |
+| `$1` back-references | `{c1}` captures: `from: "src/{c1}/**"` and `to: ["src/**", "!src/{c1}/**"]` | Write `{name}` yourself. |
+| `to.dynamic`, `to.preCompilationOnly` | `to.dynamic`, `to.typeOnly` | |
+| `to.couldNotResolve: true` | `to.kind: "unresolved"`, or the `no-unresolvable` rule | |
+| `to.reachable: true` | `to.reachable: true` | |
+| `severity` | `severity`: `error`, `warn` or `off`. `info` becomes `warn`, with a warning. | |
+| `allowed[]`, `allowedSeverity` | Dropped. | The `layers` rule, or `forbid` rules. |
+| `required[]` | Dropped. | A JS plugin rule. |
+| `from.orphan`, `to.orphan` | Dropped. | The `no-orphans` rule. |
+| `numberOfDependents{Less,More}Than` | Dropped. | A JS plugin rule. |
+| `to.dependencyTypes`, `dependencyTypesNot`, `moreThanOneDependencyType` | Dropped. | `to.kind` and `to.typeOnly`. The rules `no-undeclared-deps`, `no-dev-deps-in-prod`, `no-duplicate-deps`, `no-optional-deps`, `no-peer-deps` and `no-deprecated`. |
+| `to.circular`, `via`, `viaOnly` | Dropped. | The `no-circular` rule with `ignore` and `includeTypeOnly`. Use `overrides.files` to limit it. |
+| `to.exoticallyRequired`, `license`, `moreUnstable`, `ancestor`, `scope: "folder"` | Dropped. | A JS plugin rule. |
+| `options.doNotFollow` | `doNotFollow`. Files in `node_modules` are always leaves. | |
+| `options.exclude` | `ignorePatterns` | |
+| `options.includeOnly` | Dropped. | Start from the right `entries` and list the rest in `ignorePatterns`. |
+| `options.maxDepth` | Dropped. | The `--max-depth` flag. |
+| `options.tsConfig.fileName` | `resolve.tsconfig` | |
+| `enhancedResolveOptions.conditionNames` | `resolve.conditions`. Oxcruise always tries `import`, `require`, `node` and `default`. | |
+| `enhancedResolveOptions.extensions`, `mainFields` | Dropped. | The resolver defaults. |
+| `options.exoticRequireStrings` | `calls` | |
+| `options.detectJSDocImports`, `tsPreCompilationDeps` | Always on. | |
+| `extends: "dependency-cruiser/configs/recommended"` | The default categories. | |
+| `extends: ".../recommended-strict"` | `categories: { suspicious: "error" }` | |
+| `extends: ".../recommended-warn-only"` | `categories: { correctness: "warn" }` | |
+| `extends: "./other.json"` | Oxcruise converts the other file too and merges it into the output. | |
+| `webpackConfig`, `babelConfig` | Dropped. | `resolve.alias` |
+| `knownViolations`, `cache`, `combinedDependencies`, `moduleSystems` | Dropped. | |
+
+### Regex to glob
+
+| Regex | Glob |
+|---|---|
+| `^src/` | `src/**` |
+| `^src` | `src*`. A regex without `$` matches `src2/`, and the glob does too. |
+| `[.]spec[.]ts$` | `**/*.spec.ts` |
+| `(^\|/)x/` | `**/x/**` |
+| `^(src\|lib)/` | `{src,lib}/**` |
+| `^src/([^/]+)/` | `src/{c1}/**` |
+| `a\|b` at the top level | Two globs. |
+
+Other regexes do not convert. Examples are `\d`, `[a-z]`, look-around and quantified groups.
+Oxcruise drops the rule or the entry and names the regex.
+
+## The recommended rules
+
+Oxcruise has the rules of the recommended config of dependency-cruiser built in. It sorts them into categories, and the default level of a category applies.
+Two of the rules are `off` by default: `no-optional-deps` and `no-peer-deps`.
+
+| dependency-cruiser | Oxcruise | Category |
+|---|---|---|
+| `no-circular` | `no-circular`. It checks runtime cycles only. | `correctness`, `error` |
+| `not-to-unresolvable` | `no-unresolvable` | `correctness` |
+| `no-non-package-json` | `no-undeclared-deps` | `correctness` |
+| `not-to-dev-dep` | `no-dev-deps-in-prod` | `correctness` |
+| `not-to-test`, `not-to-spec` | `no-test-imports` | `correctness` |
+| `no-orphans` | `no-orphans`. By default it ignores dotfiles, `.d.ts` files, `tsconfig*.json` and `*.config.*`. | `suspicious`, `warn` |
+| `no-deprecated-core`, `no-deprecated-npm` | `no-deprecated` | `suspicious` |
+| `no-duplicate-dep-types` | `no-duplicate-deps` | `suspicious` |
+| `optional-deps-used`, `peer-deps-used` | `no-optional-deps`, `no-peer-deps` | `restriction`, `off` |
+
+## What behaves differently
+
+* **Globs, not regexes.** The `regex` crate matches rules in linear time, so Oxcruise needs no guard for unsafe regexes. Globs have `*`, `**`, `?`, `[ab]`, `{a,b}` and `{name}` captures.
+* **One report for each cycle.** Oxcruise reports a cycle once and, by default, only when it exists at runtime. A compiler erases `import type`.
+* **Ignore comments exist.** See [Inline ignore comments](/features/inline-ignore-comments).
+* **Exit codes.** Errors give `1`. `--deny-warnings` with warnings, and `--max-warnings N` when exceeded, also give `1`. A bad config gives `2`. There is no `--compat`.
+* **Output formats.** They are `default`, `long`, `json`, `github`, `dot`, `mermaid`, `text` and plugin reporters. The `json` format of Oxcruise has a different shape from the `json` format of dependency-cruiser. A tool that reads the old output must read the new format. See [Output formats](/features/output-formats).
+* **Dual packages.** Oxcruise resolves them by import syntax, as Node.js does. See [Differences](/migration/differences).
+* **Merged syntax kinds.** A file that both imports and re-exports one module has both kinds on that dependency.
+* **No TypeScript install.** Oxcruise parses TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro itself.
+* **Always extracted.** They are JSDoc imports, triple-slash directives, and `new URL("./x", import.meta.url)` and `new Worker(new URL(...))`.
+* **`calls` replaces `exoticRequireStrings`.** The first string argument of the function is a dependency. It resolves as an ES import, unless the name of the function starts with `require`.
+* **AMD.** Ids without a leading `./` resolve like package specifiers. Oxcruise does not read the requirejs `baseUrl` and `paths` config.
+
+## Check your migration
+
+```sh
+npx oxcruise --migrate -c .oxcruiserc.json
+npx depcruise src -T json > before.json
+npx oxcruise src -f json > after.json
+```
+
+Compare the modules and the dependencies in the two files.
+The `tasks/conformance` folder of the repository does this against dependency-cruiser 18.7. See [Differences](/migration/differences).

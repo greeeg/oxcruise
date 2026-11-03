@@ -65,10 +65,32 @@ conformance:
 bench:
     cargo bench --workspace
 
-# Generate docs/rules.md from the built-in rule documentation
+# Generate the rule pages of the website (website/src) from the built-in rule documentation
 rule-docs:
-    cargo run -q -p oxcruise -- --rules -f json > /tmp/oxcruise-rules.json
-    node tasks/website/rules-md.mjs /tmp/oxcruise-rules.json > docs/rules.md
+    cargo run -q -p oxcruise -- --rules -f json | node tasks/website/rules-md.mjs website/src
+
+# Generate the config reference of the website from the config schema
+config-docs:
+    node tasks/website/config-md.mjs website/src
+
+# Generate the CLI reference of the website from `oxcruise --help`
+cli-docs:
+    cargo run -q -p oxcruise -- --help | node tasks/website/cli-md.mjs website/src
+
+# Generate all reference pages of the website
+website-gen: rule-docs config-docs cli-docs
+
+# Check the website text against the Simplified Technical English rules (website/STYLE.md)
+website-lint:
+    node tasks/website/ste-check.mjs
+
+# Start the website dev server
+website-dev:
+    pnpm -C website run dev
+
+# Build the website into website/dist
+website-build:
+    pnpm -C website run build
 
 # Start a new built-in rule: prints where to put it
 new-rule name:

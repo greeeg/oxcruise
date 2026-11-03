@@ -7,36 +7,36 @@ Validate and visualise JS/TS dependency graphs
 Usage: oxcruise [OPTIONS] [PATHS]...
 
 Arguments:
-  [PATHS]...  Files, directories or globs to start from (default: `entries` from the config, or `.`)
+  [PATHS]...  Files, directories or globs where the graph starts. The default is `entries` from the config file, or `.`
 
 Options:
   -h, --help     Print help
   -V, --version  Print version
 
 Mode Options:
-      --init              Write a starter config (default oxcruise.config.ts; -c picks the file and its format)
-      --migrate[=<FILE>]  Convert .dependency-cruiser.* (discovered, or FILE) to the -c target (default oxcruise.config.ts)
-      --rules             List the built-in rules by category; `-f json` prints them as JSON
-      --print-config      Print the resolved config (extends applied, every category with its level) as JSON
+      --init              Write a starter config file. The default is `oxcruise.config.ts`. Use `-c` to choose the file and its format
+      --migrate[=<FILE>]  Convert a dependency-cruiser config (found automatically, or FILE) to the `-c` file. The default target is `oxcruise.config.ts`
+      --rules             List the built-in rules by category. Use `-f json` to print them as JSON
+      --print-config      Print the resolved config as JSON, with `extends` applied and the level of every category
 
 Config Options:
-  -c, --config <FILE>  Config to read; with --init or --migrate, the file to write
+  -c, --config <FILE>  The config file to read. With `--init` or `--migrate`, the file to write
 
 Input Options:
-      --ignore-pattern <GLOB>  Drop modules matching these globs, on top of `ignorePatterns` (repeatable)
-      --max-depth <N>          Follow dependencies at most this many hops from the entries; deeper modules are not in the graph, so no output or rule sees them
-      --symbols                Extract exports and the names each import uses, for `json` output and plugins (rules that need them turn it on anyway)
-      --production             Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are left out, and `devDependencies` are not checked
+      --ignore-pattern <GLOB>  Leave out modules that match these globs, in addition to `ignorePatterns`. Repeat the flag for more globs
+      --max-depth <N>          Follow dependencies at most N hops from the entries. Deeper modules are not in the graph, so no output or rule sees them
+      --symbols                Extract exports and the names that each import uses, for `json` output and plugins. Rules that need them enable this flag
+      --production             Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`. The rules ignore tests, and they do not check `devDependencies`
 
 Output Options:
-  -f, --format <FORMAT>  Output format: default, long, json, github, dot, mermaid, text, or plugin/reporter [default: default]
-      --fix              Apply the automatic repairs of `no-unused-exports` and `no-unused-deps` (drop the `export` keyword or list entry, remove the `package.json` entry); run again for what that unlocks
-      --quiet            Report errors only (warnings still count for the warning limits)
+  -f, --format <FORMAT>  The output format: default, long, json, github, dot, mermaid, text, or plugin/reporter [default: default]
+      --fix              Apply the automatic fixes of `no-unused-exports` and `no-unused-deps`: remove an `export` keyword, a list entry or a `package.json` entry. Run again for the fixes that these changes unlock
+      --quiet            Report errors only. Warnings still count for the warning limits
 
 Handle Warnings:
       --max-warnings <N>  Exit with an error when there are more than N warnings
       --deny-warnings     Exit with an error when there are any warnings
 
 Runtime Options:
-      --threads <N>  Worker threads (default: all cores)
-      --cwd <DIR>    Run as if started in DIR
+      --threads <N>  The number of worker threads. The default is all cores
+      --cwd <DIR>    Run as if the command started in DIR

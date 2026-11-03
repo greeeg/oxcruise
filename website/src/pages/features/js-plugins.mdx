@@ -1,0 +1,65 @@
+---
+title: "JS plugins"
+description: "Add rules and reporters that you write in JavaScript or TypeScript."
+---
+
+# JS plugins
+
+A plugin is a JS or TS module that adds rules or reporters. This page shows how to use a plugin.
+To write one, see [Write a JS plugin](/features/writing-js-plugins).
+
+A plugin sees the finished graph. Oxcruise makes one batched call for each run, and not one call for each file.
+
+## Load a plugin
+
+List the plugin in `jsPlugins`:
+
+```ts
+export default defineConfig({
+  jsPlugins: ["./tools/acme-plugin.ts", "oxcruise-plugin-team"],
+});
+```
+
+An entry is a relative path or a package name. For a package name `acme`, Oxcruise tries `oxcruise-plugin-acme` first and then `acme`.
+
+To register the rules under another prefix, use an object:
+
+```ts
+export default defineConfig({
+  jsPlugins: [{ name: "team", specifier: "./tools/acme-plugin.ts" }],
+});
+```
+
+## Configure the rules
+
+The name of a plugin rule is `plugin/rule`. Configure it as you configure a built-in rule:
+
+```ts
+export default defineConfig({
+  rules: {
+    "acme/max-fan-out": ["warn", { max: 20 }],
+  },
+});
+```
+
+:::note
+An `overrides` entry cannot change a plugin rule. Oxcruise stops the run with an error when an entry names one.
+:::
+
+If a rule declares a `meta.schema`, Oxcruise checks the options like it checks a built-in rule.
+An option that is not in the schema, or that has the wrong type, stops the run. The message names the rule and the option.
+
+## Use a reporter
+
+Select a reporter of a plugin with `-f plugin/reporter`:
+
+```sh
+npx oxcruise -f acme/json-lines
+```
+
+## Limits
+
+* The standalone binary has no JS runtime. With `jsPlugins` it stops with a message to use the npm package.
+* Oxcruise runs TypeScript plugins and configs with the native type stripping of Node.js. This needs Node.js 22.18 or later.
+* A plugin that throws, or that reports a malformed result, stops the run with exit code `2`.
+* [Ignore comments](/features/inline-ignore-comments) apply to plugin rules.

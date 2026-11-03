@@ -7,12 +7,13 @@ use crate::meta::{Hooks, Rule, RuleCtx};
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports non-test modules importing test files (`*.test.*`, `*.spec.*`) or test
-    /// directories (`test`, `tests`, `__tests__`, `__mocks__`).
+    /// Reports a non-test module that imports a test file or a test directory.
+    /// Test files match `*.test.*` or `*.spec.*`.
+    /// Test directories are `test`, `tests`, `__tests__` and `__mocks__`.
     ///
     /// ### Why is this bad?
     ///
-    /// Test code and its dependencies end up in the production bundle, or crash there.
+    /// Test code and its dependencies go into the production bundle, or crash there.
     NoTestImports, category = correctness, version = "0.1.0"
 }
 #[derive(Debug, Default)]
