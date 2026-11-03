@@ -1,0 +1,38 @@
+---
+title: "Automatic fixes"
+description: "Use --fix to remove unused exports and unused dependencies."
+---
+
+# Automatic fixes
+
+The `--fix` flag applies the automatic fixes of two rules:
+
+| Rule | Fix |
+|---|---|
+| `no-unused-exports` | Removes the `export` keyword, or removes the name from an export list. |
+| `no-unused-deps` | Removes the entry from the `package.json`. |
+
+:::warning
+`--fix` changes files on disk. Commit your work before you run it, and review the changes afterward.
+:::
+
+## Run a fix
+
+```sh
+npx oxcruise --fix
+```
+
+Oxcruise applies the fixes, then reports the violations that remain.
+It writes a note to stderr, for example `fixed 5 problem(s); run again to see what that unlocked`.
+
+## Run again
+
+A fix can make more code unused. For example, when Oxcruise removes an export, the code that only that export used can become unused too.
+Oxcruise does not follow these chains in one run. Run the command again until it reports no more fixes.
+
+When two fixes edit the same part of a file, Oxcruise applies one of them. The other fix waits for the next run.
+
+## Where `--fix` does not work
+
+Oxcruise refuses `--fix` together with `--init`, `--migrate`, `--rules` and `--print-config`.
+Rules other than the two above have no automatic fix.

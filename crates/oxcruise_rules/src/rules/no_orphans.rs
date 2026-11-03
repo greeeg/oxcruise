@@ -20,17 +20,17 @@ pub struct NoOrphansConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports modules that no other module imports and that import nothing.
+    /// Reports modules that no other module imports and that import no module.
     ///
     /// ### Why is this bad?
     ///
-    /// An orphan is usually dead code left behind by a refactor.
+    /// An orphan is usually dead code that a refactor left behind.
     ///
     /// ### Options
     ///
-    /// `ignore`: globs for modules that are legitimately unconnected. They extend the built-in
-    /// list: dotfiles (`**/.*`), declaration files (`**/*.d.ts`), `**/tsconfig*.json` and tool
-    /// configuration (`**/*.config.*`).
+    /// * `ignore`: globs of modules that have no connection on purpose.
+    ///   These globs add to the built-in list: dotfiles (`**/.*`), declaration files (`**/*.d.ts`),
+    ///   `**/tsconfig*.json` and the configuration files of tools (`**/*.config.*`).
     NoOrphans, category = suspicious, version = "0.1.0", config = NoOrphansConfig
 }
 

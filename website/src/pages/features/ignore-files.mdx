@@ -1,0 +1,57 @@
+---
+title: "Ignore files"
+description: "Leave modules out of the graph, stop at some modules, and limit the depth."
+---
+
+# Ignore files
+
+Oxcruise has four ways to control which modules are in the graph.
+
+| Way | Effect |
+|---|---|
+| `.gitignore` | Oxcruise uses the rules of `.gitignore` files when it looks for modules. A module that another module imports stays in the graph, also when `.gitignore` lists it. |
+| `ignorePatterns` | Modules that match the globs are not part of the graph. |
+| `doNotFollow` | Modules that match the globs stay in the graph. Oxcruise does not parse their imports. |
+| `--max-depth` | Oxcruise follows dependencies at most N hops from the entries. |
+
+## ignorePatterns
+
+```ts
+export default defineConfig({
+  ignorePatterns: ["src/generated/**", "**/*.stories.tsx"],
+});
+```
+
+Use `--ignore-pattern <GLOB>` to add globs for one run. Repeat the flag for more globs.
+
+```sh
+npx oxcruise --ignore-pattern "**/*.test.ts" --ignore-pattern "src/legacy/**"
+```
+
+A module that Oxcruise leaves out is not in the graph. No rule and no output sees it.
+
+## doNotFollow
+
+Use `doNotFollow` for a module that you want to see in the graph, but whose imports do not matter.
+
+```ts
+export default defineConfig({
+  doNotFollow: ["**/*.spec.ts"],
+});
+```
+
+Files in `node_modules` always behave in this way: they are in the graph as leaves.
+
+## --max-depth
+
+```sh
+npx oxcruise --max-depth 2
+```
+
+Oxcruise measures the depth of a module as the smallest number of hops from an entry.
+A module that a long path reaches first is still explored when a shorter path appears.
+Modules deeper than the limit are not in the graph, so no output or rule sees them.
+
+## Globs
+
+All of these keys use globs with `*`, `**`, `?`, `[ab]` and `{a,b}`. A leading `!` negates a glob.

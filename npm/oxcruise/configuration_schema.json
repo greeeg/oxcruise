@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OxcruiseConfig",
-  "description": "The oxcruise configuration file.",
+  "description": "The oxcruise config file.",
   "type": "object",
   "properties": {
     "$schema": {
+      "description": "The URL or path of the JSON schema, for editors.",
       "type": [
         "string",
         "null"
@@ -12,7 +13,7 @@
       "default": null
     },
     "calls": {
-      "description": "Callee names whose first string argument is a dependency, e.g. `jest.mock`.",
+      "description": "Names of functions whose first string argument is a dependency, for example `jest.mock`.",
       "type": "array",
       "default": [],
       "items": {
@@ -20,7 +21,7 @@
       }
     },
     "categories": {
-      "description": "Switch groups of built-in rules on or off. Default: `correctness: error, suspicious: warn`.",
+      "description": "The level of each category of built-in rules. The categories are `correctness`, `suspicious`,\n`style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.",
       "type": "object",
       "additionalProperties": {
         "$ref": "#/$defs/Level"
@@ -28,17 +29,17 @@
       "default": {}
     },
     "doNotFollow": {
-      "description": "Matching modules stay in the graph, but their imports are not parsed.",
+      "description": "Globs of modules that stay in the graph. Oxcruise does not parse their imports.",
       "$ref": "#/$defs/OneOrMany",
       "default": []
     },
     "entries": {
-      "description": "Files, directories or globs to start from. Default: `[\".\"]`.",
+      "description": "Files, directories or globs where the graph starts. The default is `[\".\"]`.",
       "$ref": "#/$defs/OneOrMany",
       "default": []
     },
     "extends": {
-      "description": "Paths to other config files, merged underneath this one.",
+      "description": "Paths to other config files. Their settings are the base, and this file changes them.",
       "type": "array",
       "default": [],
       "items": {
@@ -46,7 +47,7 @@
       }
     },
     "forbid": {
-      "description": "Ad-hoc forbidden dependencies.",
+      "description": "Forbidden dependencies, written as rules.",
       "type": "array",
       "default": [],
       "items": {
@@ -54,12 +55,12 @@
       }
     },
     "ignorePatterns": {
-      "description": "Modules matching these globs are not part of the graph. `.gitignore` is always honoured.",
+      "description": "Globs of modules to leave out of the graph. Oxcruise also uses the rules of `.gitignore` when it looks for modules.",
       "$ref": "#/$defs/OneOrMany",
       "default": []
     },
     "jsPlugins": {
-      "description": "JS/TS plugin modules (paths or package names).",
+      "description": "JS or TS plugins: paths or package names.",
       "type": "array",
       "default": [],
       "items": {
@@ -67,6 +68,7 @@
       }
     },
     "overrides": {
+      "description": "Settings that change rules for some modules.",
       "type": "array",
       "default": [],
       "items": {
@@ -74,6 +76,7 @@
       }
     },
     "resolve": {
+      "description": "How oxcruise resolves imports.",
       "$ref": "#/$defs/ResolveSection",
       "default": {
         "alias": {},
@@ -82,7 +85,7 @@
       }
     },
     "rules": {
-      "description": "Built-in and plugin rules by name. A rule listed here wins over its category.",
+      "description": "The built-in and plugin rules, by name. A rule listed here wins over its category.",
       "type": "object",
       "additionalProperties": {
         "$ref": "#/$defs/RuleEntry"
@@ -90,7 +93,7 @@
       "default": {}
     },
     "symbols": {
-      "description": "Extract exports and the names each import uses, for `json` output and plugins; rules that\nneed them turn it on anyway.",
+      "description": "Extract exports and the names that each import uses, for `json` output and plugins.\nRules that need them enable this option.",
       "type": "boolean",
       "default": false
     }
@@ -101,10 +104,11 @@
       "type": "object",
       "properties": {
         "name": {
-          "description": "Rules are named `<name>/<rule>`, instead of using the plugin's own `meta.name`.",
+          "description": "The prefix of the rules: `<name>/<rule>`. It replaces the `meta.name` of the plugin.",
           "type": "string"
         },
         "specifier": {
+          "description": "A path or a package name.",
           "type": "string"
         }
       },
@@ -115,11 +119,11 @@
       ]
     },
     "ForbidRule": {
-      "description": "A forbidden dependency: an import from `from` to `to` is a violation.",
+      "description": "A dependency that the project does not allow.\nAn import from a module that matches `from` to a target that matches `to` is a violation.",
       "type": "object",
       "properties": {
         "from": {
-          "description": "Globs of the importing module. `{name}` captures a path segment for use in `to`.",
+          "description": "Globs of the importing module. `{name}` captures a path segment, and `to` can use the capture.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany"
@@ -130,20 +134,23 @@
           ]
         },
         "message": {
-          "description": "Why the dependency is forbidden; shown instead of the generic message.",
+          "description": "Why the dependency is forbidden. Oxcruise shows it instead of the generic message.",
           "type": [
             "string",
             "null"
           ]
         },
         "name": {
+          "description": "The name of the rule. Reports and `overrides` use it.",
           "type": "string"
         },
         "severity": {
+          "description": "The level of the rule.",
           "$ref": "#/$defs/Level",
           "default": "error"
         },
         "to": {
+          "description": "The target of the dependency: globs, or an object with conditions.",
           "anyOf": [
             {
               "$ref": "#/$defs/ToSpec"
@@ -160,19 +167,20 @@
       ]
     },
     "JsPlugin": {
-      "description": "A JS/TS plugin: a path or package name, or the same with the name its rules are registered under.",
+      "description": "A JS or TS plugin: a path or package name, or an object that also gives the prefix of its rules.",
       "anyOf": [
         {
-          "description": "`\"./tools/acme.ts\"` or `\"acme\"` (resolved as `oxcruise-plugin-acme`, then `acme`).",
+          "description": "A path, such as `\"./tools/acme.ts\"`, or a package name, such as `\"acme\"`.\nFor a package name, oxcruise tries `oxcruise-plugin-acme` first and then `acme`.",
           "type": "string"
         },
         {
+          "description": "An object with the specifier of the plugin and the prefix of its rules.",
           "$ref": "#/$defs/AliasedPlugin"
         }
       ]
     },
     "Level": {
-      "description": "Severity of a rule. `off` disables it.",
+      "description": "The level of a rule. `off` disables the rule, `warn` reports violations as warnings, and `error` reports them as errors.",
       "type": "string",
       "enum": [
         "off",
@@ -245,13 +253,15 @@
       ]
     },
     "Override": {
+      "description": "Changes the settings of rules for some modules.",
       "type": "object",
       "properties": {
         "files": {
-          "description": "Globs of the importing module this override applies to.",
+          "description": "Globs of the importing modules that this override applies to.",
           "$ref": "#/$defs/OneOrMany"
         },
         "rules": {
+          "description": "The rules to change, by name.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/RuleEntry"
@@ -267,13 +277,6 @@
     "Relation": {
       "description": "How two modules relate, for the `relation` condition.",
       "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "same-package",
-            "cross-package"
-          ]
-        },
         {
           "description": "`to` is in the same folder as `from`.",
           "type": "string",
@@ -293,14 +296,25 @@
           "description": "`to` is in a sibling folder of `from`'s folder.",
           "type": "string",
           "const": "sibling"
+        },
+        {
+          "description": "`to` is in the same workspace package as `from`.",
+          "type": "string",
+          "const": "same-package"
+        },
+        {
+          "description": "`to` is in another workspace package than `from`.",
+          "type": "string",
+          "const": "cross-package"
         }
       ]
     },
     "ResolveSection": {
+      "description": "How oxcruise resolves imports.",
       "type": "object",
       "properties": {
         "alias": {
-          "description": "Aliases: `{ \"~\": \"./src\" }`.",
+          "description": "Path aliases. For example `{ \"~\": \"./src\" }`.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/OneOrMany"
@@ -308,7 +322,7 @@
           "default": {}
         },
         "conditions": {
-          "description": "Export/import condition names tried before `import`/`require`, `node` and `default`,\ne.g. `[\"source\"]` to resolve workspace packages to their source.",
+          "description": "Export and import condition names. Oxcruise tries them before `import`, `require`, `node` and `default`.\nFor example, use `[\"source\"]` to resolve workspace packages to their source.",
           "type": "array",
           "default": [],
           "items": {
@@ -316,7 +330,7 @@
           }
         },
         "tsconfig": {
-          "description": "One tsconfig used for every file. Default: the nearest tsconfig of each file.",
+          "description": "The tsconfig for every file. By default, each file uses the nearest tsconfig.",
           "type": [
             "string",
             "null"
@@ -327,7 +341,7 @@
       "additionalProperties": false
     },
     "RuleEntry": {
-      "description": "A rule entry: `\"error\"`, or `[\"error\", { ...options }]`.",
+      "description": "The setting of a rule: a level, or an array of a level and an options object.\nFor example `\"error\"` or `[\"error\", { \"includeTypeOnly\": true }]`.",
       "anyOf": [
         {
           "$ref": "#/$defs/Level"
@@ -351,7 +365,7 @@
           "default": null
         },
         "kind": {
-          "description": "What the dependency points to; any of these. Default: every kind, except for `reachable`\nrules, which look at `local` and `package` modules only.",
+          "description": "What the dependency points to. A dependency matches when it has any of these kinds.\nBy default, every kind matches, except for `reachable` rules, which check only `local` and `package` modules.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany2"
@@ -363,6 +377,7 @@
           "default": null
         },
         "path": {
+          "description": "Globs that the target of the dependency must match.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany"
@@ -382,7 +397,7 @@
           "default": null
         },
         "relation": {
-          "description": "How `to` relates to `from`; any of these.",
+          "description": "How `to` relates to `from`. A dependency matches when it has any of these relations.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany3"
@@ -394,7 +409,7 @@
           "default": null
         },
         "typeOnly": {
-          "description": "The dependency is `import type` / `export type` only.",
+          "description": "The dependency is only `import type` or `export type`.",
           "type": [
             "boolean",
             "null"
@@ -411,6 +426,7 @@
           "$ref": "#/$defs/OneOrMany"
         },
         {
+          "description": "An object with conditions on the dependency and its target.",
           "$ref": "#/$defs/ToCondition"
         }
       ]

@@ -1,0 +1,114 @@
+---
+title: "Forbid rules"
+description: "Write your own rules for forbidden dependencies with globs, captures and conditions."
+---
+
+# Forbid rules
+
+A `forbid` rule says which dependencies the project does not allow. It is the only kind of declarative rule in Oxcruise.
+A rule has a `from` side, a `to` side and a name.
+
+```ts
+export default defineConfig({
+  forbid: [
+    { name: "no-node-in-browser", from: "src/web/**", to: { kind: "builtin" } },
+    { name: "no-db-from-ui", from: "src/ui/**", to: "src/db/**", message: "The UI must use the API layer." },
+  ],
+});
+```
+
+## Fields
+
+| Field | Meaning |
+|---|---|
+| `name` | The name of the rule. Reports and `overrides` use it. |
+| `from` | One glob or a list of globs. They match the importing module. |
+| `to` | One glob or a list of globs, or an object with conditions. It matches the target of the dependency. |
+| `message` | Why the dependency is forbidden. Oxcruise shows it instead of the generic message. |
+| `severity` | The level of the rule: `error` (the default), `warn` or `off`. |
+
+A rule must have a `name`. All other fields are optional.
+The name must be different from the name of every other rule. A name that a built-in rule or a plugin rule uses is a config error.
+
+An `overrides` entry can change the level of a `forbid` rule for some files. It uses the name of the rule.
+
+## Globs
+
+Paths are globs. A glob supports `*`, `**`, `?`, `[ab]` and `{a,b}`.
+
+* A glob also matches everything below a folder that it matches. For example, `src/db` matches `src/db/index.ts`.
+* A leading `!` negates a glob.
+* A list matches when some positive glob matches and no negated glob matches.
+* A list that has only negated globs means everything except those paths.
+
+## Captures
+
+`{name}` in a `from` glob captures one path segment. Use `{name}` on the `to` side to refer to the same segment.
+A negated glob can use a capture too.
+A name in braces without a comma is a capture. Use a comma for a choice: `{a,b}`.
+
+This rule stops a feature from importing another feature:
+
+```ts
+{
+  name: "feature-isolation",
+  message: "Features must not import each other.",
+  from: "src/features/{feature}/**",
+  to: ["src/features/**", "!src/features/{feature}/**"],
+}
+```
+
+A module in `src/features/cart/` can import `src/features/cart/**`. It cannot import `src/features/search/**`.
+
+## Conditions on the target
+
+When `to` is an object, a dependency must match all the conditions that you give.
+
+| Condition | Meaning |
+|---|---|
+| `path` | Globs that the target must match. |
+| `kind` | `local`, `package`, `builtin` or `unresolved`. Give one value or a list. Any of them matches. |
+| `typeOnly` | `true` for `import type` and `export type` only. |
+| `dynamic` | `true` for a dynamic `import()`. |
+| `relation` | How the target relates to the importing module. Give one value or a list. Any of them matches. |
+| `reachable` | `true` when the importing module can reach the target through other modules. |
+
+Without `kind`, a rule matches every kind of target, including built-in modules and unresolved specifiers.
+Without `kind`, a `reachable` rule looks only at `local` and `package` modules.
+With `kind`, it looks at the kinds that you list.
+
+### Relations
+
+| Relation | The target is |
+|---|---|
+| `same-folder` | In the same folder as the importing module. |
+| `descendant-of-from` | Below the folder of the importing module. |
+| `descendant-of-from-parent` | Below the parent folder of the importing module. |
+| `sibling` | In a sibling folder of the folder of the importing module. |
+| `same-package` | In the same workspace package. |
+| `cross-package` | In another workspace package. |
+
+### Reachability
+
+A `reachable` rule reports when the target is anywhere below the importing module in the graph, not only a direct import:
+
+```ts
+{ name: "ui-never-reaches-db", from: "src/ui/**", to: { path: "src/db/**", reachable: true } }
+```
+
+The `reachable` condition has some limits:
+
+* The value `false` is not valid.
+* You can combine `reachable` only with `path` and `kind`. It conflicts with `typeOnly`, `dynamic` and `relation`.
+
+The violation names the target, and it holds the path from the importing module to the target.
+
+## Rules that match nothing
+
+Oxcruise writes a warning to stderr in these cases:
+
+* The `from` glob of a rule matches no module.
+* The `to.path` glob matches no dependency of the modules that `from` matches.
+
+The warning names the rule and says which glob matched nothing.
+This helps you to find a rule with a wrong glob.

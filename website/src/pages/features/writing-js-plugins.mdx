@@ -1,0 +1,110 @@
+---
+title: "Write a JS plugin"
+description: "Use definePlugin to write rules and reporters for the module graph."
+---
+
+# Write a JS plugin
+
+A plugin exports the result of `definePlugin`. It can have rules, reporters and entry points.
+
+```ts
+// tools/acme-plugin.ts
+import { definePlugin } from "oxcruise/plugin";
+
+export default definePlugin({
+  meta: { name: "acme" },
+  rules: {
+    "max-fan-out": {
+      meta: { docs: "Limit local fan-out", schema: { max: { type: "number", default: 15 } } },
+      create(ctx) {
+        return {
+          module(m) {
+            const n = m.dependencies.filter((d) => d.is("local")).length;
+            if (n > ctx.options.max) ctx.report({ module: m, message: `fan-out ${n} > ${ctx.options.max}` });
+          },
+        };
+      },
+    },
+  },
+  reporters: {
+    "json-lines": (result) => result.violations.map((v) => JSON.stringify(v)).join("\n") + "\n",
+  },
+});
+```
+
+Load the plugin with [`jsPlugins`](/features/js-plugins).
+
+## Rules
+
+A rule has a `create` function. It receives a context and returns visitors.
+
+| Visitor | Called |
+|---|---|
+| `before(graph)` | Once, before the other visitors. |
+| `module(m)` | For each module. |
+| `dependency(d)` | For each dependency. |
+| `graph(g)` | Once, with the whole graph. |
+| `after(graph)` | Once, after the other visitors. |
+
+The context has these members:
+
+| Member | Meaning |
+|---|---|
+| `ctx.options` | The options of the rule, with the defaults of `meta.schema` applied. |
+| `ctx.graph` | The graph. |
+| `ctx.ruleName` | The full name of the rule, such as `acme/max-fan-out`. |
+| `ctx.severity` | The level of the rule: `error` or `warn`. |
+| `ctx.report({ … })` | Reports a violation on a `module`, a `dependency` or an `export`, with a `message`. |
+
+## The graph
+
+| Type | Members |
+|---|---|
+| `Graph` | `modules`, `edges`, `module(path)`, `cycles()`, `reach(from)`, `packages`, `folders` |
+| `Module` | `path`, `kind`, `package`, `dependencies`, `dependents`, `dependentCount`, `exports`, `is(kind)` |
+| `Dependency` | `from`, `to`, `specifier`, `kinds`, `is(kind)`, `loc`, `typeOnly`, `circular`, `cycle`, `unresolved`, `names` |
+
+Oxcruise sorts `Module.dependencies` by target path, and then by specifier.
+
+## Symbols
+
+To read exports, declare that the plugin needs symbols:
+
+```ts
+export default definePlugin({
+  meta: { name: "acme" },
+  needs: ["symbols"],
+  rules: { /* … */ },
+});
+```
+
+Then `Module.exports`, `Dependency.names` and `graph.importersOf(module, name)` have data.
+Check `graph.symbols` to see whether Oxcruise extracted them.
+An export has `used`, which Oxcruise computes over the shared entry points. It does not depend on the options of a rule.
+
+## Entry points
+
+A plugin can declare globs of modules that a tool loads without an import:
+
+```ts
+export default definePlugin({
+  meta: { name: "acme" },
+  entries: ["**/*.stories.tsx"],
+});
+```
+
+`Export.used`, `no-unused-exports` and `no-unused-files` treat these modules as entry points.
+
+## The plugin name
+
+A plugin must have a `meta.name`. It must start with a lowercase letter or a digit, and it can contain lowercase letters, digits, `.`, `_` and `-`.
+The name is the prefix of the rules and reporters of the plugin, for example `acme/max-fan-out`.
+When two plugins have the same name, Oxcruise stops with an error. Give one plugin an alias in `jsPlugins` to solve this.
+
+## Options schema
+
+`meta.schema` lists the options of a rule with their `type` and `default`. The `type` is the result of `typeof`, or `array` for a list.
+
+## Reporters
+
+A reporter is a function. It receives the `json` result of a run and returns a string. Select it with `-f acme/json-lines`.

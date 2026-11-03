@@ -1,0 +1,82 @@
+---
+title: "Monorepos and nested configs"
+description: "Use Oxcruise in a monorepo: workspace packages, tsconfig files, extends and overrides."
+---
+
+# Monorepos and nested configs
+
+Oxcruise reads one config file for each run. This page shows how to share one config in a monorepo and how to change it for some parts.
+
+## What Oxcruise does for monorepos
+
+* Oxcruise finds workspace packages from the `workspaces` key of `package.json` (npm, Yarn and Bun) and from `pnpm-workspace.yaml`.
+* Each module records its workspace package.
+* Each module uses the `tsconfig.json` that is nearest to it, so `paths` and `baseUrl` work in each package.
+* Oxcruise classifies each dependency with the nearest `package.json` of the importing module.
+* A package name that matches a workspace package is an alias to that package.
+
+## Run one check for the whole repository
+
+Run Oxcruise in the root folder. Set `resolve.conditions` so workspace packages resolve to source files:
+
+```ts
+// oxcruise.config.ts
+import { defineConfig } from "oxcruise";
+
+export default defineConfig({
+  entries: ["packages"],
+  resolve: { conditions: ["source"] },
+});
+```
+
+The [`no-cross-package-relative`](/reference/rules/no-cross-package-relative) rule is on by default.
+It reports a relative import that reaches into another package.
+
+## Change rules for some modules
+
+Use `overrides` to change a built-in rule or a `forbid` rule for some modules.
+An entry changes the level or the options for the importing modules that match `files`.
+An override cannot change a plugin rule.
+
+```ts
+export default defineConfig({
+  rules: { "no-dev-deps-in-prod": "error" },
+  overrides: [
+    { files: ["scripts/**", "tools/**"], rules: { "no-dev-deps-in-prod": "off" } },
+    { files: ["packages/legacy/**"], rules: { "no-circular": "warn" } },
+  ],
+});
+```
+
+Oxcruise runs one variant of a rule for each different setting. Each variant checks only the modules that it applies to.
+
+## Share a config with `extends`
+
+A package can extend a base config. `extends` takes file paths only:
+
+```json
+{
+  "extends": ["../../oxcruise.base.json"],
+  "entries": ["src"]
+}
+```
+
+Oxcruise applies the `extends` files first and then your file. The merge works as follows:
+
+| Key | Merge |
+|---|---|
+| `entries`, `ignorePatterns`, `doNotFollow`, `resolve.conditions` | The child replaces the base when the child list is not empty. |
+| `resolve.tsconfig` | The child replaces the base when the child sets it. |
+| `categories`, `rules`, `resolve.alias` | Oxcruise merges them by key. The child wins. The child entry of a rule replaces the whole base entry, including its options. |
+| `forbid`, `overrides`, `calls`, `jsPlugins` | Oxcruise adds the child entries after the base entries. It skips a child entry that is equal to a base entry. |
+| `symbols` | On when the base or the child sets it. |
+
+## Nested configs
+
+Oxcruise does not look for config files in sub-folders. To check one package with its own config, run Oxcruise in that package:
+
+```sh
+npx oxcruise --cwd packages/app
+```
+
+The package config can extend the root config with `extends`.

@@ -1,0 +1,67 @@
+---
+title: "Rules and categories"
+description: "How categories, levels and rules work, and which rules are on by default."
+---
+
+# Rules and categories
+
+A rule checks the module graph and reports violations. Each built-in rule is in one category.
+A category switches all its rules on or off together.
+
+## Categories
+
+| Category | Contains | Default level |
+|---|---|---|
+| `correctness` | Rules that find code that is almost certainly wrong. | `error` |
+| `suspicious` | Rules that find code that is probably wrong or useless. | `warn` |
+| `style` | Rules about code style. | `off` |
+| `restriction` | Rules that forbid a feature or a pattern. They are opt-in. | `off` |
+| `nursery` | New rules. Their behavior can still change. | `off` |
+
+Use the `categories` key to change the level of a category:
+
+```ts
+export default defineConfig({
+  categories: { correctness: "error", suspicious: "error", restriction: "warn" },
+});
+```
+
+## Levels
+
+A level is `off`, `warn` or `error`.
+
+* `off` disables the rule.
+* `warn` reports a violation as a warning. A warning does not change the exit code, unless you use `--deny-warnings` or `--max-warnings`.
+* `error` reports a violation as an error. An error gives exit code `1`.
+
+## Configure one rule
+
+A rule in the `rules` key wins over its category. A rule that its category switches off can still be on here.
+Give a level, or give an array of a level and an options object.
+
+```ts
+export default defineConfig({
+  rules: {
+    "no-orphans": "error",
+    "no-circular": ["error", { ignore: ["src/index.ts"] }],
+    "no-peer-deps": "warn",
+  },
+});
+```
+
+Oxcruise checks the options of every rule. It stops with the name of the rule and the option when an option is not valid.
+
+## List the rules
+
+Run `npx oxcruise --rules` to list the built-in rules by category. Add `-f json` for JSON.
+The [rules reference](/reference/rules) has one page for each rule.
+
+## Other kinds of rules
+
+* [Forbid rules](/features/forbid-rules) are your own rules for dependencies that the project does not allow.
+* [Layers and internal modules](/features/layers-and-internal-modules) are two built-in rules for architecture.
+* A [JS plugin](/features/js-plugins) can add rules that you write in TypeScript.
+
+## Cycles and suppression
+
+Oxcruise reports a cycle once, and not once for each dependency in it. A cycle counts as suppressed when one of its dependencies has an [ignore comment](/features/inline-ignore-comments).

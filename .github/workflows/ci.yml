@@ -57,3 +57,23 @@ jobs:
       - run: cargo install just --locked
       - run: just config-ts
       - run: git diff --exit-code -- npm/oxcruise/configuration_schema.json apps/oxcruise/src-js
+      - run: node tasks/npm/sync-readme.mjs
+      - run: git diff --exit-code -- npm/oxcruise/README.md npm/oxcruise/LICENSE
+
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: cargo install just --locked
+      - run: just website-gen
+      - run: git diff --exit-code -- website/src
+      - run: just website-lint
+      - run: pnpm -C website build

@@ -22,9 +22,21 @@ pub struct LayersConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Enforces a layered architecture: each layer may import only the layers it lists in `allow`.
+    /// Enforces a layered architecture: a layer can import only the layers that `allow` lists for it.
+    /// The rule checks dependencies on local modules. Packages and built-in modules have no layer.
+    ///
+    /// ### Options
+    ///
+    /// * `layers`: maps the name of a layer to the globs of its modules. When layers overlap, the first layer by name wins.
+    /// * `allow`: maps the name of a layer to the layers that it can import.
+    ///   A layer that `allow` does not list has no limit.
+    ///   A module can always import a module in its own layer.
+    ///   A module in no layer has no limit.
+    ///   If `allow` names a layer that `layers` does not define, the config is not valid.
     ///
     /// ### Example
+    ///
+    /// The options of the rule:
     ///
     /// ```json
     /// { "layers": { "ui": "src/ui/**", "domain": "src/domain/**" },

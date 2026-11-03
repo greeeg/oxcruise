@@ -19,16 +19,18 @@ pub struct NoDevDepsInProdConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports production modules importing packages that are only in `devDependencies`.
+    /// Reports a production module that imports a package from `devDependencies` only.
     ///
     /// ### Why is this bad?
     ///
-    /// Dev dependencies are not installed in production, so the import fails there.
-    /// Type-only imports are fine and are ignored.
+    /// A production install does not include dev dependencies, so the import fails there.
+    /// The rule ignores type-only imports, because they do not exist at runtime.
     ///
     /// ### Options
     ///
-    /// `prod` and `test` are path patterns that say which modules are production and which are tests.
+    /// * `prod`: globs of production code. The default is `src`, `app`, `lib` and `packages/*/src`.
+    /// * `test`: globs of test code. The rule does not apply to test code.
+    ///   These globs add to `*.test.*`, `*.spec.*` and test directories.
     NoDevDepsInProd, category = correctness, version = "0.1.0", config = NoDevDepsInProdConfig
 }
 

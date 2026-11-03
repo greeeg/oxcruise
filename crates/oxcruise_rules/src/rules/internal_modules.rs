@@ -23,7 +23,13 @@ impl Default for InternalModulesConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Go-style `internal` directories: code under `a/b/internal/` may only be imported from code under `a/b/`.
+    /// Restricts access to `internal` directories, as the Go language does.
+    /// Only code under `a/b/` can import a module under `a/b/internal/`.
+    /// The rule checks dependencies on local modules.
+    ///
+    /// ### Options
+    ///
+    /// * `marker`: the directory name that makes code internal. The default is `internal`.
     InternalModules, category = restriction, version = "0.1.0", config = InternalModulesConfig
 }
 

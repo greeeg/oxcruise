@@ -1,0 +1,74 @@
+---
+title: "Differences from dependency-cruiser"
+description: "The result of the conformance run against dependency-cruiser 18.7 and the intentional differences."
+---
+
+# Differences from dependency-cruiser
+
+The repository has a conformance task that compares Oxcruise with dependency-cruiser 18.7.
+This page explains what the task checks, the current result and the differences that are on purpose.
+
+## What the task does
+
+Run `just conformance` (`tasks/conformance/run.ts`). For each target, the task:
+
+1. Generates a dependency-cruiser config and runs dependency-cruiser 18.7.0 with it.
+2. Runs `oxcruise --migrate` on that config, to a `.json` file, and then runs `oxcruise -f json` with the migrated config. A script maps the output to the shape of dependency-cruiser. This tests the migration too. For `depcruise-src` and `depcruise-tools`, the script then replaces `ignorePatterns` by hand, because the `exclude` regexes of these targets do not convert to globs. The migration of these two targets is not fully tested.
+
+Then it compares:
+
+* the set of modules
+* the set of dependencies (`from → resolved (specifier)`)
+* the classification types of each dependency (`local`, `npm-dev`, `aliased-*`, `type-only` and others)
+* the syntax types of each dependency (`import`, `require`, `dynamic-import` and others)
+* the module system of each dependency
+
+The task does **not** compare violations. The rule language of Oxcruise is much smaller.
+`migrate` drops the rules that use conditions such as `circular`, `orphan` and `dependencyTypes`, with a warning.
+The own tests of Oxcruise cover the behavior of the rules.
+
+A difference that is not in `tasks/conformance/deviations.json`, with its reason, fails the run.
+
+The targets are the test fixtures `es6`, `cjs`, `amd`, `exotic-require`, `donotfollow` and `maxDepth` of dependency-cruiser.
+They also include its own `src/` and `tools/` with `bin/` as real code.
+
+## Current result
+
+All targets are conformant, with the documented differences below.
+
+```text
+ok   es6              modules 5/5  edges 3/3
+ok   cjs              modules 36/36  edges 34/34
+ok   amd              modules 24/25  edges 29/29  (+3 documented)
+ok   exotic-require   modules 2/2  edges 1/1  (+1 documented)
+ok   donotfollow / max-depth-1
+ok   depcruise-src    modules 229/271  edges 516/673  (+231 documented)
+ok   depcruise-tools  modules 253/301  edges 592/727  (+215 documented)
+```
+
+## Intentional differences
+
+1. **Dual ESM and CJS packages** resolve by import syntax. The dependency exists in both tools. Only the file inside `node_modules` differs, for example `acorn.mjs` and `acorn.js`.
+2. **Merged syntax kinds.** `import` and `export … from` of the same module give `[export, import]`. dependency-cruiser keeps `[import]`.
+3. **AMD ids without `./`** do not resolve against a requirejs `baseUrl` and `paths` config. Oxcruise does not resolve the id `sub/local-module-in-drag`, but dependency-cruiser does.
+4. **`new URL(…, import.meta.url)` dependencies** are an addition of Oxcruise. Oxcruise always extracts them. The report lists them, and the modules that only they reach, as `url-dependency-only-in-oxcruise`.
+5. **JSDoc imports** are always extracted. dependency-cruiser detects them only with `detectJSDocImports` and an installed `typescript`. The conformance run has no `typescript`, so they show as `jsdoc-import-only-in-oxcruise`.
+   An import that is also a JSDoc import gets the extra kinds `jsdoc` and `type-only`.
+6. **`exoticRequireStrings`** is part of `calls`, with one kind: `call`. Oxcruise counts a function in `calls` as an ES import. The exception is a name that starts with `require`.
+   dependency-cruiser treats every exotic require string as a CommonJS require. The report shows `module-system-differs`.
+
+## Found by the conformance run
+
+The run found these problems. Each one now has a regression test.
+
+* AMD `require([…])` is `amd-define`, and not `amd-require`.
+* Oxcruise reported a cycle once for each dependency. It now reports a cycle once.
+* A dependency in `dependencies` whose `@types/*` package was in `devDependencies` was `npm` and `npm-dev`. This caused a false `no-duplicate-deps` violation.
+* A package without `main` resolved to `index.d.ts` and not to `index.js`.
+* `new URL(".", import.meta.url)` was a dependency on a directory.
+
+## Not covered
+
+* The task skips the `ts`, `ts-types` and `vue` fixtures. dependency-cruiser needs `typescript` and `@vue/compiler-sfc` to parse them, and the task does not install them.
+* Large real repositories, such as typescript-eslint and date-fns, were not run. This needs a clone and an install of third-party repositories.
+* The task did not compare the migrated own config of dependency-cruiser (`.dependency-cruiser.mjs`) with its own run. Most of its rules use conditions that Oxcruise drops on purpose.

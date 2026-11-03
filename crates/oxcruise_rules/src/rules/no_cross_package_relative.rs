@@ -6,12 +6,12 @@ use crate::meta::{Hooks, Rule, RuleCtx};
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports relative imports (`../other-package/src/x`) that reach into another workspace package.
+    /// Reports relative imports that reach into another workspace package, for example `../other-package/src/x`.
     ///
     /// ### Why is this bad?
     ///
-    /// Packages should depend on each other through their package name so the dependency is
-    /// declared in `package.json` and the package boundary is respected.
+    /// A package must depend on another package through the package name.
+    /// Then `package.json` declares the dependency, and the package boundary stays intact.
     NoCrossPackageRelative, category = correctness, version = "0.1.0"
 }
 

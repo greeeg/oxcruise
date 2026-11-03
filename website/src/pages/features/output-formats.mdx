@@ -1,0 +1,143 @@
+---
+title: "Output formats"
+description: "The output formats of Oxcruise: default, long, json, github, dot, mermaid, text and plugin reporters."
+---
+
+# Output formats
+
+Use `-f <FORMAT>` or `--format <FORMAT>` to choose the output format.
+
+| Format | Use |
+|---|---|
+| `default` | Violations with source snippets, for people. |
+| `long` | The `default` output, plus the documentation of each rule that reported. |
+| `json` | The whole graph and all violations, for programs. |
+| `github` | Annotations for GitHub Actions. |
+| `dot` | A Graphviz graph. |
+| `mermaid` | A Mermaid flowchart. |
+| `text` | One line for each dependency. |
+| `plugin/reporter` | A reporter from a [JS plugin](/features/writing-js-plugins). |
+
+Color follows the terminal. `NO_COLOR` and `FORCE_COLOR` change it.
+
+## default and long
+
+The `default` format shows the source line and underlines the specifier. It draws a cycle as a loop.
+The `default` and `long` formats write `finished in Xms on N thread(s)` to stderr after the report.
+When Oxcruise cannot parse a module, these formats write `warning: could not parse <path>: <message>` to stderr.
+
+The `long` format adds an `About` section for each rule that reported. The section contains the documentation of the rule.
+
+```text
+warn[no-deprecated]: `sys` is a deprecated Node.js module
+  --> packages/app/src/index.ts:10:17
+    |
+ 10 | import sys from "sys";
+    |                 ^^^^^
+   = imports sys
+```
+
+## json
+
+The `json` format is the complete result of a run. Its keys are in camelCase.
+
+| Key | Content |
+|---|---|
+| `version` | The version of the format. The current version is `2`. |
+| `modules` | Each module with its `path`, `kind`, `dependencies` and `dependents`. |
+| `violations` | Each violation. |
+| `summary` | `error`, `warn`, `suppressed`, `totalModules` and `totalDependencies`. |
+| `warnings` | Always an empty list. Oxcruise writes warnings about the config to stderr, as `warning: ...`. |
+
+A module `kind` is `local`, `package` or `builtin`. A dependency on a module that Oxcruise cannot resolve has the `toKind` `unresolved`, and the list has no entry for that module.
+A violation `kind` is `dependency`, `module`, `cycle`, `reachability`, `export` or `file`.
+For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`.
+
+Each module in `modules` has these keys:
+
+| Key | Content |
+|---|---|
+| `path`, `kind` | The path and the kind of the module. |
+| `package` | The name of the package, for a module in a package. |
+| `notFollowed` | `true` when the module is in the graph but Oxcruise did not read its imports. |
+| `orphan` | `true` when no module imports the module and it imports nothing. |
+| `parseError` | The error message, when Oxcruise could not parse the module. |
+| `dependencies`, `dependents` | The dependencies of the module, and the paths of the modules that import it. |
+| `exports` | The exports of the module, with `name`, `kind`, `line`, `col` and `used`. Present with `--symbols`. |
+
+Each dependency has these keys:
+
+| Key | Content |
+|---|---|
+| `to`, `toKind` | The path and the kind of the target. |
+| `specifier` | The text of the import. |
+| `kinds` | The [dependency kinds](/features/languages#dependency-kinds). |
+| `moduleSystem` | `es6`, `cjs` or `amd`. |
+| `line`, `col` | The position of the import. |
+| `circular` | See below. |
+| `cycle` | The cycle that a rule reported, as a list of `module` and `kinds`. |
+| `rules` | The rules that reported the dependency, with `name` and `severity`. |
+| `names` | The names that the import uses. |
+
+A dependency has `circular: true` when it is on an import cycle of the whole graph, including type-only imports. This is true whether or not a rule reports it.
+Its `cycle` and `rules` keys show what the rules reported.
+
+Exports and the names that each import uses are in the output only when Oxcruise extracts [symbols](/features/unused-code#exports-and-symbols).
+
+:::warning
+Check `version` before you read a saved result. Version 2 renamed the snake_case keys to camelCase.
+It also renamed the module kinds `source`, `stub`, `core` and `unresolved` to `local`, `package`, `builtin` and `unresolved`.
+:::
+
+## github
+
+The `github` format writes one workflow command for each violation:
+
+```text
+::error file=packages/app/src/index.ts,line=8,col=21,title=no-undeclared-deps::`left-pad` is not declared in package.json
+::warning file=packages/app/src/orphan.ts,title=no-orphans::this module is not imported by any module and imports nothing
+```
+
+## dot
+
+The `dot` format writes a Graphviz graph. Type-only dependencies have a dashed line, and dynamic dependencies have a dotted line.
+A dependency with an error is red, and a dependency with only warnings is orange. A module with a violation has a red name. Install [Graphviz](https://graphviz.org) to draw it:
+
+```sh
+npx oxcruise src -f dot | dot -Tsvg > graph.svg
+```
+
+## mermaid
+
+The `mermaid` format writes a flowchart. Type-only dependencies have a dotted arrow (`-.->`), and dynamic dependencies have a longer dotted arrow (`-..->`).
+A dependency that has an error is red. A dependency that has only warnings is not red.
+
+```text
+flowchart LR
+  n7["packages/app/src/cycle-a.ts"]
+  n8["packages/app/src/cycle-b.ts"]
+  n7 --> n8
+  n8 --> n7
+  linkStyle 0 stroke:red,stroke-width:2px
+  linkStyle 1 stroke:red,stroke-width:2px
+```
+
+## text
+
+The `text` format lists each dependency on one line. Type-only and dynamic dependencies have a label:
+
+```text
+packages/app/src/cycle-a.ts -> packages/app/src/cycle-b.ts
+packages/app/src/helpers.ts -> packages/app/src/util.ts [type-only]
+packages/app/src/index.ts -> packages/app/src/lazy.ts [dynamic-import]
+```
+
+## Plugin reporters
+
+A [plugin](/features/writing-js-plugins) can add a reporter. Select it with `-f plugin/reporter`:
+
+```sh
+npx oxcruise -f acme/json-lines
+```
+
+A reporter gets the same object as the `json` format.

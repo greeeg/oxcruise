@@ -1,6 +1,9 @@
 packages:
   - apps/oxcruise
   - npm/oxcruise
+  - website
 allowBuilds:
   esbuild: true
   lefthook: true
+  es5-ext: false
+  vue-demi: false

@@ -1,0 +1,72 @@
+---
+title: "Quickstart"
+description: "Install Oxcruise, write a config file and run your first check."
+---
+
+# Quickstart
+
+This page shows how to install Oxcruise and run your first check.
+Oxcruise needs Node.js 22.18 or later.
+
+## Install
+
+Add the package to your project:
+
+```sh
+npm install --save-dev oxcruise
+```
+
+## Run a check
+
+Run Oxcruise without a config file. The default categories apply.
+
+```sh
+npx oxcruise
+```
+
+Oxcruise starts at the `entries` of your config file. Without a config file, it starts at the current folder.
+To start at other paths, name them:
+
+```sh
+npx oxcruise src
+```
+
+The command exits with code `0` when there are no errors, and with code `1` when there are errors.
+A bad flag or a bad config file gives exit code `2`.
+
+## Write a config file
+
+1. Run `npx oxcruise --init`. Oxcruise writes `oxcruise.config.ts` with the default `categories` and an empty `forbid` list.
+2. Open the file. Add the `entries` key if the graph must start somewhere other than the current folder.
+3. Add rules or `forbid` rules.
+4. Run `npx oxcruise` again.
+
+```ts
+// oxcruise.config.ts
+import { defineConfig } from "oxcruise";
+
+export default defineConfig({
+  entries: ["src"],
+  categories: { correctness: "error", suspicious: "warn" },
+});
+```
+
+`--init` never overwrites a file. To write a JSON file, run `npx oxcruise --init -c .oxcruiserc.json`.
+The JSON file accepts comments and has a `$schema` key for editors.
+
+## Try other outputs
+
+```sh
+npx oxcruise src -f dot | dot -Tsvg > graph.svg   # a picture of the graph
+npx oxcruise -f github                            # annotations in GitHub Actions
+npx oxcruise --rules                              # the built-in rules, by category
+npx oxcruise --print-config                       # the config after Oxcruise merges it
+```
+
+See [Output formats](/features/output-formats) for all formats.
+
+## Next steps
+
+* [Configuration](/guide/configuration) explains every part of the config file.
+* [Rules and categories](/features/rules-and-categories) explains how to switch rules on and off.
+* [CI and other setup](/guide/ci) shows how to run Oxcruise in CI.

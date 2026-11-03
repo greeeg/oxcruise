@@ -35,28 +35,35 @@ pub struct NoUnusedFilesConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports source modules that cannot be reached from any entry point.
+    /// Reports source modules that no path from an entry point reaches.
     ///
     /// ### Why is this bad?
     ///
-    /// A module that nothing leads to is dead code. Unlike `no-orphans`, this also finds
-    /// groups of modules that import each other but are used by nothing else.
+    /// A module that nothing leads to is dead code.
+    /// Unlike `no-orphans`, this rule also finds groups of modules that import each other and that nothing else uses.
     ///
     /// ### Entry points
     ///
-    /// The files `package.json` publishes (`main`, `module`, `types`, `bin`, `exports`, mapped
-    /// from the build output back to source), `index`, `main` and `cli` files, the files that the
-    /// tools listed in `package.json` load (tests, routes, configs; see the conventions table), the
-    /// entries of plugins and the `entries` option. When none is found, nothing is reported.
-    /// Mark a module with `// oxcruise-ignore-file` to keep it and what it imports.
+    /// The rule finds the entry points by itself:
+    ///
+    /// * the files that `package.json` publishes (`main`, `module`, `types`, `bin` and `exports`)
+    /// * `index`, `main` and `cli` files
+    /// * the files that the tools in `package.json` load, such as tests, routes and configuration files of tools
+    /// * the entry points of plugins
+    /// * the modules that the `entries` option lists
+    ///
+    /// The rule maps build output back to source files.
+    /// It reports nothing when it finds no entry point.
+    /// To keep a module and the modules that it imports, mark it with `// oxcruise-ignore-file`.
     ///
     /// ### Options
     ///
-    /// `production`: tests are neither entry points nor reported (`test` adds globs to `*.test.*`,
-    /// `*.spec.*` and test directories); `oxcruise --production` turns it on.
-    /// `entries`: more entry globs. `ignore`: globs of modules to skip, on top of dotfiles,
-    /// declaration files and `*.config.*`. `conventions`: `false` or a list of names to use only
-    /// some tool conventions.
+    /// * `production`: tests are not entry points, and the rule does not report them.
+    ///   A module that only tests use is then a violation. `oxcruise --production` enables it.
+    /// * `test`: globs of test modules. These globs add to `*.test.*`, `*.spec.*` and test directories.
+    /// * `entries`: globs of more entry points.
+    /// * `ignore`: globs of modules to skip. These globs add to dotfiles, declaration files and `*.config.*`.
+    /// * `conventions`: `false`, or a list of names, to use only some tool conventions.
     NoUnusedFiles, category = nursery, version = "0.1.0", config = NoUnusedFilesConfig
 }
 

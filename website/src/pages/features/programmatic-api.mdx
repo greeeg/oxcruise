@@ -1,0 +1,70 @@
+---
+title: "Programmatic API"
+description: "Use cruise() in tests and scripts to ask questions about the module graph."
+---
+
+# Programmatic API
+
+The `cruise()` function runs a check and returns the graph, the violations and a handle for each module. Use it for architecture tests.
+
+```ts
+import { cruise } from "oxcruise";
+
+const result = await cruise({ paths: ["src"] });
+expect(result.module("src/ui/page.ts")?.dependsOn("src/db/**")).toBe(false);
+```
+
+## Options
+
+| Option | Meaning |
+|---|---|
+| `cwd` | The folder to run in. The default is the current folder. |
+| `paths` | The entries. The default is `entries` from the config file, or `.`. |
+| `config` | The config file. The default is the file in `cwd`. |
+| `ignorePatterns` | Globs of modules to leave out, in addition to the config file. |
+| `maxDepth` | Follow dependencies at most this many hops from the entries. |
+| `threads` | The number of worker threads. |
+| `production` | Production mode, as for `--production`. |
+| `symbols` | Extract exports and the names that each import uses. |
+
+## The result
+
+| Member | Meaning |
+|---|---|
+| `graph` | The whole graph, as plugin rules see it. |
+| `violations`, `summary` | What the rules reported, and the counts. |
+| `modules` | A handle for each module. It does not include modules that Oxcruise cannot resolve. |
+| `module(path)` | The handle of one module. |
+| `modulesMatching(glob)` | Handles of the local modules that match the glob. |
+| `violationsOf(path)` | The violations on one module. |
+| `whoImports(path, name)` | The modules that use an export. Needs `symbols: true`. |
+
+A module handle has `path`, `kind`, `dependencies`, `dependents` and `violations`. It also has these methods:
+
+| Method | Answer |
+|---|---|
+| `dependsOn(target)` | Does the module import a module that matches `target`? A path or a glob. |
+| `dependsOnTransitively(target)` | Does the module reach a module that matches `target` through other modules? |
+| `exports` | What the module exports. Needs `symbols: true`. |
+| `unusedExports()` | The exports that no module uses. Needs `symbols: true`. |
+| `isUsed(name)` | Does a module use the export `name`? Needs `symbols: true`. |
+| `importersOf(name)` | The modules that use the export `name`. Needs `symbols: true`. |
+
+## Exports
+
+```ts
+const graph = await cruise({ paths: ["src"], symbols: true });
+
+expect(graph.module("src/index.ts")!.unusedExports()).toEqual([]);
+expect(
+  graph.whoImports("src/db/client.ts", "query").every((m) => m.path.startsWith("src/repo/")),
+).toBe(true);
+```
+
+:::note
+`unusedExports()` uses the default options of `no-unused-exports`. The rule is the complete report.
+:::
+
+## Errors
+
+`cruise()` returns violations as a result. It throws only when the run cannot produce a graph, for example with a bad config file.

@@ -65,30 +65,46 @@ impl Default for NoUnusedDepsConfig {
 declare_rule! {
     /// ### What it does
     ///
-    /// Reports packages that a `package.json` declares and none of its modules imports.
+    /// Reports a package that a `package.json` declares and that none of its modules imports.
     ///
     /// ### Why is this bad?
     ///
-    /// An unused dependency is installed, audited and shipped for nothing.
+    /// An unused dependency costs install time and audit work, and it ships for no reason.
     ///
     /// ### How it works
     ///
-    /// A package is used when a module that the `package.json` governs (the nearest one above it)
-    /// imports it, whatever the subpath. `@types/x` follows `x`, `@types/node` follows any
-    /// built-in module, and the peer dependencies of a used package are used too. Packages that
-    /// are only run (a CLI in a script) or loaded by a tool's configuration are not seen: list
-    /// them in `ignore`. A `package.json` that governs no module of the graph is skipped.
+    /// A package counts as used when a module that the `package.json` governs imports it.
+    /// The `package.json` that governs a module is the nearest one above the module.
+    /// The subpath of the import does not matter. These packages also count as used:
+    ///
+    /// * `@types/x` follows `x`.
+    /// * `@types/node` follows any built-in module.
+    /// * The peer dependencies of a used package.
+    ///
+    /// The rule does not see two kinds of use. A script can only run a package, for example a CLI.
+    /// The configuration of a tool can load a package.
+    /// Add these packages to `ignore`.
+    /// The rule skips a `package.json` that governs no module of the graph.
     ///
     /// ### Options
     ///
-    /// `production`: do not check `devDependencies` and ignore imports from tests (`test` adds
-    /// globs to `*.test.*`, `*.spec.*` and test directories); `oxcruise --production` turns it on.
-    /// `sections`: which sections to check. `ignore`: globs of package names to skip.
-    /// `conventions`: packages that the tools listed in the same `package.json` load by name
-    /// (`@vitest/*` next to `vitest`, `*-loader` next to `webpack`) count as used; `false`
-    /// turns that off and a list of names keeps only those conventions.
+    /// * `production`: do not check `devDependencies`, and ignore the imports of tests.
+    ///   `oxcruise --production` enables it.
+    /// * `test`: globs of test modules. These globs add to `*.test.*`, `*.spec.*` and test directories.
+    /// * `sections`: the `package.json` sections to check.
+    ///   The default is `dependencies`, `peerDependencies` and `optionalDependencies`.
+    ///   Most `devDependencies` are tools that no module imports.
+    /// * `ignore`: globs of package names to skip.
+    /// * `conventions`: packages that a tool loads by name count as used when the same `package.json` lists the tool.
+    ///   For example `@vitest/*` next to `vitest`, and `*-loader` next to `webpack`.
+    ///   The default is `true` (all conventions). Use `false` to disable them, or a list of names to keep only those conventions.
     ///
-    /// A finding is in a `package.json`, where no comment can suppress it: use `ignore`.
+    /// A violation of this rule is in a `package.json`, and a comment cannot suppress it there.
+    /// Use `ignore` instead.
+    ///
+    /// ### Fix
+    ///
+    /// This rule is fixable. `oxcruise --fix` removes the entry from the `package.json`.
     NoUnusedDeps, category = nursery, version = "0.1.0", config = NoUnusedDepsConfig
 }
 
