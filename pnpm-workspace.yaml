@@ -8,4 +8,4 @@ allowBuilds:
   lefthook: true
   es5-ext: false
   vue-demi: false
-  workerd: false
+  workerd: true
