@@ -49,6 +49,7 @@ export default defineConfig({
         { text: "Ignore files", link: "/features/ignore-files" },
         { text: "Inline ignore comments", link: "/features/inline-ignore-comments" },
         { text: "Output formats", link: "/features/output-formats" },
+        { text: "Visualize the graph", link: "/features/visualize" },
         { text: "Languages", link: "/features/languages" },
         { text: "JS plugins", link: "/features/js-plugins" },
         { text: "Write a JS plugin", link: "/features/writing-js-plugins" },

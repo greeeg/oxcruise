@@ -108,7 +108,7 @@ Two of the rules are `off` by default: `no-optional-deps` and `no-peer-deps`.
 * **One report for each cycle.** Oxcruise reports a cycle once and, by default, only when it exists at runtime. A compiler erases `import type`.
 * **Ignore comments exist.** See [Inline ignore comments](/features/inline-ignore-comments).
 * **Exit codes.** Errors give `1`. `--deny-warnings` with warnings, and `--max-warnings N` when exceeded, also give `1`. A bad config gives `2`. There is no `--compat`.
-* **Output formats.** They are `default`, `long`, `json`, `github`, `dot`, `mermaid`, `text` and plugin reporters. The `json` format of Oxcruise has a different shape from the `json` format of dependency-cruiser. A tool that reads the old output must read the new format. See [Output formats](/features/output-formats).
+* **Output formats.** They are `default`, `long`, `json`, `github`, `text` and plugin reporters. The `--visualize` mode replaces `dot`, `mermaid` and `archi`: it writes an interactive site (see [Visualize the graph](/features/visualize)). The `json` format of Oxcruise has a different shape from the `json` format of dependency-cruiser. A tool that reads the old output must read the new format. See [Output formats](/features/output-formats).
 * **Dual packages.** Oxcruise resolves them by import syntax, as Node.js does. See [Differences](/migration/differences).
 * **Merged syntax kinds.** A file that both imports and re-exports one module has both kinds on that dependency.
 * **No TypeScript install.** Oxcruise parses TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro itself.

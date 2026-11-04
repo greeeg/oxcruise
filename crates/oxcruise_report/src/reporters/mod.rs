@@ -1,7 +1,5 @@
-mod dot;
 mod err;
 mod github;
-mod mermaid;
 mod text;
 
 use std::io::{self, Write};
@@ -39,8 +37,6 @@ pub fn render(
             writeln!(out)
         }
         OutputFormat::Github => github::render(result, out),
-        OutputFormat::Dot => dot::render(result, out),
-        OutputFormat::Mermaid => mermaid::render(result, out),
         OutputFormat::Text => text::render(result, out),
         OutputFormat::External(name) => {
             let host = external.ok_or_else(|| {

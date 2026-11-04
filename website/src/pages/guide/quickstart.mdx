@@ -57,7 +57,7 @@ The JSON file accepts comments and has a `$schema` key for editors.
 ## Try other outputs
 
 ```sh
-npx oxcruise src -f dot | dot -Tsvg > graph.svg   # a picture of the graph
+npx oxcruise --visualize                          # an interactive site of the graph
 npx oxcruise -f github                            # annotations in GitHub Actions
 npx oxcruise --rules                              # the built-in rules, by category
 npx oxcruise --print-config                       # the config after Oxcruise merges it

@@ -1,6 +1,6 @@
 ---
 title: "Output formats"
-description: "The output formats of Oxcruise: default, long, json, github, dot, mermaid, text and plugin reporters."
+description: "The output formats of Oxcruise: default, long, json, github, text and plugin reporters."
 ---
 
 # Output formats
@@ -13,12 +13,12 @@ Use `-f <FORMAT>` or `--format <FORMAT>` to choose the output format.
 | `long` | The `default` output, plus the documentation of each rule that reported. |
 | `json` | The whole graph and all violations, for programs. |
 | `github` | Annotations for GitHub Actions. |
-| `dot` | A Graphviz graph. |
-| `mermaid` | A Mermaid flowchart. |
 | `text` | One line for each dependency. |
 | `plugin/reporter` | A reporter from a [JS plugin](/features/writing-js-plugins). |
 
 Color follows the terminal. `NO_COLOR` and `FORCE_COLOR` change it.
+
+To see the graph as a picture, use [`--visualize`](/features/visualize). It is a mode, not a format.
 
 ## default and long
 
@@ -96,30 +96,6 @@ The `github` format writes one workflow command for each violation:
 ```text
 ::error file=packages/app/src/index.ts,line=8,col=21,title=no-undeclared-deps::`left-pad` is not declared in package.json
 ::warning file=packages/app/src/orphan.ts,title=no-orphans::this module is not imported by any module and imports nothing
-```
-
-## dot
-
-The `dot` format writes a Graphviz graph. Type-only dependencies have a dashed line, and dynamic dependencies have a dotted line.
-A dependency with an error is red, and a dependency with only warnings is orange. A module with a violation has a red name. Install [Graphviz](https://graphviz.org) to draw it:
-
-```sh
-npx oxcruise src -f dot | dot -Tsvg > graph.svg
-```
-
-## mermaid
-
-The `mermaid` format writes a flowchart. Type-only dependencies have a dotted arrow (`-.->`), and dynamic dependencies have a longer dotted arrow (`-..->`).
-A dependency that has an error is red. A dependency that has only warnings is not red.
-
-```text
-flowchart LR
-  n7["packages/app/src/cycle-a.ts"]
-  n8["packages/app/src/cycle-b.ts"]
-  n7 --> n8
-  n8 --> n7
-  linkStyle 0 stroke:red,stroke-width:2px
-  linkStyle 1 stroke:red,stroke-width:2px
 ```
 
 ## text

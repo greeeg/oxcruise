@@ -54,8 +54,7 @@ The command exits with `0` when there are no errors, `1` when there are errors, 
 Other things to try:
 
 ```sh
-npx oxcruise src -f dot | dot -Tsvg > graph.svg   # a picture of the graph (Graphviz)
-npx oxcruise -f mermaid                           # the same as a Mermaid diagram
+npx oxcruise --visualize                          # an interactive architecture site in ./oxcruise-report
 npx oxcruise -f github                            # annotations in GitHub Actions
 npx oxcruise --rules                              # the built-in rules by category
 npx oxcruise --print-config                       # the config after defaults and `extends`

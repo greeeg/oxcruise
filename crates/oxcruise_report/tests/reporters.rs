@@ -99,8 +99,6 @@ fn github() {
 
 #[test]
 fn graph_formats() {
-    insta::assert_snapshot!("dot", rendered("dot", &plain()));
-    insta::assert_snapshot!("mermaid", rendered("mermaid", &plain()));
     insta::assert_snapshot!("text", rendered("text", &plain()));
 }
 
@@ -108,7 +106,7 @@ fn graph_formats() {
 fn saved_json_renders_the_same_as_a_live_run() {
     let live = result();
     let saved: CruiseResult = serde_json::from_str(&serde_json::to_string(&live).unwrap()).unwrap();
-    for f in ["dot", "mermaid", "text", "github"] {
+    for f in ["text", "github"] {
         let fmt: OutputFormat = f.parse().unwrap();
         let (mut a, mut b) = (vec![], vec![]);
         render(&fmt, &live, &plain(), None, &mut a).unwrap();

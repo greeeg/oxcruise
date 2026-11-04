@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a rule, option, reporter or other improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What do you want to do that Oxcruise does not let you do? Show a small example of the code or architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could it work? Oxcruise keeps its surface small, so say why an existing rule, option or plugin cannot do it.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other tools or workarounds you tried, for example dependency-cruiser or Knip.
+    validations:
+      required: false

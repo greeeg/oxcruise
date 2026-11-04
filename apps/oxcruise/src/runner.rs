@@ -137,6 +137,7 @@ impl CliRunner {
                 ),
             },
             Mode::PrintConfig => self.print_config(&cli, out, err),
+            Mode::Visualize => self.visualize(&cli, err),
             Mode::Check => self.check(&cli, out, err),
         }
     }
@@ -151,6 +152,7 @@ impl CliRunner {
             Mode::Migrate => "--migrate",
             Mode::Rules => "--rules",
             Mode::PrintConfig => "--print-config",
+            Mode::Visualize => "--visualize",
         };
         Err(fail(err, format!("`{not_a_cruise}` is not a cruise")))
     }
@@ -258,10 +260,10 @@ impl CliRunner {
         } else {
             violations
         };
-        let result = CruiseResult::build(
+        let result = result_of(
+            &cwd,
             &graph,
             &workspace,
-            cwd.clone(),
             &violations,
             // `--quiet` hides warnings, it does not make them go away
             Totals {
@@ -269,14 +271,7 @@ impl CliRunner {
                 warn: warnings,
                 suppressed,
             },
-            vec![],
-            usage
-                .as_ref()
-                .map(|u| {
-                    Box::new(move |m, name: &str| u.is_used(m, name))
-                        as Box<dyn Fn(_, &str) -> bool>
-                })
-                .as_deref(),
+            usage.as_ref(),
         );
 
         let reporter_opts = ReporterOptions {
@@ -317,6 +312,42 @@ impl CliRunner {
             );
             return CliRunResult::MaxWarningsExceeded { warnings, max };
         }
+        CliRunResult::Success
+    }
+
+    /// Write the architecture site. It shows the graph, so it does not gate: violations do not fail it.
+    fn visualize(&self, args: &Cli, err: &mut dyn Write) -> CliRunResult {
+        let analysis = match self.analyze(args, err) {
+            Ok(a) => a,
+            Err(result) => return result,
+        };
+        let result = result_of(
+            &analysis.cwd,
+            &analysis.graph,
+            &analysis.workspace,
+            &analysis.violations,
+            Totals {
+                error: analysis.errors,
+                warn: analysis.warnings,
+                suppressed: analysis.suppressed,
+            },
+            analysis.usage.as_ref(),
+        );
+        let dir = match args.visualize.as_ref().and_then(|d| d.as_deref()) {
+            Some(d) if d.is_absolute() => d.to_path_buf(),
+            Some(d) => analysis.cwd.join(d),
+            None => analysis.cwd.join("oxcruise-report"),
+        };
+        if let Err(e) = oxcruise_visualize::write_site(&dir, &result) {
+            return fail(err, format!("cannot write {}: {e}", dir.display()));
+        }
+        let _ = writeln!(
+            err,
+            "wrote {} ({} modules, {} violations)",
+            dir.join("index.html").display(),
+            result.modules.len(),
+            result.violations.len()
+        );
         CliRunResult::Success
     }
 
@@ -437,6 +468,27 @@ impl CliRunner {
         let ext = self.external_reporters.as_deref();
         render(format, result, opts, ext, out).map_err(|e| e.to_string())
     }
+}
+
+/// The result of an analysis, as the reporters and the site read it.
+fn result_of(
+    cwd: &Path,
+    graph: &oxcruise_core::Graph,
+    workspace: &[oxcruise_resolve::WorkspacePackage],
+    violations: &[oxcruise_core::Violation],
+    totals: Totals,
+    usage: Option<&ExportUsage>,
+) -> CruiseResult {
+    let used = usage.map(|u| move |m, name: &str| u.is_used(m, name));
+    CruiseResult::build(
+        graph,
+        workspace,
+        cwd.to_path_buf(),
+        violations,
+        totals,
+        vec![],
+        used.as_ref().map(|f| f as &oxcruise_report::ExportUsed<'_>),
+    )
 }
 
 fn threads(n: Option<usize>) -> usize {

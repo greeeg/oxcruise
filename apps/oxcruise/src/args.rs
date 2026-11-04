@@ -17,6 +17,9 @@ const CHECK_ONLY: &[&str] = &[
     "threads",
 ];
 
+/// Flags that a check has but `--visualize` refuses: it writes a site, it does not report or gate.
+const NOT_FOR_VISUALIZE: &[&str] = &["format", "fix", "quiet", "max_warnings", "deny_warnings"];
+
 /// [`CHECK_ONLY`] without `--format`, which `--rules` takes (`-f json`).
 const CHECK_ONLY_BESIDES_FORMAT: &[&str] = &[
     "paths",
@@ -38,7 +41,7 @@ const CHECK_ONLY_BESIDES_FORMAT: &[&str] = &[
     about = "Validate and visualise JS/TS dependency graphs",
     group(
         ArgGroup::new("mode")
-            .args(["init", "migrate", "rules", "print_config"])
+            .args(["init", "migrate", "rules", "print_config", "visualize"])
             .multiple(false)
     )
 )]
@@ -59,6 +62,16 @@ pub struct Cli {
         conflicts_with_all = CHECK_ONLY
     )]
     pub migrate: Option<Option<PathBuf>>,
+    /// Write an interactive architecture site (treemap, dependency graph, violations) to DIR. The default is `oxcruise-report`
+    #[arg(
+        long,
+        value_name = "DIR",
+        num_args = 0..=1,
+        require_equals = true,
+        help_heading = "Mode Options",
+        conflicts_with_all = NOT_FOR_VISUALIZE
+    )]
+    pub visualize: Option<Option<PathBuf>>,
     /// List the built-in rules by category. Use `-f json` to print them as JSON
     #[arg(long, help_heading = "Mode Options", conflicts_with_all = CHECK_ONLY_BESIDES_FORMAT)]
     pub rules: bool,
@@ -77,7 +90,7 @@ pub struct Cli {
     #[arg(long, value_name = "N", help_heading = "Input Options")]
     pub max_depth: Option<u32>,
 
-    /// The output format: default, long, json, github, dot, mermaid, text, or plugin/reporter
+    /// The output format: default, long, json, github, text, or plugin/reporter
     #[arg(
         short,
         long,
@@ -127,6 +140,7 @@ pub enum Mode {
     Migrate,
     Rules,
     PrintConfig,
+    Visualize,
     Check,
 }
 
@@ -140,6 +154,8 @@ impl Cli {
             Mode::Rules
         } else if self.print_config {
             Mode::PrintConfig
+        } else if self.visualize.is_some() {
+            Mode::Visualize
         } else {
             Mode::Check
         }

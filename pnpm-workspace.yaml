@@ -1,5 +1,6 @@
 packages:
   - apps/oxcruise
+  - apps/visualizer
   - npm/oxcruise
   - website
 allowBuilds:
