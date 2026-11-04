@@ -30,6 +30,7 @@ oxcruise_core = { workspace = true }
 oxcruise_config = { workspace = true }
 oxcruise_graph = { workspace = true }
 oxcruise_report = { workspace = true }
+oxcruise_visualize = { workspace = true }
 oxcruise_resolve = { workspace = true }
 oxcruise_rules = { workspace = true }
 clap = { workspace = true }

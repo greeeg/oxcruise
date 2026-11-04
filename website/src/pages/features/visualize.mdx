@@ -1,0 +1,120 @@
+---
+title: "Visualize the graph"
+description: "Write an interactive site with a map of your architecture, the neighbourhood of a module and a list of violations."
+---
+
+# Visualize the graph
+
+The `--visualize` mode writes a static site that shows your project. The site works for small projects and for large projects.
+
+```sh
+npx oxcruise --visualize
+```
+
+Oxcruise writes the site to `oxcruise-report` in the working directory. To choose another folder, write `--visualize=DIR`.
+Open `index.html` in a browser. The site needs no server and no network.
+
+The mode accepts the same input flags as a check: paths, `-c`, `--ignore-pattern`, `--max-depth`, `--production`, `--symbols` and `--threads`.
+It refuses the flags that change the report or the exit code: `-f`, `--fix`, `--quiet`, `--max-warnings` and `--deny-warnings`.
+The mode shows the graph, so it exits with `0` when the project has violations.
+
+:::note
+Oxcruise replaces only its own four files: `index.html`, `app.js`, `app.css` and `data.js`. Other files in the folder stay.
+:::
+
+## Views
+
+| View | What it shows |
+|---|---|
+| Graph | A map of one folder, or the neighbourhood of one module, with a folder tree. You go deeper one level at a time. |
+| Violations | All violations, grouped by rule. |
+
+### Graph
+
+The graph has a folder tree on the left, the picture in the middle and the details of the selection on the right.
+The picture always shows one scope: a folder (the project root at the start) or a module.
+It never draws more than about 40 boxes, so the labels do not collide, and the same project always gives the same picture.
+You go deeper by drilling down, not by opening more folders.
+
+#### Map of a folder
+
+The map shows only the direct children of the folder, as boxes: its folders and its loose modules.
+Boxes are in rows from top to bottom by dependency level. The foundations, which everyone imports, are on top, and the modules that import others are at the bottom.
+
+* A box shows the name, the number of modules, and a badge with the number of errors (or of warnings, when there are no errors).
+* One line joins a pair of boxes, with an arrow to the imported one, so the arrows point up. A thicker line has more imports.
+* A red line is part of a cycle, or it has an error. An orange line has only warnings. A dashed line has only type-only imports.
+* Folders that import each other sit side by side in a red frame.
+* The pills above the frame are the folders outside the map that it imports. The pills below are the folders that import into it. Click a pill to show that folder.
+  Each side names the 8 biggest; the rest is one `+N` pill.
+* The packages that the folder uses are in their own lane under the frame.
+* The map skips a folder that holds only one folder, so the path reads `src/app` instead of `src › app`.
+* When a folder has more than 40 children, the loose files become one `files (N)` box. If that is not enough, the smallest folders become one `+K folders (N modules)` box.
+  Select it to list what is inside. You can focus each item in the list.
+* When the map has more than 150 lines, the weakest are hidden, and a chip in the toolbar says how many. Lines with errors or cycles are always shown. Click the chip to show all lines.
+
+Hover a box to see only its lines and the boxes they touch. Click a line to see what is behind it, for example `src/ui → lib · 14 imports (3 type-only)`.
+The panel lists the module pairs and groups them by the importing module.
+
+Click a folder box to show the map of that folder, or click a module box to show its neighbourhood. `Enter` does the same for the selection.
+Shift-click a box to select it and read its details without opening it.
+`Esc` and `Backspace` go up one level. The path above the picture and the folder tree do the same: click a part of the path, or a row of the tree.
+Each change of scope is a step of the browser history, so the Back button works too.
+
+#### Neighbourhood of a module
+
+Click a module box in a map, or search for a module, to see where it fits.
+The module is in the middle. The modules that import it are in columns to the left, by hop distance, and the modules that it imports are in columns to the right.
+The hop count (up to 3) and the direction are in the toolbar.
+
+* Inside a column, the modules sit in groups by folder, with the folder as a header. A column shows at most 30 modules; the rest is one `+N more in <folder>` row, and the panel lists them.
+* A column lists each package on its own row. With the **Packages** toggle off, a column folds them into one `N packages` row.
+* The graph draws only the lines between neighbouring columns and the lines that touch the middle module.
+* A module that is both imported and importing, because of a cycle, has a red ring and sits on the imports side.
+* When you open a cycle from the Violations view, its modules form a chain in the middle. A red line joins the last to the first.
+
+Double-click another module to put it in the middle. Double-click a folder header to show the map of that folder.
+
+**Hide.** The ⊘ button in the tree, `H`, and the panel hide a folder or a module, and the lines to it. The tree shows hidden items with a strike-through.
+A chip in the toolbar counts them and shows them all again. The toggle **Type-only** counts the type-only dependencies or leaves them out, and **Packages** shows or hides the packages.
+
+| Key | Action |
+|---|---|
+| `Enter`, `F` | Show the map of the selected folder, or the neighbourhood of the selected module. |
+| `Esc`, `Backspace`, `←` | Go up one level. |
+| `H` | Hide the selection, or show it again. |
+| `Ctrl+K`, `⌘K`, `/` | Search for a file or a folder. |
+| `Tab` | Move the focus to the tree of folders. |
+| `↑` `↓` | In the tree: select the previous or next row. The panel shows it. |
+| `→` `←` | In the tree: open a folder, then go into it. Close a folder, then go to its parent. |
+| `Home`, `End`, `Enter` | In the tree: first row, last row, open the row in the graph. |
+| `?` | Show the keys and the legend. |
+
+The panel of a folder has two tabs: what the folder depends on, and what uses it, grouped by the folder or module at the other end.
+Each line shows the importing module and the imported one. The panel of a module has the tabs **Imports** and **Imported by**, grouped by folder.
+Badges mark type-only imports, dynamic imports and imports in a cycle. A long list has a filter, and a button opens or closes every group.
+The tab you chose stays when you select another node.
+
+### Violations
+
+Filter by severity or by rule. Click a violation to open the module in the graph.
+For a cycle, the neighbourhood shows the modules of the cycle as a chain.
+
+## Search and links
+
+Click the search field in the header, or press `Ctrl+K` (`⌘K` on a Mac) or `/`, to search all file and folder paths. Type several words to narrow the search. Each word must be in the path. A match in the name ranks before a match in a folder.
+
+Move with `↑` and `↓`, and press `Enter` to open the result in the graph. A folder shows its map, and a file shows its neighbourhood. `Esc` clears the field, and then closes it.
+
+The address of the page keeps the view, the focus, the hidden items and the selection. To share a view, copy the address.
+
+Links to the old Focus and Treemap views still work: they open the graph with the same focus. The site ignores the list of open folders in old links.
+
+## Size of the site
+
+The data is in columns, not in one object for each module. Even for a large project, `data.js` stays small and compresses well.
+
+## Build the viewer
+
+The viewer is in `apps/visualizer`. The repository contains the built files, so `cargo build` does not need Node.js.
+After a change in the viewer, run `just visualizer-build` and commit the files in `crates/oxcruise_visualize/assets`.

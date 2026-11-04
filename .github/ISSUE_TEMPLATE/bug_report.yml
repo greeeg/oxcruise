@@ -1,0 +1,43 @@
+name: Bug report
+description: Oxcruise reports something wrong, crashes, or is slow
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead? Include the exact output.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The command you ran, your config, and the smallest set of files that shows the problem. A link to a repository is best.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Oxcruise version
+      description: Output of `npx oxcruise --version`.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Operating system and Node.js version
+      placeholder: macOS 15, Node 24
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run Oxcruise?
+      options:
+        - npm package (npx oxcruise)
+        - Standalone binary
+        - Built from source
+    validations:
+      required: false

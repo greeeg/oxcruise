@@ -4,7 +4,7 @@ default:
     @just --list
 
 # Everything CI checks: fmt, clippy, Rust tests, JS typecheck and tests
-ready: fmt-check lint test node-test
+ready: fmt-check lint test node-test visualizer-check
 
 fmt:
     cargo fmt --all
@@ -51,6 +51,22 @@ oxcruise-node:
 node-test:
     pnpm -C apps/oxcruise run typecheck
     pnpm -C apps/oxcruise run test
+
+# Build the viewer of `--visualize` into crates/oxcruise_visualize/assets (the built files are committed)
+visualizer-build:
+    pnpm -C apps/visualizer run build
+
+# Typecheck and test the viewer, rebuild it, and check that the committed assets are current
+visualizer-check:
+    pnpm -C apps/visualizer run typecheck
+    pnpm -C apps/visualizer run test
+    pnpm -C apps/visualizer run build
+    git diff --exit-code crates/oxcruise_visualize/assets
+
+# Rebuild the viewer on change into apps/visualizer/dev-site, with a data.js of the monorepo fixture
+visualizer-dev:
+    cargo run -q -p oxcruise -- --cwd tests/fixtures/monorepo packages --visualize=../../../apps/visualizer/dev-site
+    pnpm -C apps/visualizer exec vite build --mode dev --watch
 
 # Pack the npm packages, install them into a fresh project and run npx oxcruise there
 smoke: oxcruise-node-debug

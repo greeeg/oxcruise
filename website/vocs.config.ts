@@ -10,7 +10,7 @@ export default defineConfig({
   logoUrl: { light: "/logo-light.svg", dark: "/logo-dark.svg" },
   iconUrl: "/icon.svg",
   accentColor: "light-dark(#0f766e, #2dd4bf)",
-  // TODO: set `baseUrl` when the site has a domain. It is used for the sitemap and canonical URLs.
+  baseUrl: "https://oxcruise.dev",
   renderStrategy: "full-static",
   checkDeadlinks: true,
   socials: [{ icon: "github", link: repo }],
@@ -49,6 +49,7 @@ export default defineConfig({
         { text: "Ignore files", link: "/features/ignore-files" },
         { text: "Inline ignore comments", link: "/features/inline-ignore-comments" },
         { text: "Output formats", link: "/features/output-formats" },
+        { text: "Visualize the graph", link: "/features/visualize" },
         { text: "Languages", link: "/features/languages" },
         { text: "JS plugins", link: "/features/js-plugins" },
         { text: "Write a JS plugin", link: "/features/writing-js-plugins" },

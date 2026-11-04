@@ -54,8 +54,7 @@ The command exits with `0` when there are no errors, `1` when there are errors, 
 Other things to try:
 
 ```sh
-npx oxcruise src -f dot | dot -Tsvg > graph.svg   # a picture of the graph (Graphviz)
-npx oxcruise -f mermaid                           # the same as a Mermaid diagram
+npx oxcruise --visualize                          # an interactive architecture site in ./oxcruise-report
 npx oxcruise -f github                            # annotations in GitHub Actions
 npx oxcruise --rules                              # the built-in rules by category
 npx oxcruise --print-config                       # the config after defaults and `extends`
@@ -193,7 +192,7 @@ just sync-readme           # copy this README and LICENSE into npm/oxcruise/ (th
 
 Requires Rust (stable), Node ≥ 22.18 and pnpm. `pnpm install` also installs the git hooks ([lefthook](https://lefthook.dev)):
 `pre-commit` formats staged Rust (rustfmt) and JS/TS ([oxfmt](https://oxc.rs/docs/guide/usage/formatter)) files. CI checks the same formatting, so `git commit --no-verify` only defers the failure.
-For the design, the gaps it closes and where the implementation differs from the original plan, read [Architecture and design](docs/architecture.md).
+For the design of the code, read the [Architecture](CONTRIBUTING.md#architecture) section of CONTRIBUTING.md.
 
 The npm package gets a copy of this README with its relative links rewritten to GitHub URLs (`tasks/npm/sync-readme.mjs`, run by the
 pre-commit hook and checked in CI). Do not edit `npm/oxcruise/README.md`.

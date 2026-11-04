@@ -14,10 +14,11 @@ Options:
   -V, --version  Print version
 
 Mode Options:
-      --init              Write a starter config file. The default is `oxcruise.config.ts`. Use `-c` to choose the file and its format
-      --migrate[=<FILE>]  Convert a dependency-cruiser config (found automatically, or FILE) to the `-c` file. The default target is `oxcruise.config.ts`
-      --rules             List the built-in rules by category. Use `-f json` to print them as JSON
-      --print-config      Print the resolved config as JSON, with `extends` applied and the level of every category
+      --init               Write a starter config file. The default is `oxcruise.config.ts`. Use `-c` to choose the file and its format
+      --migrate[=<FILE>]   Convert a dependency-cruiser config (found automatically, or FILE) to the `-c` file. The default target is `oxcruise.config.ts`
+      --visualize[=<DIR>]  Write an interactive architecture site (treemap, dependency graph, violations) to DIR. The default is `oxcruise-report`
+      --rules              List the built-in rules by category. Use `-f json` to print them as JSON
+      --print-config       Print the resolved config as JSON, with `extends` applied and the level of every category
 
 Config Options:
   -c, --config <FILE>  The config file to read. With `--init` or `--migrate`, the file to write
@@ -29,7 +30,7 @@ Input Options:
       --production             Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`. The rules ignore tests, and they do not check `devDependencies`
 
 Output Options:
-  -f, --format <FORMAT>  The output format: default, long, json, github, dot, mermaid, text, or plugin/reporter [default: default]
+  -f, --format <FORMAT>  The output format: default, long, json, github, text, or plugin/reporter [default: default]
       --fix              Apply the automatic fixes of `no-unused-exports` and `no-unused-deps`: remove an `export` keyword, a list entry or a `package.json` entry. Run again for the fixes that these changes unlock
       --quiet            Report errors only. Warnings still count for the warning limits
 

@@ -5,6 +5,8 @@
     "**/*.generated.ts",
     "apps/oxcruise/src-js/bindings.js",
     "apps/oxcruise/src-js/bindings.d.ts",
-    "tasks/conformance/.cache/**"
+    "tasks/conformance/.cache/**",
+    "crates/oxcruise_visualize/assets/**",
+    "apps/visualizer/dev-site/**"
   ]
 }

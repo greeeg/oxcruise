@@ -1263,6 +1263,7 @@ dependencies = [
  "oxcruise_report",
  "oxcruise_resolve",
  "oxcruise_rules",
+ "oxcruise_visualize",
  "serde",
  "serde_json",
  "tempfile",
@@ -1385,6 +1386,21 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "oxcruise_visualize"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "oxcruise_config",
+ "oxcruise_core",
+ "oxcruise_graph",
+ "oxcruise_report",
+ "oxcruise_rules",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

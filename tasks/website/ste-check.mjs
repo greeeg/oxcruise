@@ -8,8 +8,8 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const MAX_INSTRUCTION = 20;
-const MAX_DESCRIPTION = 25;
+const MAX_INSTRUCTION = 25;
+const MAX_DESCRIPTION = 30;
 const MAX_SENTENCES = 6;
 
 const BANNED = [

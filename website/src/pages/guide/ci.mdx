@@ -56,13 +56,12 @@ pre-push:
       run: npx oxcruise --deny-warnings
 ```
 
-## Save the graph as a picture
+## Save the graph as a site
 
-The `dot` format needs [Graphviz](https://graphviz.org). The `mermaid` format works in many Markdown viewers.
+The `--visualize` mode writes a static site with the graph. It does not fail when there are violations. Save the folder as a CI artifact, so reviewers can open it. See [Visualize the graph](/features/visualize).
 
 ```sh
-npx oxcruise src -f dot | dot -Tsvg > graph.svg
-npx oxcruise src -f mermaid > graph.mmd
+npx oxcruise --visualize=oxcruise-report
 ```
 
 ## Machine-readable output

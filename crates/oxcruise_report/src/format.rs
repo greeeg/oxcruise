@@ -12,8 +12,6 @@ pub enum OutputFormat {
     Json,
     /// GitHub Actions workflow annotations.
     Github,
-    Dot,
-    Mermaid,
     /// One `from -> to` line per dependency.
     Text,
     /// A reporter provided by a JS plugin: `plugin/name`.
@@ -27,7 +25,7 @@ impl fmt::Display for ParseFormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "unknown output format `{}`; expected default, long, json, github, dot, mermaid, text or plugin/reporter",
+            "unknown output format `{}`; expected default, long, json, github, text or plugin/reporter",
             self.0
         )
     }
@@ -44,8 +42,6 @@ impl FromStr for OutputFormat {
             "long" => Self::Long,
             "json" => Self::Json,
             "github" => Self::Github,
-            "dot" => Self::Dot,
-            "mermaid" => Self::Mermaid,
             "text" => Self::Text,
             other if other.contains('/') && !other.starts_with('/') => {
                 Self::External(other.to_string())
@@ -63,7 +59,7 @@ mod tests {
     fn parses() {
         assert_eq!("long".parse(), Ok(OutputFormat::Long));
         // the old dependency-cruiser names are gone
-        for old in ["err", "err-long", "json-depcruise"] {
+        for old in ["err", "err-long", "json-depcruise", "dot", "mermaid"] {
             assert!(old.parse::<OutputFormat>().is_err(), "{old}");
         }
         assert_eq!(

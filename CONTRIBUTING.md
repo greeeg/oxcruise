@@ -1,30 +1,28 @@
-# oxcruise architecture
+# Contributing to oxcruise
+
+Thanks for helping. This page covers how the code is organised ([Architecture](#architecture)) and how to build, test and
+submit a change. The rules for performance and API consistency are in [AGENTS.md](AGENTS.md); they apply to people as
+much as to coding agents.
+
+## Prerequisites
+
+- Rust: the stable toolchain (`rust-toolchain.toml` installs `clippy` and `rustfmt`).
+- Node.js 22.18 or later (CI uses 24) and [pnpm](https://pnpm.io).
+- [just](https://github.com/casey/just) to run the recipes in the `justfile`.
+
+```sh
+git clone https://github.com/greeeg/oxcruise
+cd oxcruise
+just install        # pnpm install; also installs the git hooks (lefthook)
+just --list         # every recipe
+```
+
+## Architecture
 
 oxcruise validates and visualises JS/TS module graphs, like [dependency-cruiser](https://github.com/sverweij/dependency-cruiser),
 on the oxc toolchain: one parser, parallel everywhere, a modern config, and JS/TS plugins.
 
-## Why: the gaps it closes
-
-Each row is a problem in dependency-cruiser (with the issues that report it) and what oxcruise does about it.
-"Status" says what is implemented today.
-
-| Gap in dependency-cruiser | Issues | oxcruise answer | Status |
-|---|---|---|---|
-| Single-threaded; I/O, parse and resolve are ~76% of runtime | #590, #332, #989, #988 | rayon read → parse → extract → resolve per file; graph analyses on a frozen CSR graph | done |
-| Four parsers plus transpile-first; lost `type-only` flags, `.mts`/`.cts` gaps, compiler peer dependencies | #1082, #1104, #588, #873, #1045, #1112, #1054 | one oxc parser; type-only computed from every specifier of a statement; zero peer dependencies | done |
-| Only the root tsconfig `paths` are used in monorepos | #565, #981, #575, #947 | nearest tsconfig per importing file (`resolve_file` + `TsconfigDiscovery::Auto`); workspace discovery | done |
-| No inline suppression | #188 | `// oxcruise-ignore-next-line <rule>`, `-line`, `-file` | done |
-| Type-only filtering doesn't apply across a whole cycle | #695, #305, #899 | `no-circular` drops type-only edges *before* the SCC runs (the default; `includeTypeOnly: true` keeps them) | done |
-| No line numbers, no SARIF/GitHub annotations | #125, #820 | oxc spans → `file:line:col`; `github` reporter | done (SARIF: post-MVP) |
-| No custom predicates; JS callbacks refused | #741, #1067, #330, #522 | JS/TS plugin rules over the finished graph | done |
-| No relationship predicates | #1067, #624, #628, #960, #986 | `relation` conditions, `internal-modules`, `layers` | done |
-| Regex-only paths; unsafe-regex guard; silent dead rules | #472, #651, #980, #806 | globs only, matched by the linear-time `regex` crate; rules that match nothing are reported | done |
-| All-or-nothing cache that relies on git | #715, #1071 | per-file content-hash cache | post-MVP |
-| No editor/LSP integration | #529, #272 | LSP with a resident incremental graph | post-MVP |
-| No unused exports/dependencies | #674, #468, #638, #340 | `no-unused-exports`, `no-unused-deps`, `no-unused-files` (see [Symbols](#symbols)) | done (nursery) |
-| Missing dependency forms | #971, #966, #1007 | `new URL()`/workers, SFC splitter for Vue/Svelte/Astro; CSS `@import`: post-MVP | partly done |
-
-## Repository layout
+### Repository layout
 
 | Path | What lives there |
 |---|---|
@@ -36,11 +34,12 @@ Each row is a problem in dependency-cruiser (with the issues that report it) and
 | `crates/oxcruise_macros` | `declare_rule!`: name, category, version, options type, docs from doc comments. |
 | `crates/oxcruise_rules` | `Rule` trait, built-in rules, registry, the declarative compiler (`forbid`/`allow`/`require`), the engine (overrides, suppression, ordering, dead rules), the napi-free `ExternalRules` trait. |
 | `crates/oxcruise_report` | `CruiseResult` model and the reporters. |
+| `crates/oxcruise_visualize` | The compact data and the prebuilt site (`apps/visualizer`) of `--visualize`. |
 | `apps/oxcruise` | One crate that is both a binary and a `cdylib`. `CliRunner`, `CliRunResult`, and with the `napi` feature the addon entry points and the plugin host. `src-js/` is the Node side. |
 | `npm/oxcruise` | The published package; `npm/<triple>` are the `@oxcruise/binding-*` platform packages. |
 | `tasks/` | `conformance` (diff against dependency-cruiser), `benchmark`, `smoke` (npm pack), `website` (generators for the reference pages of the documentation site and its text checker). |
 
-## Data flow
+### Data flow
 
 ```
 CLI (clap) ─┬─ standalone binary: no JS (TS configs → `node` subprocess)
@@ -69,9 +68,9 @@ Determinism: the frozen graph and the output are identical for any thread count 
 threads). `maxDepth` tracks the *minimum* depth of every module, so a module first reached by a long path is
 still explored when a shorter one turns up.
 
-## Extraction
+### Extraction
 
-The user-facing list of languages and dependency kinds is [Languages](../website/src/pages/features/languages.mdx).
+The user-facing list of languages and dependency kinds is [Languages](website/src/pages/features/languages.mdx).
 
 | Kind (depcruise name) | Source |
 |---|---|
@@ -92,7 +91,7 @@ wins the location. A rule stays suppressed on a merged dependency only if *every
 `.vue`, `.svelte` and `.astro` files are split into their `<script>` blocks (and Astro frontmatter); every block
 is parsed separately and its offsets are mapped back to the file.
 
-### Symbols
+#### Symbols
 
 With `ExtractOptions.symbols` the same single pass also records what a file exports and how it uses its imports. It
 is **off unless something needs it**: `Engine::wants_symbols()` (`no-unused-exports` is enabled), a loaded plugin that
@@ -119,7 +118,7 @@ lists exports and names only then. Without it, nothing changes in speed or outpu
   source with the tsconfig `outDir`/`rootDir`, following relative `extends`; an `extends` that names a package is not
   followed), `index`/`main`/`cli` files, the **conventions** of the tools the
   package declares (`conventions.json`: tests, routes, configs, and the packages those tools load by name; the table is
-  in the [rules reference](../website/src/pages/reference/rules/index.mdx#conventions)), plugin `entries`, and modules marked `oxcruise-ignore-file`.
+  in the [rules reference](website/src/pages/reference/rules/index.mdx#conventions)), plugin `entries`, and modules marked `oxcruise-ignore-file`.
 * Production mode (`--production`, or `production: true`) leaves tests out as entries and as importers, and skips
   `devDependencies`. `--fix` applies the repairs the rules attach (drop `export`, drop a list entry, drop a
   `package.json` member); edits that overlap wait for the next run.
@@ -129,11 +128,11 @@ Compared with [Knip](https://knip.dev) (which also uses oxc-parser and oxc-resol
 export, and instead of 200+ plugins evaluating tool configs there is one small JSON table of conventions and
 `definePlugin({ entries })` for the rest. Not built: class members, catalogs, binaries, JSDoc visibility tags.
 
-## Resolution and classification
+### Resolution and classification
 
 * Two `oxc_resolver` instances share config: ESM (`import`, `node`, `default`) and CJS (`require`, ...). A
   dependency written with `require()`/`import =` uses the CJS one, everything else the ESM one, like Node. This is
-  a deliberate difference from dependency-cruiser, which merges the conditions (see [Differences](../website/src/pages/migration/differences.mdx)).
+  a deliberate difference from dependency-cruiser, which merges the conditions (see [Differences](website/src/pages/migration/differences.mdx)).
 * Extensions are explicit and ordered source-first, declaration files last, so a package with no `main` resolves to
   `index.js`, not `index.d.ts`. They are never inferred from installed tooling (#988).
 * `resolve.conditions: ["source"]` puts the `source` condition first so workspace packages resolve to source, not `dist`.
@@ -142,17 +141,17 @@ export, and instead of 200+ plugins evaluating tool configs there is one small J
   `aliased-*` by mechanism (config alias, `#imports`, workspace package name, tsconfig `paths`, `baseUrl`).
 * Workspaces: npm/yarn/bun `workspaces` and `pnpm-workspace.yaml`; each module records its package.
 
-## Configuration
+### Configuration
 
 One file, found in the working directory: `oxcruise.config.ts` or `.oxcruiserc.json`. The user guide is in the
-website: [Configuration](../website/src/pages/guide/configuration.mdx), [Monorepos](../website/src/pages/guide/monorepos.mdx),
-[Forbid rules](../website/src/pages/features/forbid-rules.mdx) and the generated
-[config reference](../website/src/pages/reference/config.mdx). Design notes:
+website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos](website/src/pages/guide/monorepos.mdx),
+[Forbid rules](website/src/pages/features/forbid-rules.mdx) and the generated
+[config reference](website/src/pages/reference/config.mdx). Design notes:
 
 * **Schema.** `OxcruiseConfig` (serde + schemars, `deny_unknown_fields`) is the source of truth. The schema
   (`just schema-json`, into `npm/oxcruise/configuration_schema.json`), the TypeScript types (`just config-ts`) and the
   config reference page (`just config-docs`) are generated from it. The doc comments of the config types are the text of
-  the reference page and follow [website/STYLE.md](../website/STYLE.md).
+  the reference page and follow [website/STYLE.md](website/STYLE.md).
 * **Layering.** `extends` entries are layered first (`OxcruiseConfig::layered` in `crates/oxcruise_config/src/merge.rs`):
   non-empty lists replace, `categories`, `rules` and `resolve.alias` merge by key, `forbid`, `overrides`, `calls` and
   `jsPlugins` concatenate.
@@ -166,30 +165,30 @@ website: [Configuration](../website/src/pages/guide/configuration.mdx), [Monorep
   the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`no-unused-deps`)
   belongs to the module it is reported on: the first module of the package that declares the dependency.
 * **CLI-only settings** (`--max-warnings`, `--deny-warnings`, `--max-depth`, `--ignore-pattern`, `--production`, `--fix`)
-  are in the [CLI reference](../website/src/pages/reference/cli.mdx). `--max-depth` leaves deeper modules out of the graph,
+  are in the [CLI reference](website/src/pages/reference/cli.mdx). `--max-depth` leaves deeper modules out of the graph,
   so every output and rule leaves them out. `--fix` does not chase cascades: run again.
 * **Loading.** The standalone binary evaluates a TS or JS config by spawning `node`; the addon evaluates it in the host
   Node. dependency-cruiser configs are not read by a check; `--migrate` converts one.
 
-## Rules
+### Rules
 
 `declare_rule!` generates the metadata (name from the struct, category, version, docs from doc comments); a rule
 implements `check_module`, `check_edge` and/or `check_graph`, and declares the analyses it needs in `requirements()`.
 Violations go into a per-task buffer, so rules never lock under `par_iter`.
 
 The rule documentation is generated into the website (`just rule-docs`): the doc comments of `declare_rule!` are the text
-of the [rules reference](../website/src/pages/reference/rules/index.mdx), so they follow
-[website/STYLE.md](../website/STYLE.md). The categories are described in
-[Rules and categories](../website/src/pages/features/rules-and-categories.mdx).
+of the [rules reference](website/src/pages/reference/rules/index.mdx), so they follow
+[website/STYLE.md](website/STYLE.md). The categories are described in
+[Rules and categories](website/src/pages/features/rules-and-categories.mdx).
 
 Cycles are reported **once per distinct cycle**, not once per edge, and a cycle counts as suppressed when any one of
 its edges carries the suppression comment.
 
-## JS plugins
+### JS plugins
 
 Plugins see the **finished graph**, so there is one batched call per run, not one per file. The user documentation is in
-[JS plugins](../website/src/pages/features/js-plugins.mdx) and
-[Write a JS plugin](../website/src/pages/features/writing-js-plugins.mdx); the types are in
+[JS plugins](website/src/pages/features/js-plugins.mdx) and
+[Write a JS plugin](website/src/pages/features/writing-js-plugins.mdx); the types are in
 `apps/oxcruise/src-js/plugins/types.ts`.
 
 * A rule that declares `meta.schema` gets the same checking as a built-in rule.
@@ -210,11 +209,11 @@ were extracted.
 The standalone binary has no JS runtime: with `jsPlugins` set it stops with "need the npm package", and TS/JS
 configs are evaluated by spawning `node`.
 
-## Reporters and CLI
+### Reporters and CLI
 
 The reporters are in `crates/oxcruise_report`; the formats are described in
-[Output formats](../website/src/pages/features/output-formats.mdx) and the flags in the generated
-[CLI reference](../website/src/pages/reference/cli.mdx).
+[Output formats](website/src/pages/features/output-formats.mdx) and the flags in the generated
+[CLI reference](website/src/pages/reference/cli.mdx).
 
 The `json` result (and what plugin reporters receive) is versioned (`version`) and uses camelCase names, like the config
 and the JS API. **Version 2 renamed these from snake_case**, and renamed the module kinds
@@ -228,25 +227,108 @@ the module itself.
 a time; `--init` and `--migrate` never overwrite, and no mode takes the flags of a check, except `--rules -f json`).
 Exit code 1 for errors, 2 for a bad invocation or config.
 
-## Where this differs from the original plan
+## Build and run
 
-Honest list, so the plan and the code are not confused:
+```sh
+cargo run -p oxcruise -- src            # the standalone binary (no JS runtime; TS configs use a `node` subprocess)
+just oxcruise-node-debug                # the napi addon and the bundled JS into npm/oxcruise/dist
+just oxcruise-node                      # the same, release build
+```
 
-* CLI parsing is **clap**, not bpaf.
-* Cycle violations are deduplicated per cycle (the plan reported per edge); every edge of a reported cycle is still
-  flagged `circular` in the result.
-* The plugin protocol passes one object per callback (`{ graph, rules }`, `{ name, resultJson }`) because napi
-  expands tuples into one array argument. `loadPlugin` is an extra callback, and `jsPlugins` accepts aliases.
-* Capture templates are cached in a `Mutex<HashMap>` per pattern, not `papaya`.
-* There is **no `RuntimeFileSystem` abstraction** yet (it was groundwork for the LSP).
-* The rule language is deliberately smaller than dependency-cruiser's (`forbid` only, globs only; no `allow`,
-  `require`, `orphan`, `numberOf…`, `dependencyTypes`, `circular`/`via`, `license`, folder scope, `reachable: false`).
-  `oxcruise --migrate` drops rules that use such conditions with a named warning instead of silently widening them.
-* Not built: baseline, cache, LSP/`--watch`, `explain`, SARIF/TeamCity/Azure/JUnit/HTML/CSV/… reporters,
-  CSS `@import`. Unused exports, dependencies and files are built (nursery), without Knip's class members, catalogs,
-  binaries and JSDoc tags.
-* The release workflow is drafted but has never run, and nothing has been published.
-* Only Linux/arm64 was built and tested while developing; the other platform targets are untested.
+The standalone binary cannot run JS plugins. Use the npm package build for those.
 
-See [Differences](../website/src/pages/migration/differences.mdx) for the behavioural differences from dependency-cruiser
-18.7 and [Migrate from dependency-cruiser](../website/src/pages/migration/dependency-cruiser.mdx) for moving a project over.
+## Check your change
+
+```sh
+just ready          # fmt-check, clippy, cargo test, JS typecheck + vitest, visualizer check
+```
+
+Or the parts:
+
+| Recipe | Runs |
+|---|---|
+| `just fmt` | `cargo fmt` and `oxfmt` on JS/TS |
+| `just lint` | clippy with `-D warnings`, with and without the `napi` feature |
+| `just test` | `cargo test --workspace` |
+| `just node-test` | `tsc` and vitest for `apps/oxcruise` (build the addon first with `just oxcruise-node-debug`) |
+| `just visualizer-check` | typecheck, test and rebuild the viewer; fails if the committed assets are stale |
+| `just smoke` | pack the npm packages, install them in a fresh project and run `npx oxcruise` |
+| `just conformance` | diff against dependency-cruiser ([tasks/conformance](tasks/conformance/README.md)) |
+| `just bench` | criterion benchmarks ([tasks/benchmark](tasks/benchmark/README.md)) |
+
+The git hooks run `cargo fmt`, `oxfmt` and the README sync on commit. They are fast on purpose; clippy and tests are
+CI's job, and `just ready` runs them locally.
+
+Format JS and TS with `pnpm exec oxfmt <files>`. Do not run `oxfmt` without file arguments: it reformats json, toml and
+markdown across the repository.
+
+## Generated files
+
+Some files come from other files. Edit the source, regenerate, and commit both. CI fails when they differ.
+
+| Generated | Source | Command |
+|---|---|---|
+| `npm/oxcruise/configuration_schema.json`, `apps/oxcruise/src-js/config.generated.ts`, `plugins/kinds.generated.ts` | `crates/oxcruise_config/src/config.rs`, `crates/oxcruise_core/src/kinds.rs` | `just config-ts` |
+| `website/src` reference pages (rules, config, CLI) | doc comments in `declare_rule!`, `config.rs`, `args.rs` | `just website-gen` |
+| `npm/oxcruise/README.md`, `LICENSE` | `README.md`, `LICENSE` | `just sync-readme` |
+| `crates/oxcruise_visualize/assets` | `apps/visualizer` | `just visualizer-build` |
+| graph-buffer test fixtures | `apps/oxcruise/src/js_plugins/graph_buffer.rs` | `just js-fixtures` |
+| insta snapshots | the code under test | `INSTA_UPDATE=always cargo test`, then read the diff (or `cargo insta review` if installed) |
+
+## Common changes
+
+### Add a built-in rule
+
+```sh
+just new-rule my_rule
+```
+
+The recipe prints the steps: add `crates/oxcruise_rules/src/rules/my_rule.rs` with `declare_rule!` and `impl Rule`, export it
+from `rules/mod.rs`, register it in `registry.rs`, and add pass and fail cases to `crates/oxcruise_rules/tests/rules.rs`.
+The rule name comes from the struct (`MyRule` becomes `my-rule`). Pick a category (`correctness`, `suspicious`, `style`, `restriction` or `nursery`), declare `requirements()` and the hooks the rule needs, and run `just website-gen` to create its
+documentation page. The doc comment is the user documentation. Write it to [website/STYLE.md](website/STYLE.md).
+
+### Add or change a config key
+
+Change the types in `crates/oxcruise_config/src/config.rs`, run `just config-ts`, and update the website page if the key
+needs prose. Keep keys few: reuse an existing one if it can do the job.
+
+### Change the plugin API
+
+Update the Rust side, the graph buffer (bump `VERSION` in `graph_buffer.rs` and `graph.ts` if the layout changes, then
+`just js-fixtures`), `apps/oxcruise/src-js/plugins/types.ts`, the tests, and the plugin pages in `website/src`.
+
+### Work on the visualizer
+
+`just visualizer-dev` rebuilds the viewer on change into `apps/visualizer/dev-site`. Commit the rebuilt
+`crates/oxcruise_visualize/assets` with your change.
+
+### Work on the documentation
+
+`just website-dev` starts the site. The text follows [website/STYLE.md](website/STYLE.md); `just website-lint` checks the
+parts that a program can check.
+
+## Performance changes
+
+oxcruise exists to be fast, so a change on the hot path needs numbers. Run `cargo bench` or
+`node tasks/benchmark/run.mjs` before and after, put the results in the pull request, and check that the output is
+identical (it must not depend on the thread count).
+
+## Pull requests
+
+1. Branch from `master`. Keep a change focused; separate commits for separate ideas.
+2. Add or update tests, and docs when behaviour changes.
+3. Run `just ready`, and the generator recipes above if you touched their sources.
+4. Fill in the pull request template: what changed and why, how to try it, and the numbers for a performance change.
+
+CI (`.github/workflows/ci.yml`) runs on Linux, macOS and Windows for the Rust checks, and on Linux for the Node, generated-file,
+website and visualizer checks.
+
+## Reporting bugs
+
+Open an issue with the bug report template: the command you ran, the config, the output, and `oxcruise --version`. A small
+repository that reproduces the problem helps most. For a new rule or option, use the feature request template.
+
+## License
+
+By contributing you agree that your contribution is licensed under the [MIT license](LICENSE).

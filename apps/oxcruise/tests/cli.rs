@@ -83,7 +83,7 @@ fn default_check_on_the_monorepo() {
 
 #[test]
 fn formats() {
-    for f in ["github", "text", "mermaid"] {
+    for f in ["github", "text"] {
         snap(&["packages", "-f", f]);
     }
 }
@@ -746,4 +746,56 @@ fn unused_files_warns_when_it_finds_no_entry_point() {
     .unwrap();
     let o = run_in(d.path(), &["-f", "github", "src"]);
     assert!(!o.stderr.contains("no entry point"), "{}", o.stderr);
+}
+
+#[test]
+fn visualize_writes_the_site_and_does_not_gate() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("site");
+    let arg = format!("--visualize={}", target.display());
+    let o = run(&["packages", &arg]);
+    // the monorepo has errors, but the mode shows the graph and exits 0
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    assert!(o.stderr.contains("wrote "), "{}", o.stderr);
+    assert!(o.stdout.is_empty(), "{}", o.stdout);
+    for f in ["index.html", "app.js", "app.css", "data.js"] {
+        assert!(target.join(f).is_file(), "{f}");
+    }
+    let data = std::fs::read_to_string(target.join("data.js")).unwrap();
+    let json = data
+        .strip_prefix("globalThis.OXCRUISE_DATA = JSON.parse('")
+        .and_then(|d| d.trim_end().strip_suffix("');"))
+        .expect("data.js shape");
+    let v: serde_json::Value = serde_json::from_str(&json.replace("\\\\", "\\")).unwrap();
+    assert_eq!(v["version"], 1);
+    assert!(v["modules"]["name"].as_array().unwrap().len() > 5);
+}
+
+#[test]
+fn visualize_defaults_to_oxcruise_report_in_the_cwd() {
+    let d = project(&[("src/a.ts", "import './b'\n"), ("src/b.ts", "export {}\n")]);
+    let o = run_in(d.path(), &["src", "--visualize"]);
+    assert_eq!(o.result, CliRunResult::Success, "{}", o.stderr);
+    assert!(d.path().join("oxcruise-report/index.html").is_file());
+}
+
+#[test]
+fn visualize_refuses_check_only_flags() {
+    for flag in [
+        &["-f", "json"][..],
+        &["--fix"],
+        &["--quiet"],
+        &["--deny-warnings"],
+    ] {
+        let mut args = vec!["--visualize"];
+        args.extend_from_slice(flag);
+        assert_eq!(run(&args).result, CliRunResult::InvalidOptions, "{flag:?}");
+    }
+    for f in ["dot", "mermaid"] {
+        assert_eq!(
+            run(&["packages", "-f", f]).result,
+            CliRunResult::InvalidOptions,
+            "{f}"
+        );
+    }
 }
