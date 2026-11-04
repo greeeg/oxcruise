@@ -20,12 +20,12 @@ oxcruise_rules = { path = "crates/oxcruise_rules" }
 oxcruise_report = { path = "crates/oxcruise_report" }
 oxcruise_visualize = { path = "crates/oxcruise_visualize" }
 
-oxc_allocator = "0.155"
-oxc_ast = "0.155"
-oxc_ast_visit = "0.155"
-oxc_parser = "0.155"
-oxc_span = "0.155"
-oxc_syntax = "0.155"
+oxc_allocator = "0.157"
+oxc_ast = "0.157"
+oxc_ast_visit = "0.157"
+oxc_parser = "0.157"
+oxc_span = "0.157"
+oxc_syntax = "0.157"
 oxc_resolver = "11.24"
 
 anyhow = "1"
