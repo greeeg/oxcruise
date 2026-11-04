@@ -35,7 +35,7 @@ const EDGE_TYPE_ONLY: u8 = 2;
 const EDGE_ERROR: u8 = 4;
 const EDGE_WARN: u8 = 8;
 
-/// The columnar payload of the viewer. Every column has one entry per row, so 50 000 modules
+/// The columnar payload of the viewer. Every column has one entry per row, so large graphs
 /// stay small and decode without building an object per module.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

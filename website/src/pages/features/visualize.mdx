@@ -5,7 +5,7 @@ description: "Write an interactive site with a map of your architecture, the nei
 
 # Visualize the graph
 
-The `--visualize` mode writes a static site that shows your project. The site works for small projects and for projects with 50 000 modules.
+The `--visualize` mode writes a static site that shows your project. The site works for small projects and for very large projects.
 
 ```sh
 npx oxcruise --visualize
@@ -112,7 +112,7 @@ Links to the old Focus and Treemap views still work: they open the graph with th
 
 ## Size of the site
 
-The data is in columns, not in one object for each module. For 50 000 modules, `data.js` is about 7 MB (1 MB compressed).
+The data is in columns, not in one object for each module. Even for a very large project, `data.js` stays small and compresses well.
 
 ## Build the viewer
 

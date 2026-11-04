@@ -210,7 +210,7 @@ export class Model {
   /**
    * Folders and modules whose path contains every word of `query`, best first. A word that is the whole
    * name or starts it beats a word inside the name, which beats a word in a folder of the path. A plain
-   * scan: fast enough at 50k.
+   * scan: fast enough for large graphs.
    */
   searchNodes(query: string, limit = 50): number[] {
     const parts = query.toLowerCase().split(/\s+/).filter(Boolean);
