@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bigData, smallData } from "./fixture";
-import { Model } from "./model";
+import { bigData, smallData } from "../testing/fixture";
+import { Model } from "../data/model";
 import { COLUMN_LIMIT, layoutNeighbourhood } from "./neighbourhood";
 import type { NbOptions } from "./neighbourhood";
 

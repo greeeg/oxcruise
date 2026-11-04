@@ -1,5 +1,5 @@
-import type { Model } from "./model";
-import { EDGE_CIRCULAR, EDGE_ERROR, EDGE_TYPE_ONLY, EDGE_WARN } from "./types";
+import type { Model } from "../data/model";
+import { EDGE_CIRCULAR, EDGE_ERROR, EDGE_TYPE_ONLY, EDGE_WARN } from "../data/types";
 
 /** Edges between two visible nodes, merged. */
 export interface Link {

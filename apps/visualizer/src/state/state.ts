@@ -1,4 +1,4 @@
-import type { Direction } from "./logic";
+import type { Direction } from "../graph/logic";
 
 export type View = "graph" | "violations";
 

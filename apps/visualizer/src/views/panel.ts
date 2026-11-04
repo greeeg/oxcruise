@@ -1,8 +1,8 @@
-import { boundaryDeps, groupByFolder, linkEdges } from "./logic";
-import type { Model } from "./model";
-import type { Nav } from "./nav";
-import { EDGE_CIRCULAR, MODULE_KIND_NAMES } from "./types";
-import { el, icon, nodeIcon } from "./ui";
+import { boundaryDeps, groupByFolder, linkEdges } from "../graph/logic";
+import type { Model } from "../data/model";
+import type { Nav } from "../state/nav";
+import { EDGE_CIRCULAR, MODULE_KIND_NAMES } from "../data/types";
+import { el, icon, nodeIcon } from "../ui/ui";
 
 const LIST_LIMIT = 60;
 /** A group of imports with at most this many items starts open. */

@@ -1,4 +1,4 @@
-import type { VizData } from "./types";
+import type { VizData } from "../data/types";
 
 /**
  * src/a.ts -> src/b.ts -> src/ui/c.ts -> src/a.ts (a cycle), a -> (external)/react/index.js,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { smallData } from "./fixture";
+import { smallData } from "../testing/fixture";
 import { aggregate, boundaryDeps, groupByFolder, linkEdges, neighbourhood } from "./logic";
-import { Model } from "./model";
-import { focusPatch, scopeInfo } from "./scope";
-import { DEFAULT_STATE, formatHash, parseHash } from "./state";
+import { Model } from "../data/model";
+import { focusPatch, scopeInfo } from "../state/scope";
+import { DEFAULT_STATE, formatHash, parseHash } from "../state/state";
 
 const model = new Model(smallData());
 const mod = (m: number) => model.nodeOfMod(m);

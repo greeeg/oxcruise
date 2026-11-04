@@ -1,7 +1,7 @@
 import { aggregate, boundaryDeps, modulesUnder } from "./logic";
 import type { Link } from "./logic";
-import type { Model } from "./model";
-import { EDGE_TYPE_ONLY } from "./types";
+import type { Model } from "../data/model";
+import { EDGE_TYPE_ONLY } from "../data/types";
 
 /** A map never draws more boxes than this: the rest is merged into a pseudo-box. */
 export const MAX_BOXES = 40;

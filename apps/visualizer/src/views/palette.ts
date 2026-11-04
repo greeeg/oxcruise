@@ -1,5 +1,5 @@
-import type { Model } from "./model";
-import { el, icon, nodeIcon } from "./ui";
+import type { Model } from "../data/model";
+import { el, icon, nodeIcon } from "../ui/ui";
 
 const RESULT_LIMIT = 50;
 const isMac = /Mac|iPhone|iPad/i.test(

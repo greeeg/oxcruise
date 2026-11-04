@@ -1,5 +1,5 @@
-import type { Model } from "./model";
-import { el } from "./ui";
+import type { Model } from "../data/model";
+import { el } from "../ui/ui";
 
 export interface TreeActions {
   /** A click or Enter on a row: show the folder's map, or the module's neighbourhood. */

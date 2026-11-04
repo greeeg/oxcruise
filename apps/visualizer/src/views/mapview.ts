@@ -1,11 +1,11 @@
-import { arcPath, clip, curvePath, layoutLayers, textWidth } from "./layout";
-import type { Point } from "./layout";
-import type { Link } from "./logic";
-import { weakThreshold } from "./map";
-import type { MapBox, MapPort, MapScope } from "./map";
-import type { Model } from "./model";
-import { arrowFor, ENTER_CLASS, pinHover, setHover, svgEl, svgText, Viewport } from "./svgview";
-import type { Tooltip } from "./ui";
+import { arcPath, clip, curvePath, layoutLayers, textWidth } from "../graph/layout";
+import type { Point } from "../graph/layout";
+import type { Link } from "../graph/logic";
+import { weakThreshold } from "../graph/map";
+import type { MapBox, MapPort, MapScope } from "../graph/map";
+import type { Model } from "../data/model";
+import { arrowFor, ENTER_CLASS, pinHover, setHover, svgEl, svgText, Viewport } from "../ui/svgview";
+import type { Tooltip } from "../ui/ui";
 
 export interface MapCallbacks {
   /** A click on a box (a node, or a pseudo-box id), a package, or the background (`null`). */

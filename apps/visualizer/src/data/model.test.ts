@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { smallData } from "./fixture";
+import { smallData } from "../testing/fixture";
 import { Model } from "./model";
 
 describe("Model", () => {

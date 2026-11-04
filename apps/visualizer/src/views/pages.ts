@@ -1,15 +1,15 @@
 import { MapView } from "./mapview";
-import { mapScope, resolveFolder } from "./map";
-import type { MapScope } from "./map";
-import type { Direction } from "./logic";
-import type { Model } from "./model";
-import type { Nav } from "./nav";
+import { mapScope, resolveFolder } from "../graph/map";
+import type { MapScope } from "../graph/map";
+import type { Direction } from "../graph/logic";
+import type { Model } from "../data/model";
+import type { Nav } from "../state/nav";
 import { NeighbourhoodView } from "./nbview";
-import { layoutNeighbourhood } from "./neighbourhood";
-import type { Neighbourhood } from "./neighbourhood";
-import { scopeInfo } from "./scope";
+import { layoutNeighbourhood } from "../graph/neighbourhood";
+import type { Neighbourhood } from "../graph/neighbourhood";
+import { scopeInfo } from "../state/scope";
 import { FolderTree } from "./tree";
-import { el, icon, Tooltip } from "./ui";
+import { el, icon, Tooltip } from "../ui/ui";
 
 const HELP: [string, string][] = [
   ["Click", "a box on the map: open it. A module in a neighbourhood, or a line: select it."],

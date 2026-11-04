@@ -1,6 +1,6 @@
-import type { Model } from "./model";
-import type { Nav } from "./nav";
-import { el } from "./ui";
+import type { Model } from "../data/model";
+import type { Nav } from "../state/nav";
+import { el } from "../ui/ui";
 
 /** The violations, grouped by rule, with filters. */
 export class ViolationsView {

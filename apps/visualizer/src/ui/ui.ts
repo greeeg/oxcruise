@@ -1,4 +1,4 @@
-import type { Model } from "./model";
+import type { Model } from "../data/model";
 
 /** Small DOM helpers shared by the views. */
 

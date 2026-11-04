@@ -1,17 +1,17 @@
 import "./app.css";
-import { GraphPage } from "./pages";
-import type { Members } from "./pages";
-import { Model } from "./model";
-import type { Nav } from "./nav";
-import { Palette } from "./palette";
-import { renderPanel } from "./panel";
-import type { PanelTarget } from "./panel";
-import { focusPatch } from "./scope";
-import { DEFAULT_STATE, formatHash, parseHash } from "./state";
-import type { View, ViewState } from "./state";
-import type { VizData } from "./types";
-import { el, Toast, Tooltip } from "./ui";
-import { ViolationsView } from "./violations";
+import { GraphPage } from "./views/pages";
+import type { Members } from "./views/pages";
+import { Model } from "./data/model";
+import type { Nav } from "./state/nav";
+import { Palette } from "./views/palette";
+import { renderPanel } from "./views/panel";
+import type { PanelTarget } from "./views/panel";
+import { focusPatch } from "./state/scope";
+import { DEFAULT_STATE, formatHash, parseHash } from "./state/state";
+import type { View, ViewState } from "./state/state";
+import type { VizData } from "./data/types";
+import { el, Toast, Tooltip } from "./ui/ui";
+import { ViolationsView } from "./views/violations";
 
 const TABS: [View, string][] = [
   ["graph", "Graph"],

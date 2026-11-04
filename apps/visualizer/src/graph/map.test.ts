@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { bigData, smallData } from "./fixture";
-import { Model } from "./model";
+import { bigData, smallData } from "../testing/fixture";
+import { Model } from "../data/model";
 import { mapBoxes, mapScope, MAX_BOXES, resolveFolder, weakThreshold } from "./map";
-import type { VizData } from "./types";
+import type { VizData } from "../data/types";
 
 const model = new Model(smallData());
 const mod = (m: number) => model.nodeOfMod(m);

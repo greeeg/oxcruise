@@ -2,8 +2,8 @@ import { groupByFolder, neighbourhood } from "./logic";
 import type { Direction } from "./logic";
 import { clip, textWidth } from "./layout";
 import type { Box } from "./layout";
-import type { Model } from "./model";
-import { EDGE_CIRCULAR, EDGE_ERROR, EDGE_TYPE_ONLY, EDGE_WARN } from "./types";
+import type { Model } from "../data/model";
+import { EDGE_CIRCULAR, EDGE_ERROR, EDGE_TYPE_ONLY, EDGE_WARN } from "../data/types";
 
 /** Rows per column: the rest folds into a `+N more` row. */
 export const COLUMN_LIMIT = 30;

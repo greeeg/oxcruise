@@ -1,4 +1,4 @@
-import type { Model } from "./model";
+import type { Model } from "../data/model";
 import type { ViewState } from "./state";
 
 /** What the focus of a view state limits the graph to. */

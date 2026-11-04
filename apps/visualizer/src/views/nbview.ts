@@ -1,7 +1,7 @@
-import type { Model } from "./model";
-import type { Neighbourhood, NbEdge } from "./neighbourhood";
-import { arrowFor, ENTER_CLASS, pinHover, setHover, svgEl, svgText, Viewport } from "./svgview";
-import type { Tooltip } from "./ui";
+import type { Model } from "../data/model";
+import type { Neighbourhood, NbEdge } from "../graph/neighbourhood";
+import { arrowFor, ENTER_CLASS, pinHover, setHover, svgEl, svgText, Viewport } from "../ui/svgview";
+import type { Tooltip } from "../ui/ui";
 
 export interface NbCallbacks {
   /** A click on a module row (a node), a folded row (its id), or the background (`null`). */
