@@ -26,7 +26,9 @@ describe("mapScope: root", () => {
   });
 
   it("puts the packages in a lane, not in the links", () => {
-    expect(s.packages).toEqual([{ name: "react", count: 1, module: 4, files: ["(external)/react/index.js"] }]);
+    expect(s.packages).toEqual([
+      { name: "react", count: 1, module: 4, files: ["(external)/react/index.js"] },
+    ]);
     expect(s.packageImports).toBe(1);
     expect(s.portsOut).toEqual([]);
     expect(s.portsIn).toEqual([]);
@@ -67,7 +69,9 @@ describe("mapScope: a folder", () => {
     expect(s.portsIn).toHaveLength(1);
     expect(s.portsIn[0]).toMatchObject({ node: 5, label: "lib", count: 1 });
     expect(s.portsIn[0].boxes).toEqual([{ box: 0, count: 1 }]);
-    expect(s.packages).toEqual([{ name: "react", count: 1, module: 4, files: ["(external)/react/index.js"] }]);
+    expect(s.packages).toEqual([
+      { name: "react", count: 1, module: 4, files: ["(external)/react/index.js"] },
+    ]);
     expect(mapScope(model, 3, { types: false }).portsIn).toEqual([]);
   });
 

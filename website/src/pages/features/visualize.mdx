@@ -46,15 +46,15 @@ Boxes are in rows from top to bottom by dependency level. The foundations, which
 * A red line is part of a cycle, or it has an error. An orange line has only warnings. A dashed line has only type-only imports.
 * Folders that import each other sit side by side in a red frame.
 * The pills above the frame are the folders outside the map that it imports. The pills below are the folders that import into it. Click a pill to show that folder.
-  Only the 8 biggest are named on each side; the rest is one `+N` pill.
+  Each side names the 8 biggest; the rest is one `+N` pill.
 * The packages that the folder uses are in their own lane under the frame.
-* A folder that holds only one folder is skipped, so the path reads `src/app` instead of `src › app`.
+* The map skips a folder that holds only one folder, so the path reads `src/app` instead of `src › app`.
 * When a folder has more than 40 children, the loose files become one `files (N)` box. If that is not enough, the smallest folders become one `+K folders (N modules)` box.
-  Select it to list what is inside. Each item in the list can be focused.
+  Select it to list what is inside. You can focus each item in the list.
 * When the map has more than 150 lines, the weakest are hidden, and a chip in the toolbar says how many. Lines with errors or cycles are always shown. Click the chip to show all lines.
 
 Hover a box to see only its lines and the boxes they touch. Click a line to see what is behind it, for example `src/ui → lib · 14 imports (3 type-only)`.
-The panel lists the module pairs, grouped by the importing module.
+The panel lists the module pairs and groups them by the importing module.
 
 Click a folder box to show the map of that folder, or click a module box to show its neighbourhood. `Enter` does the same for the selection.
 Shift-click a box to select it and read its details without opening it.
@@ -67,11 +67,11 @@ Click a module box in a map, or search for a module, to see where it fits.
 The module is in the middle. The modules that import it are in columns to the left, by hop distance, and the modules that it imports are in columns to the right.
 The hop count (up to 3) and the direction are in the toolbar.
 
-* Inside a column, the modules are grouped by folder, with the folder as a header. A column shows at most 30 modules; the rest is one `+N more in <folder>` row, and the panel lists them.
-* Packages are listed one by one. With the **Packages** toggle off, a column folds them into one `N packages` row.
-* Only the lines between neighbouring columns, and the lines that touch the middle module, are drawn.
+* Inside a column, the modules sit in groups by folder, with the folder as a header. A column shows at most 30 modules; the rest is one `+N more in <folder>` row, and the panel lists them.
+* A column lists each package on its own row. With the **Packages** toggle off, a column folds them into one `N packages` row.
+* The graph draws only the lines between neighbouring columns and the lines that touch the middle module.
 * A module that is both imported and importing, because of a cycle, has a red ring and sits on the imports side.
-* When you open a cycle from the Violations view, the modules of the cycle form a chain in the middle, with a red line from the last to the first.
+* When you open a cycle from the Violations view, its modules form a chain in the middle. A red line joins the last to the first.
 
 Double-click another module to put it in the middle. Double-click a folder header to show the map of that folder.
 
@@ -102,10 +102,13 @@ For a cycle, the neighbourhood shows the modules of the cycle as a chain.
 
 ## Search and links
 
-Click the search field in the header, or press `Ctrl+K` (`⌘K` on a Mac) or `/`, to search all file and folder paths. Type several words to narrow the search: each word has to be in the path, and a match in the name ranks before a match in a folder.
-Move with `↑` and `↓`, and press `Enter` to open the result in the graph: a folder shows its map, and a file shows its neighbourhood. `Esc` clears the field, and then closes it.
-The address of the page keeps the view, the focus, the hidden items and the selection.
-Links to the old Focus and Treemap views still work: they open the graph with the same focus. The list of open folders in old links is ignored. To share a view, copy the address.
+Click the search field in the header, or press `Ctrl+K` (`⌘K` on a Mac) or `/`, to search all file and folder paths. Type several words to narrow the search. Each word must be in the path. A match in the name ranks before a match in a folder.
+
+Move with `↑` and `↓`, and press `Enter` to open the result in the graph. A folder shows its map, and a file shows its neighbourhood. `Esc` clears the field, and then closes it.
+
+The address of the page keeps the view, the focus, the hidden items and the selection. To share a view, copy the address.
+
+Links to the old Focus and Treemap views still work: they open the graph with the same focus. The site ignores the list of open folders in old links.
 
 ## Size of the site
 

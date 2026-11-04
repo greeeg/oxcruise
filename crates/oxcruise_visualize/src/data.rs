@@ -317,7 +317,10 @@ mod tests {
     fn package_name_from_installed_path() {
         assert_eq!(npm_package_name("react/index.js"), Some("react"));
         assert_eq!(npm_package_name("react/cjs/react.js"), Some("react"));
-        assert_eq!(npm_package_name("@scope/name/lib/a.js"), Some("@scope/name"));
+        assert_eq!(
+            npm_package_name("@scope/name/lib/a.js"),
+            Some("@scope/name")
+        );
         assert_eq!(npm_package_name("index.js"), None);
         assert_eq!(npm_package_name("@scope/index.js"), None);
     }

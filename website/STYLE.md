@@ -14,7 +14,7 @@ It does not replace a manual review of each page against this guide.
 
 ## Sentences
 
-* An instruction has at most 20 words. A description has at most 25 words.
+* An instruction has at most 25 words. A description has at most 30 words.
 * A paragraph has at most 6 sentences.
 * A sentence has one topic. Split a sentence that has two.
 * Use the imperative for instructions: "Run `npx oxcruise --init`."
