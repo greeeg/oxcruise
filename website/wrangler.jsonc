@@ -2,6 +2,7 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "oxcruise-website",
   "compatibility_date": "2026-11-01",
+  "preview_urls": false,
   "assets": {
     "directory": "./dist/public",
     "not_found_handling": "404-page"
