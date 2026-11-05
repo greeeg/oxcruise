@@ -1,8 +1,9 @@
-# oxcruise
+<p align="left">
+  <img src="https://github.com/greeeg/oxcruise/blob/master/.github/assets/logo.png?raw=true" alt="oxcruise" width="240" />
+</p>
 
 Validate and visualise your JS/TS module graph. A [dependency-cruiser](https://github.com/sverweij/dependency-cruiser)
-alternative built on the [oxc](https://oxc.rs) toolchain: one parser, parallel everywhere, a small config, and
-rules you can write in TypeScript.
+alternative built on the [oxc](https://oxc.rs) toolchain.
 
 ```sh
 npx oxcruise src
