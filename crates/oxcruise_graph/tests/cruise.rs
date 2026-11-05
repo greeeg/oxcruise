@@ -77,7 +77,7 @@ fn discovers_the_fixture_monorepo() {
 
     // file-level and edge-level suppression carry through
     let sup = edge_to(g, "packages/app/src/suppressed.ts", "./nope");
-    assert_eq!(sup.suppressed, vec!["no-unresolvable"]);
+    assert_eq!(sup.suppressed, vec!["unresolved-dependencies"]);
     assert!(
         edge_to(g, "packages/app/src/suppressed.ts", "./also-nope")
             .suppressed

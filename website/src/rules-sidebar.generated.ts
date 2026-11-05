@@ -5,28 +5,28 @@ export const rulesSidebar = [
     "collapsed": true,
     "items": [
       {
-        "text": "no-circular",
-        "link": "/reference/rules/no-circular"
+        "text": "circular-dependencies",
+        "link": "/reference/rules/circular-dependencies"
       },
       {
-        "text": "no-cross-package-relative",
-        "link": "/reference/rules/no-cross-package-relative"
+        "text": "cross-package-relative-dependencies",
+        "link": "/reference/rules/cross-package-relative-dependencies"
       },
       {
-        "text": "no-dev-deps-in-prod",
-        "link": "/reference/rules/no-dev-deps-in-prod"
+        "text": "dependencies-on-tests",
+        "link": "/reference/rules/dependencies-on-tests"
       },
       {
-        "text": "no-test-imports",
-        "link": "/reference/rules/no-test-imports"
+        "text": "dev-dependencies-in-production",
+        "link": "/reference/rules/dev-dependencies-in-production"
       },
       {
-        "text": "no-undeclared-deps",
-        "link": "/reference/rules/no-undeclared-deps"
+        "text": "undeclared-packages",
+        "link": "/reference/rules/undeclared-packages"
       },
       {
-        "text": "no-unresolvable",
-        "link": "/reference/rules/no-unresolvable"
+        "text": "unresolved-dependencies",
+        "link": "/reference/rules/unresolved-dependencies"
       }
     ]
   },
@@ -35,16 +35,16 @@ export const rulesSidebar = [
     "collapsed": true,
     "items": [
       {
-        "text": "no-deprecated",
-        "link": "/reference/rules/no-deprecated"
+        "text": "deprecated-dependencies",
+        "link": "/reference/rules/deprecated-dependencies"
       },
       {
-        "text": "no-duplicate-deps",
-        "link": "/reference/rules/no-duplicate-deps"
+        "text": "duplicate-packages",
+        "link": "/reference/rules/duplicate-packages"
       },
       {
-        "text": "no-orphans",
-        "link": "/reference/rules/no-orphans"
+        "text": "orphan-modules",
+        "link": "/reference/rules/orphan-modules"
       }
     ]
   },
@@ -53,20 +53,20 @@ export const rulesSidebar = [
     "collapsed": true,
     "items": [
       {
-        "text": "internal-modules",
-        "link": "/reference/rules/internal-modules"
-      },
-      {
         "text": "layers",
         "link": "/reference/rules/layers"
       },
       {
-        "text": "no-optional-deps",
-        "link": "/reference/rules/no-optional-deps"
+        "text": "optional-dependencies",
+        "link": "/reference/rules/optional-dependencies"
       },
       {
-        "text": "no-peer-deps",
-        "link": "/reference/rules/no-peer-deps"
+        "text": "peer-dependencies",
+        "link": "/reference/rules/peer-dependencies"
+      },
+      {
+        "text": "visibility",
+        "link": "/reference/rules/visibility"
       }
     ]
   },
@@ -75,16 +75,16 @@ export const rulesSidebar = [
     "collapsed": true,
     "items": [
       {
-        "text": "no-unused-deps",
-        "link": "/reference/rules/no-unused-deps"
+        "text": "unused-exports",
+        "link": "/reference/rules/unused-exports"
       },
       {
-        "text": "no-unused-exports",
-        "link": "/reference/rules/no-unused-exports"
+        "text": "unused-modules",
+        "link": "/reference/rules/unused-modules"
       },
       {
-        "text": "no-unused-files",
-        "link": "/reference/rules/no-unused-files"
+        "text": "unused-packages",
+        "link": "/reference/rules/unused-packages"
       }
     ]
   }

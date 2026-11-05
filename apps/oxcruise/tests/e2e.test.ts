@@ -200,19 +200,19 @@ describe("configs evaluated by the host Node", () => {
     const dir = project({
       "src/a.ts": "import './b';\n",
       "src/b.ts": "import './a';\n",
-      "oxcruise.config.ts": `import { defineConfig } from ${JSON.stringify(defineUrl)};\n\nexport default defineConfig({\n  entries: ["src"],\n  rules: { "no-circular": "warn" },\n});\n`,
+      "oxcruise.config.ts": `import { defineConfig } from ${JSON.stringify(defineUrl)};\n\nexport default defineConfig({\n  entries: ["src"],\n  rules: { "circular-dependencies": "warn" },\n});\n`,
     });
     const o = await runCli(dir, []);
     expect(o.stderr).toBe("");
     expect(o.code).toBe(0);
-    expect(o.stdout).toContain("warn[no-circular]");
+    expect(o.stdout).toContain("warn[circular-dependencies]");
   });
 
   test("a function config and an async one", async () => {
     const dir = project({
       "src/a.ts": "import './a';\n",
       "oxcruise.config.ts":
-        'export default async () => ({ entries: ["src"], rules: { "no-circular": "error" } });\n',
+        'export default async () => ({ entries: ["src"], rules: { "circular-dependencies": "error" } });\n',
     });
     expect((await runCli(dir, [])).code).toBe(1);
   });
@@ -302,7 +302,7 @@ describe("cruise() programmatic API", () => {
   test("a result with errors is still a result; a failing run throws", async () => {
     const dir = project({ "src/a.ts": "import './a';\n" });
     const g = await cruise({ cwd: dir, paths: ["src"] });
-    expect(g.violations.map((v) => v.rule)).toContain("no-circular");
+    expect(g.violations.map((v) => v.rule)).toContain("circular-dependencies");
     expect(g.module("src/a.ts")!.violations).toHaveLength(1);
     await expect(cruise({ cwd: dir, config: "nope.json" })).rejects.toThrow(/does not exist/);
   });
@@ -374,11 +374,11 @@ describe("cruise() with symbols", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         categories: { correctness: "off", suspicious: "off" },
-        rules: { "no-unused-exports": "error" },
+        rules: { "unused-exports": "error" },
       }),
     });
     const unused = (g: Awaited<ReturnType<typeof cruise>>) =>
-      g.violations.filter((v) => v.rule === "no-unused-exports").map((v) => v.message);
+      g.violations.filter((v) => v.rule === "unused-exports").map((v) => v.message);
     expect(unused(await cruise({ cwd: dir }))).toEqual([]);
     expect(unused(await cruise({ cwd: dir, production: true })).join("\n")).toContain("onlyTested");
   });
@@ -396,13 +396,13 @@ describe("cruise() with symbols", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         jsPlugins: ["./plugin.mjs"],
-        rules: { "no-unused-files": "error", "no-unused-exports": "warn" },
+        rules: { "unused-modules": "error", "unused-exports": "warn" },
       }),
     };
     const o = await runCli(project(files), ["-f", "github"]);
-    expect(o.stdout).toContain("src/dead.ts,title=no-unused-files");
+    expect(o.stdout).toContain("src/dead.ts,title=unused-modules");
     expect(o.stdout).not.toContain("src/stories/a.stories.ts");
-    expect(o.stdout).not.toContain("file=src/shared.ts,title=no-unused-files");
+    expect(o.stdout).not.toContain("file=src/shared.ts,title=unused-modules");
     // the story's export is public; the shared module's unused export is not
     expect(o.stdout).toContain("unused export `extra`");
     expect(o.stdout).not.toContain("unused export `story`");

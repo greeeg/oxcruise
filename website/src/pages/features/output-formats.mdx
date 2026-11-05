@@ -29,7 +29,7 @@ When Oxcruise cannot parse a module, these formats write `warning: could not par
 The `long` format adds an `About` section for each rule that reported. The section contains the documentation of the rule.
 
 ```text
-warn[no-deprecated]: `sys` is a deprecated Node.js module
+warn[deprecated-dependencies]: `sys` is a deprecated Node.js module
   --> packages/app/src/index.ts:10:17
     |
  10 | import sys from "sys";
@@ -94,8 +94,8 @@ It also renamed the module kinds `source`, `stub`, `core` and `unresolved` to `l
 The `github` format writes one workflow command for each violation:
 
 ```text
-::error file=packages/app/src/index.ts,line=8,col=21,title=no-undeclared-deps::`left-pad` is not declared in package.json
-::warning file=packages/app/src/orphan.ts,title=no-orphans::this module is not imported by any module and imports nothing
+::error file=packages/app/src/index.ts,line=8,col=21,title=undeclared-packages::`left-pad` is not declared in package.json
+::warning file=packages/app/src/orphan.ts,title=orphan-modules::this module is not imported by any module and imports nothing
 ```
 
 ## text

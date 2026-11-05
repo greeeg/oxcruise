@@ -113,7 +113,7 @@ expression: "rendered(\"json\", &plain())"
           ],
           "rules": [
             {
-              "name": "no-circular",
+              "name": "circular-dependencies",
               "severity": "error"
             }
           ]
@@ -161,7 +161,7 @@ expression: "rendered(\"json\", &plain())"
           ],
           "rules": [
             {
-              "name": "no-circular",
+              "name": "circular-dependencies",
               "severity": "error"
             }
           ]
@@ -219,7 +219,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-unresolvable",
+              "name": "unresolved-dependencies",
               "severity": "error"
             }
           ]
@@ -265,11 +265,11 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-undeclared-deps",
+              "name": "undeclared-packages",
               "severity": "error"
             },
             {
-              "name": "no-deprecated",
+              "name": "deprecated-dependencies",
               "severity": "warn"
             }
           ]
@@ -314,7 +314,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-dev-deps-in-prod",
+              "name": "dev-dependencies-in-production",
               "severity": "error"
             }
           ]
@@ -432,7 +432,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-deprecated",
+              "name": "deprecated-dependencies",
               "severity": "warn"
             }
           ]
@@ -492,7 +492,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-unresolvable",
+              "name": "unresolved-dependencies",
               "severity": "error"
             }
           ]
@@ -545,7 +545,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-test-imports",
+              "name": "dependencies-on-tests",
               "severity": "error"
             }
           ]
@@ -600,7 +600,7 @@ expression: "rendered(\"json\", &plain())"
           "circular": false,
           "rules": [
             {
-              "name": "no-unresolvable",
+              "name": "unresolved-dependencies",
               "severity": "error"
             }
           ]
@@ -650,7 +650,7 @@ expression: "rendered(\"json\", &plain())"
   ],
   "violations": [
     {
-      "rule": "no-circular",
+      "rule": "circular-dependencies",
       "severity": "error",
       "kind": "cycle",
       "from": "packages/app/src/cycle-a.ts",
@@ -677,7 +677,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 11
     },
     {
-      "rule": "no-dev-deps-in-prod",
+      "rule": "dev-dependencies-in-production",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -688,7 +688,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 8
     },
     {
-      "rule": "no-undeclared-deps",
+      "rule": "undeclared-packages",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -699,7 +699,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 10
     },
     {
-      "rule": "no-unresolvable",
+      "rule": "unresolved-dependencies",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -710,7 +710,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 11
     },
     {
-      "rule": "no-unresolvable",
+      "rule": "unresolved-dependencies",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/suppressed.ts",
@@ -721,7 +721,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 13
     },
     {
-      "rule": "no-test-imports",
+      "rule": "dependencies-on-tests",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/app/src/uses-test.ts",
@@ -732,7 +732,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 14
     },
     {
-      "rule": "no-unresolvable",
+      "rule": "unresolved-dependencies",
       "severity": "error",
       "kind": "dependency",
       "from": "packages/lib/src/index.ts",
@@ -743,7 +743,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 14
     },
     {
-      "rule": "no-deprecated",
+      "rule": "deprecated-dependencies",
       "severity": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -754,7 +754,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 10
     },
     {
-      "rule": "no-deprecated",
+      "rule": "deprecated-dependencies",
       "severity": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
@@ -765,7 +765,7 @@ expression: "rendered(\"json\", &plain())"
       "specifierLen": 5
     },
     {
-      "rule": "no-orphans",
+      "rule": "orphan-modules",
       "severity": "warn",
       "kind": "module",
       "from": "packages/app/src/orphan.ts",

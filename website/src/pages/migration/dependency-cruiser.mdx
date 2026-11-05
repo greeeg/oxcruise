@@ -44,15 +44,15 @@ The conversion is conservative:
 | `to.path`, `pathNot` (regex) | `to`: a glob or a list, or `to.path` | |
 | `$1` back-references | `{c1}` captures: `from: "src/{c1}/**"` and `to: ["src/**", "!src/{c1}/**"]` | Write `{name}` yourself. |
 | `to.dynamic`, `to.preCompilationOnly` | `to.dynamic`, `to.typeOnly` | |
-| `to.couldNotResolve: true` | `to.kind: "unresolved"`, or the `no-unresolvable` rule | |
+| `to.couldNotResolve: true` | `to.kind: "unresolved"`, or the `unresolved-dependencies` rule | |
 | `to.reachable: true` | `to.reachable: true` | |
 | `severity` | `severity`: `error`, `warn` or `off`. `info` becomes `warn`, with a warning. | |
 | `allowed[]`, `allowedSeverity` | Dropped. | The `layers` rule, or `forbid` rules. |
 | `required[]` | Dropped. | A JS plugin rule. |
-| `from.orphan`, `to.orphan` | Dropped. | The `no-orphans` rule. |
+| `from.orphan`, `to.orphan` | Dropped. | The `orphan-modules` rule. |
 | `numberOfDependents{Less,More}Than` | Dropped. | A JS plugin rule. |
-| `to.dependencyTypes`, `dependencyTypesNot`, `moreThanOneDependencyType` | Dropped. | `to.kind` and `to.typeOnly`. The rules `no-undeclared-deps`, `no-dev-deps-in-prod`, `no-duplicate-deps`, `no-optional-deps`, `no-peer-deps` and `no-deprecated`. |
-| `to.circular`, `via`, `viaOnly` | Dropped. | The `no-circular` rule with `ignore` and `includeTypeOnly`. Use `overrides.files` to limit it. |
+| `to.dependencyTypes`, `dependencyTypesNot`, `moreThanOneDependencyType` | Dropped. | `to.kind` and `to.typeOnly`. The rules `undeclared-packages`, `dev-dependencies-in-production`, `duplicate-packages`, `optional-dependencies`, `peer-dependencies` and `deprecated-dependencies`. |
+| `to.circular`, `via`, `viaOnly` | Dropped. | The `circular-dependencies` rule with `ignore` and `includeTypeOnly`. Use `overrides.files` to limit it. |
 | `to.exoticallyRequired`, `license`, `moreUnstable`, `ancestor`, `scope: "folder"` | Dropped. | A JS plugin rule. |
 | `options.doNotFollow` | `doNotFollow`. Files in `node_modules` are always leaves. | |
 | `options.exclude` | `ignorePatterns` | |
@@ -88,19 +88,19 @@ Oxcruise drops the rule or the entry and names the regex.
 ## The recommended rules
 
 Oxcruise has the rules of the recommended config of dependency-cruiser built in. It sorts them into categories, and the default level of a category applies.
-Two of the rules are `off` by default: `no-optional-deps` and `no-peer-deps`.
+Two of the rules are `off` by default: `optional-dependencies` and `peer-dependencies`.
 
 | dependency-cruiser | Oxcruise | Category |
 |---|---|---|
-| `no-circular` | `no-circular`. It checks runtime cycles only. | `correctness`, `error` |
-| `not-to-unresolvable` | `no-unresolvable` | `correctness` |
-| `no-non-package-json` | `no-undeclared-deps` | `correctness` |
-| `not-to-dev-dep` | `no-dev-deps-in-prod` | `correctness` |
-| `not-to-test`, `not-to-spec` | `no-test-imports` | `correctness` |
-| `no-orphans` | `no-orphans`. By default it ignores dotfiles, `.d.ts` files, `tsconfig*.json` and `*.config.*`. | `suspicious`, `warn` |
-| `no-deprecated-core`, `no-deprecated-npm` | `no-deprecated` | `suspicious` |
-| `no-duplicate-dep-types` | `no-duplicate-deps` | `suspicious` |
-| `optional-deps-used`, `peer-deps-used` | `no-optional-deps`, `no-peer-deps` | `restriction`, `off` |
+| `no-circular` | `circular-dependencies`. It checks runtime cycles only. | `correctness`, `error` |
+| `not-to-unresolvable` | `unresolved-dependencies` | `correctness` |
+| `no-non-package-json` | `undeclared-packages` | `correctness` |
+| `not-to-dev-dep` | `dev-dependencies-in-production` | `correctness` |
+| `not-to-test`, `not-to-spec` | `dependencies-on-tests` | `correctness` |
+| `no-orphans` | `orphan-modules`. By default it ignores dotfiles, `.d.ts` files, `tsconfig*.json` and `*.config.*`. | `suspicious`, `warn` |
+| `no-deprecated-core`, `no-deprecated-npm` | `deprecated-dependencies` | `suspicious` |
+| `no-duplicate-dep-types` | `duplicate-packages` | `suspicious` |
+| `optional-deps-used`, `peer-deps-used` | `optional-dependencies`, `peer-dependencies` | `restriction`, `off` |
 
 ## What behaves differently
 

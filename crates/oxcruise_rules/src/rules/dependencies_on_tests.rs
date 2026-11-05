@@ -14,11 +14,11 @@ declare_rule! {
     /// ### Why is this bad?
     ///
     /// Test code and its dependencies go into the production bundle, or crash there.
-    NoTestImports, category = correctness, version = "0.1.0"
+    DependenciesOnTests, category = correctness, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoTestImports;
-impl Rule for NoTestImports {
+pub struct DependenciesOnTests;
+impl Rule for DependenciesOnTests {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {

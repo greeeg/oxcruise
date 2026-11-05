@@ -157,12 +157,12 @@ fn enum_and_namespace_members_are_listed() {
 fn exports_can_be_suppressed_one_by_one() {
     let f = facts(
         "a.ts",
-        "// oxcruise-ignore-next-line no-unused-exports\nexport const a = 1;\nexport const b = 2; // oxcruise-ignore-line\nexport const c = 3;\nexport {\n  // oxcruise-ignore-next-line no-unused-exports -- why\n  d,\n  e,\n};\nconst d = 1, e = 2;",
+        "// oxcruise-ignore-next-line unused-exports\nexport const a = 1;\nexport const b = 2; // oxcruise-ignore-line\nexport const c = 3;\nexport {\n  // oxcruise-ignore-next-line unused-exports -- why\n  d,\n  e,\n};\nconst d = 1, e = 2;",
     );
-    assert_eq!(export(&f, "a").suppressed, ["no-unused-exports"]);
+    assert_eq!(export(&f, "a").suppressed, ["unused-exports"]);
     assert_eq!(export(&f, "b").suppressed, ["*"]);
     assert!(export(&f, "c").suppressed.is_empty());
-    assert_eq!(export(&f, "d").suppressed, ["no-unused-exports"]);
+    assert_eq!(export(&f, "d").suppressed, ["unused-exports"]);
     assert!(export(&f, "e").suppressed.is_empty());
 }
 

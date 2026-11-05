@@ -54,7 +54,7 @@ export interface Export {
    * Some module imports it, or it is part of an entry point's interface. Entry points are the
    * modules nothing imports, the files `package.json` publishes, the files the tools in
    * `package.json` load by convention, and plugin `entries`. It is computed with the default
-   * options of `no-unused-exports` (it does not look at enum members, duplicate exports or a rule's
+   * options of `unused-exports` (it does not look at enum members, duplicate exports or a rule's
    * `entries`, `production` and `conventions`), so the rule is the authoritative report.
    */
   readonly used: boolean;
@@ -83,7 +83,7 @@ export interface Dependency {
   readonly loc: Loc | undefined;
   readonly typeOnly: boolean;
   /**
-   * On a cycle of the whole graph, type-only edges included; `no-circular` ignores type-only
+   * On a cycle of the whole graph, type-only edges included; `circular-dependencies` ignores type-only
    * edges by default (`includeTypeOnly`).
    */
   readonly circular: boolean;
@@ -208,7 +208,7 @@ export interface DependencyJson {
   line?: number;
   col?: number;
   /**
-   * On a cycle of the whole graph, type-only edges included; `no-circular` ignores type-only
+   * On a cycle of the whole graph, type-only edges included; `circular-dependencies` ignores type-only
    * edges by default (`includeTypeOnly`).
    */
   circular: boolean;
@@ -258,8 +258,8 @@ export interface PluginDefinition {
   reporters?: Record<string, ReporterFunction>;
   /**
    * Globs (relative to the cruise root) of modules the tools you use load without anyone importing
-   * them, e.g. `["**\/*.stories.tsx", "app/routes/**"]`. They are entry points for `no-unused-exports`,
-   * `no-unused-files` and `Export.used`.
+   * them, e.g. `["**\/*.stories.tsx", "app/routes/**"]`. They are entry points for `unused-exports`,
+   * `unused-modules` and `Export.used`.
    */
   entries?: string[];
   /**

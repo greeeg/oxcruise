@@ -8,12 +8,12 @@ use serde::Deserialize;
 
 use super::is_test_module;
 use crate::conventions::ConventionFilter;
-use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoUnusedExportsConfig {
+pub struct UnusedExportsConfig {
     /// Globs of modules whose exports are public API, on top of the entry points oxcruise finds:
     /// modules nothing imports, and the files `package.json` points to.
     pub entries: Vec<String>,
@@ -36,7 +36,7 @@ pub struct NoUnusedExportsConfig {
     pub test: Vec<String>,
 }
 
-impl Default for NoUnusedExportsConfig {
+impl Default for UnusedExportsConfig {
     fn default() -> Self {
         Self {
             entries: vec![],
@@ -93,17 +93,17 @@ declare_rule! {
     /// * `members`: set to `false` to skip unused members of enums and namespaces.
     /// * `ignore`: globs of modules to skip.
     ///
-    /// To suppress one export, put `// oxcruise-ignore-next-line no-unused-exports` above it.
+    /// To suppress one export, put `// oxcruise-ignore-next-line unused-exports` above it.
     ///
     /// ### Fix
     ///
     /// This rule is fixable. `oxcruise --fix` removes the `export` keyword, or removes the name from an export list.
-    NoUnusedExports, category = nursery, version = "0.1.0", config = NoUnusedExportsConfig
+    UnusedExports, category = nursery, version = "0.1.0", config = UnusedExportsConfig
 }
 
 #[derive(Debug, Default)]
-pub struct NoUnusedExports {
-    config: NoUnusedExportsConfig,
+pub struct UnusedExports {
+    config: UnusedExportsConfig,
     entries: Option<PathPatterns>,
     ignore: Option<PathPatterns>,
     test: Option<PathPatterns>,
@@ -111,7 +111,7 @@ pub struct NoUnusedExports {
     usage: OnceLock<ExportUsage>,
 }
 
-impl NoUnusedExports {
+impl UnusedExports {
     fn is_test(&self, path: &str) -> bool {
         self.config.production && self.test.as_ref().is_some_and(|t| is_test_module(path, t))
     }
@@ -159,11 +159,11 @@ impl NoUnusedExports {
     }
 }
 
-impl Rule for NoUnusedExports {
+impl Rule for UnusedExports {
     const HOOKS: Hooks = Hooks::MODULE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let config: NoUnusedExportsConfig = parse_options("no-unused-exports", value)?;
+        let config: UnusedExportsConfig = parse_options(Self::NAME, value)?;
         config.conventions.validate()?;
         Ok(Self {
             entries: Some(PathPatterns::new(&config.entries, Role::Referencing)?),

@@ -196,13 +196,13 @@ expression: data
     "@acme/lib"
   ],
   "rules": [
-    "no-circular",
-    "no-dev-deps-in-prod",
-    "no-undeclared-deps",
-    "no-unresolvable",
-    "no-test-imports",
-    "no-deprecated",
-    "no-orphans"
+    "circular-dependencies",
+    "dev-dependencies-in-production",
+    "undeclared-packages",
+    "unresolved-dependencies",
+    "dependencies-on-tests",
+    "deprecated-dependencies",
+    "orphan-modules"
   ],
   "edges": {
     "from": [

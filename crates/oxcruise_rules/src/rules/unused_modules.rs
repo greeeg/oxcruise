@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::is_test_module;
 use crate::conventions::ConventionFilter;
-use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 /// Files that are legitimately not imported: dotfiles, declarations, and tool configuration.
@@ -16,7 +16,7 @@ const DEFAULT_IGNORE: &[&str] = &["**/.*", "**/*.d.ts", "**/*.config.*"];
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoUnusedFilesConfig {
+pub struct UnusedModulesConfig {
     /// Globs of entry points, on top of the ones oxcruise finds (`package.json` entry files, the
     /// conventions of the tools you use, `index`, `main` and `cli` files, plugins).
     pub entries: Vec<String>,
@@ -40,7 +40,7 @@ declare_rule! {
     /// ### Why is this bad?
     ///
     /// A module that nothing leads to is dead code.
-    /// Unlike `no-orphans`, this rule also finds groups of modules that import each other and that nothing else uses.
+    /// Unlike `orphan-modules`, this rule also finds groups of modules that import each other and that nothing else uses.
     ///
     /// ### Entry points
     ///
@@ -64,11 +64,11 @@ declare_rule! {
     /// * `entries`: globs of more entry points.
     /// * `ignore`: globs of modules to skip. These globs add to dotfiles, declaration files and `*.config.*`.
     /// * `conventions`: `false`, or a list of names, to use only some tool conventions.
-    NoUnusedFiles, category = nursery, version = "0.1.0", config = NoUnusedFilesConfig
+    UnusedModules, category = nursery, version = "0.1.0", config = UnusedModulesConfig
 }
 
 #[derive(Debug, Default)]
-pub struct NoUnusedFiles {
+pub struct UnusedModules {
     entries: Option<PathPatterns>,
     ignore: Option<PathPatterns>,
     conventions: ConventionFilter,
@@ -78,7 +78,7 @@ pub struct NoUnusedFiles {
     reached: OnceLock<Option<BitSet>>,
 }
 
-impl NoUnusedFiles {
+impl UnusedModules {
     fn is_test(&self, path: &str) -> bool {
         self.test.as_ref().is_some_and(|t| is_test_module(path, t))
     }
@@ -103,7 +103,7 @@ impl NoUnusedFiles {
                 }
                 if starts.is_empty() {
                     cx.warn(
-                        "no-unused-files: no entry point found (package.json entries, conventions, \
+                        "unused-modules: no entry point found (package.json entries, conventions, \
                          `entries` option); nothing is reported",
                     );
                     return None;
@@ -114,11 +114,11 @@ impl NoUnusedFiles {
     }
 }
 
-impl Rule for NoUnusedFiles {
+impl Rule for UnusedModules {
     const HOOKS: Hooks = Hooks::MODULE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: NoUnusedFilesConfig = parse_options("no-unused-files", value)?;
+        let c: UnusedModulesConfig = parse_options(Self::NAME, value)?;
         c.conventions.validate()?;
         let ignore: Vec<String> = DEFAULT_IGNORE
             .iter()

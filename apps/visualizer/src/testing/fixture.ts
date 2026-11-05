@@ -25,7 +25,7 @@ export function smallData(): VizData {
       package: [-1, -1, -1, -1, 0],
     },
     packages: ["react"],
-    rules: ["no-circular", "no-orphans"],
+    rules: ["circular-dependencies", "orphan-modules"],
     edges: {
       from: [0, 1, 2, 0, 3],
       to: [1, 2, 0, 4, 2],

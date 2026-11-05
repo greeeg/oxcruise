@@ -2,4 +2,4 @@
 source: crates/oxcruise_rules/tests/rules.rs
 expression: "t.fail(&[\"a.ts -> b.ts\", \"b.ts -> c.ts\", \"c.ts -> a.ts\", \"c.ts -> d.ts\"])"
 ---
-error no-circular a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → c.ts → a.ts
+error circular-dependencies a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → c.ts → a.ts

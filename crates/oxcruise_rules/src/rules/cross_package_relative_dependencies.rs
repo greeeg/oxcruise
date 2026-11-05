@@ -12,12 +12,12 @@ declare_rule! {
     ///
     /// A package must depend on another package through the package name.
     /// Then `package.json` declares the dependency, and the package boundary stays intact.
-    NoCrossPackageRelative, category = correctness, version = "0.1.0"
+    CrossPackageRelativeDependencies, category = correctness, version = "0.1.0"
 }
 
 #[derive(Debug, Default)]
-pub struct NoCrossPackageRelative;
-impl Rule for NoCrossPackageRelative {
+pub struct CrossPackageRelativeDependencies;
+impl Rule for CrossPackageRelativeDependencies {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {

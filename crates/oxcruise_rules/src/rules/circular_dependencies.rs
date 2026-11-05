@@ -7,12 +7,12 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoCircularConfig {
+pub struct CircularDependenciesConfig {
     /// Also report cycles that exist only through type-only imports (`import type`).
     /// By default only cycles that exist at runtime are reported.
     pub include_type_only: bool,
@@ -51,7 +51,7 @@ declare_rule! {
     /// The rule searches only the first dependencies of a group, in graph order.
     /// It then reports one extra violation on the first module of the group.
     /// That violation gives the number of dependencies that the rule did not search.
-    NoCircular, category = correctness, version = "0.1.0", config = NoCircularConfig
+    CircularDependencies, category = correctness, version = "0.1.0", config = CircularDependenciesConfig
 }
 
 /// What the rule works out once per run: the components, which dependencies get a search, and
@@ -68,14 +68,14 @@ struct Plan {
 }
 
 #[derive(Debug, Default)]
-pub struct NoCircular {
+pub struct CircularDependencies {
     include_type_only: bool,
     ignore: Option<PathPatterns>,
     max_per_component: u32,
     plan: OnceLock<Plan>,
 }
 
-impl NoCircular {
+impl CircularDependencies {
     fn keeps(&self, edge: &Edge, removed: Option<&BitSet>) -> bool {
         (self.include_type_only || !edge.is_type_only())
             && removed.is_none_or(|r| !r.contains(edge.from.idx()) && !r.contains(edge.to.idx()))
@@ -136,11 +136,11 @@ impl NoCircular {
     }
 }
 
-impl Rule for NoCircular {
+impl Rule for CircularDependencies {
     const HOOKS: Hooks = Hooks::MODULE.union(Hooks::EDGE);
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: NoCircularConfig = parse_options("no-circular", value)?;
+        let c: CircularDependenciesConfig = parse_options(Self::NAME, value)?;
         Ok(Self {
             include_type_only: c.include_type_only,
             ignore: (!c.ignore.is_empty())

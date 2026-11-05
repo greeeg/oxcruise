@@ -36,7 +36,7 @@ export interface CruiseOptions {
   maxDepth?: number;
   threads?: number;
   /**
-   * Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`: tests are left
+   * Production mode for `unused-exports`, `unused-packages` and `unused-modules`: tests are left
    * out, and `devDependencies` are not checked (the CLI's `--production`).
    */
   production?: boolean;
@@ -88,7 +88,7 @@ export class ModuleHandle {
 
   /**
    * Exports that no module uses (`export *` aside); entry points are not reported. Needs `symbols: true`.
-   * It answers with the default options of `no-unused-exports`, and knows nothing of enum members or
+   * It answers with the default options of `unused-exports`, and knows nothing of enum members or
    * duplicate exports: the rule is the authoritative report.
    */
   unusedExports(): readonly Export[] {
@@ -98,7 +98,7 @@ export class ModuleHandle {
   /**
    * Is export `name` used by some module, or part of an entry point's interface? A dotted name
    * `E.A` asks about a member: `E` is used and `A` is read, or `E` is used whole (like
-   * `no-unused-exports` does for enum members). Needs `symbols: true`.
+   * `unused-exports` does for enum members). Needs `symbols: true`.
    */
   isUsed(name: string): boolean {
     const dot = name.indexOf(".");

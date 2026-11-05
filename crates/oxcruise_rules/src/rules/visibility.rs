@@ -3,16 +3,16 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct InternalModulesConfig {
+pub struct VisibilityConfig {
     /// Directory name that marks code as internal. Defaults to `internal`.
     pub marker: String,
 }
 
-impl Default for InternalModulesConfig {
+impl Default for VisibilityConfig {
     fn default() -> Self {
         Self {
             marker: "internal".into(),
@@ -30,27 +30,27 @@ declare_rule! {
     /// ### Options
     ///
     /// * `marker`: the directory name that makes code internal. The default is `internal`.
-    InternalModules, category = restriction, version = "0.1.0", config = InternalModulesConfig
+    Visibility, category = restriction, version = "0.1.0", config = VisibilityConfig
 }
 
 #[derive(Debug)]
-pub struct InternalModules {
+pub struct Visibility {
     marker: String,
 }
 
-impl Default for InternalModules {
+impl Default for Visibility {
     fn default() -> Self {
         Self {
-            marker: InternalModulesConfig::default().marker,
+            marker: VisibilityConfig::default().marker,
         }
     }
 }
 
-impl Rule for InternalModules {
+impl Rule for Visibility {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: InternalModulesConfig = parse_options("internal-modules", value)?;
+        let c: VisibilityConfig = parse_options(Self::NAME, value)?;
         Ok(Self { marker: c.marker })
     }
 

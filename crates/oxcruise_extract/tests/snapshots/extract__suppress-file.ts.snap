@@ -11,8 +11,8 @@ expression: "run(\"suppress-file.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 47,
-        "end": 52
+        "start": 55,
+        "end": 60
       },
       "loc": {
         "line": 2,
@@ -24,7 +24,7 @@ expression: "run(\"suppress-file.ts\")"
   "file_suppressions": [
     {
       "rules": [
-        "no-unresolvable"
+        "unresolved-dependencies"
       ],
       "loc": {
         "line": 1,

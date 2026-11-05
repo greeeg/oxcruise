@@ -1,14 +1,14 @@
-//! `no-unused-exports` and `no-unused-deps`, on graphs with exports, used names and manifests.
+//! `unused-exports` and `unused-packages`, on graphs with exports, used names and manifests.
 
 use oxcruise_rules::testing::Tester;
 use serde_json::{Value, json};
 
 fn exports(options: Value) -> Tester {
-    Tester::rule("no-unused-exports", options)
+    Tester::rule("unused-exports", options)
 }
 
 fn deps(options: Value) -> Tester {
-    Tester::rule("no-unused-deps", options)
+    Tester::rule("unused-packages", options)
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn a_comment_silences_one_export() {
         exports(Value::Null).fail(&[
             "main.ts -> lib.ts [names=a]",
             "main.ts [exports=run]",
-            "lib.ts [exports=a,quiet~no-unused-exports,loud~other-rule,all~*]",
+            "lib.ts [exports=a,quiet~unused-exports,loud~other-rule,all~*]",
         ])
     );
 }
@@ -137,7 +137,7 @@ fn one_binding_exported_twice_is_reported() {
 }
 
 #[test]
-fn unused_deps_are_reported_at_their_line_in_package_json() {
+fn unused_packages_are_reported_at_their_line_in_package_json() {
     let t = deps(Value::Null).with_manifest(
         "",
         &[
@@ -149,7 +149,7 @@ fn unused_deps_are_reported_at_their_line_in_package_json() {
         ],
     );
     insta::assert_snapshot!(
-        "unused_deps_basic",
+        "unused_packages_basic",
         t.fail(&[
             "src/a.ts -> used/sub/path as used/sub/path [npm]",
             "src/a.ts -> @scope/pkg/x as @scope/pkg/x [npm]",
@@ -174,7 +174,7 @@ fn types_node_and_peers_follow_what_is_used() {
             ],
         );
     insta::assert_snapshot!(
-        "unused_deps_follow",
+        "unused_packages_follow",
         t.fail(&[
             "src/a.ts -> react-dom [npm]",
             "src/a.ts -> lodash [npm]",
@@ -197,7 +197,7 @@ fn each_package_json_checks_its_own_modules() {
         )
         .with_manifest("packages/empty", &[("dependencies", "never-checked")]);
     insta::assert_snapshot!(
-        "unused_deps_workspaces",
+        "unused_packages_workspaces",
         t.fail(&[
             "src/x.ts -> root-only [npm]",
             "packages/a/src/y.ts -> shared [npm]",
@@ -214,7 +214,7 @@ fn whole_graph_rules_survive_overrides() {
     ];
     let with = |overrides: Value| {
         Tester::config(json!({
-            "rules": { "no-unused-deps": "error" },
+            "rules": { "unused-packages": "error" },
             "overrides": overrides,
         }))
         .with_manifest("packages/a", &[("dependencies", "a-dep")])
@@ -225,12 +225,12 @@ fn whole_graph_rules_survive_overrides() {
     // an override that matches nothing must not hide the rule
     assert_eq!(
         count(&with(
-            json!([{ "files": ["nothing/**"], "rules": { "no-unused-deps": "warn" } }])
+            json!([{ "files": ["nothing/**"], "rules": { "unused-packages": "warn" } }])
         )),
         2
     );
     // turning it off for one package hides only that package's finding
-    let t = with(json!([{ "files": ["packages/a/**"], "rules": { "no-unused-deps": "off" } }]));
+    let t = with(json!([{ "files": ["packages/a/**"], "rules": { "unused-packages": "off" } }]));
     let result = t.run(&lines);
     assert_eq!(result.violations.len(), 1);
     assert!(
@@ -241,7 +241,7 @@ fn whole_graph_rules_survive_overrides() {
 }
 
 #[test]
-fn unused_deps_options() {
+fn unused_packages_options() {
     let lines = ["src/a.ts -> used [npm]"];
     let manifest = [
         ("dependencies", "used"),
@@ -252,7 +252,7 @@ fn unused_deps_options() {
         .with_manifest("", &manifest)
         .pass(&lines);
     insta::assert_snapshot!(
-        "unused_deps_sections",
+        "unused_packages_sections",
         deps(json!({ "sections": ["devDependencies"] }))
             .with_manifest("", &manifest)
             .fail(&lines)
@@ -260,7 +260,7 @@ fn unused_deps_options() {
 }
 
 fn files(options: Value) -> Tester {
-    Tester::rule("no-unused-files", options)
+    Tester::rule("unused-modules", options)
 }
 
 #[test]
@@ -269,7 +269,7 @@ fn files_not_reachable_from_an_entry_are_reported() {
         .with_manifest("", &[("dependencies", "x")])
         .with_entry_files("", &["dist/cli.js"], (Some("dist"), Some("src")));
     insta::assert_snapshot!(
-        "unused_files_basic",
+        "unused_modules_basic",
         t.fail(&[
             "src/cli.ts -> src/used.ts",
             "src/used.ts -> src/deeper.ts",
@@ -292,7 +292,7 @@ fn without_entries_nothing_is_reported() {
 fn index_files_and_the_entries_option_are_entries() {
     let t = files(json!({ "entries": ["scripts/*.ts"] })).with_manifest("", &[]);
     insta::assert_snapshot!(
-        "unused_files_entries",
+        "unused_modules_entries",
         t.fail(&[
             "src/index.ts -> src/a.ts",
             "scripts/build.ts -> scripts/lib.ts",
@@ -306,8 +306,8 @@ fn ignore_file_keeps_a_module_and_what_it_imports() {
     let t = files(Value::Null).with_manifest("", &[]);
     t.pass(&[
         "src/index.ts",
-        "src/kept.ts -> src/dep.ts [ignore-file=no-unused-files]",
-        "src/kept.ts [ignore-file=no-unused-files]",
+        "src/kept.ts -> src/dep.ts [ignore-file=unused-modules]",
+        "src/kept.ts [ignore-file=unused-modules]",
     ]);
 }
 
@@ -322,11 +322,11 @@ fn tool_conventions_make_entries() {
         "src/unused.ts",
     ];
     insta::assert_snapshot!(
-        "unused_files_conventions",
+        "unused_modules_conventions",
         files(Value::Null).with_manifest("", &manifest).fail(&lines)
     );
     insta::assert_snapshot!(
-        "unused_files_conventions_off",
+        "unused_modules_conventions_off",
         files(json!({ "conventions": ["vitest"] }))
             .with_manifest("", &manifest)
             .fail(&lines)
@@ -353,7 +353,7 @@ fn conventions_make_exports_public_and_packages_used() {
         )
         .pass(&["src/a.ts -> vitest [npm-dev]"]);
     insta::assert_snapshot!(
-        "unused_deps_conventions_off",
+        "unused_packages_conventions_off",
         deps(json!({ "sections": ["devDependencies"], "conventions": false }))
             .with_manifest(
                 "",
@@ -369,7 +369,7 @@ fn conventions_make_exports_public_and_packages_used() {
 #[test]
 fn unknown_conventions_are_rejected() {
     let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
-        "rules": { "no-unused-files": ["error", { "conventions": ["nope"] }] }
+        "rules": { "unused-modules": ["error", { "conventions": ["nope"] }] }
     }))
     .unwrap();
     let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
@@ -397,7 +397,7 @@ fn production_mode_leaves_tests_out() {
     // files only tests reach, and dev dependencies
     let t = files(json!({ "production": true })).with_manifest("", &[]);
     insta::assert_snapshot!(
-        "unused_files_production",
+        "unused_modules_production",
         t.fail(&[
             "src/index.ts -> src/a.ts",
             "src/lib.test.ts -> src/helper.ts",
@@ -407,7 +407,7 @@ fn production_mode_leaves_tests_out() {
         .with_manifest("", &[("devDependencies", "tool"), ("dependencies", "used")])
         .pass(&["src/a.ts -> used [npm]", "src/a.test.ts -> tool [npm-dev]"]);
     insta::assert_snapshot!(
-        "unused_deps_production",
+        "unused_packages_production",
         deps(json!({ "production": true }))
             .with_manifest("", &[("dependencies", "only-tests")])
             .fail(&["src/a.test.ts -> only-tests [npm]", "src/a.ts"])
@@ -418,11 +418,11 @@ fn production_mode_leaves_tests_out() {
 fn set_option_overrides_the_config() {
     let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
         "categories": { "correctness": "off", "suspicious": "off" },
-        "rules": { "no-unused-exports": ["error", { "types": false }] }
+        "rules": { "unused-exports": ["error", { "types": false }] }
     }))
     .unwrap();
     let mut engine = oxcruise_rules::Engine::new(&cfg, None).unwrap();
-    engine.set_option("no-unused-exports", "production", json!(true));
-    engine.set_option("no-unused-deps", "production", json!(true));
+    engine.set_option("unused-exports", "production", json!(true));
+    engine.set_option("unused-packages", "production", json!(true));
     assert!(engine.wants_symbols());
 }

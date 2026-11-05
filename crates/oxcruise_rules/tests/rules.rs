@@ -6,11 +6,11 @@ fn none() -> Value {
 }
 
 #[test]
-fn no_circular() {
-    let t = Tester::rule("no-circular", none());
+fn circular_dependencies() {
+    let t = Tester::rule("circular-dependencies", none());
     t.pass(&["a.ts -> b.ts", "b.ts -> c.ts"]);
     insta::assert_snapshot!(
-        "no_circular_basic",
+        "circular_dependencies_basic",
         t.fail(&[
             "a.ts -> b.ts",
             "b.ts -> c.ts",
@@ -18,11 +18,11 @@ fn no_circular() {
             "c.ts -> d.ts"
         ])
     );
-    insta::assert_snapshot!("no_circular_self", t.fail(&["a.ts -> a.ts"]));
+    insta::assert_snapshot!("circular_dependencies_self", t.fail(&["a.ts -> a.ts"]));
 
     // shortest cycle through an edge is reported, not an arbitrary one
     insta::assert_snapshot!(
-        "no_circular_shortest",
+        "circular_dependencies_shortest",
         t.fail(&[
             "a.ts -> b.ts",
             "b.ts -> c.ts",
@@ -34,12 +34,12 @@ fn no_circular() {
 }
 
 #[test]
-fn no_circular_ignores_type_only_cycles_by_default() {
-    let default = Tester::rule("no-circular", none());
+fn circular_dependencies_ignores_type_only_cycles_by_default() {
+    let default = Tester::rule("circular-dependencies", none());
     default.pass(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
     // a runtime cycle is still reported, and the type-only edge that closes a bigger one is ignored
     insta::assert_snapshot!(
-        "no_circular_ignore_type_only",
+        "circular_dependencies_ignore_type_only",
         default.fail(&[
             "a.ts -> b.ts",
             "b.ts -> a.ts",
@@ -48,25 +48,25 @@ fn no_circular_ignores_type_only_cycles_by_default() {
         ])
     );
     // with the option the type-only cycle is reported (#695, #305)
-    Tester::rule("no-circular", json!({ "includeTypeOnly": true }))
+    Tester::rule("circular-dependencies", json!({ "includeTypeOnly": true }))
         .fail(&["a.ts -> b.ts", "b.ts -> a.ts [type-only]"]);
 }
 
 #[test]
-fn no_circular_ignore_removes_modules_before_searching() {
+fn circular_dependencies_ignore_removes_modules_before_searching() {
     let cycle = [
         "a.ts -> index.ts",
         "index.ts -> a.ts",
         "b.ts -> index.ts",
         "index.ts -> b.ts",
     ];
-    Tester::rule("no-circular", none()).fail(&cycle);
+    Tester::rule("circular-dependencies", none()).fail(&cycle);
     // a barrel everything goes through is not part of any cycle
-    Tester::rule("no-circular", json!({ "ignore": ["index.ts"] })).pass(&cycle);
+    Tester::rule("circular-dependencies", json!({ "ignore": ["index.ts"] })).pass(&cycle);
     // other cycles are still found
     insta::assert_snapshot!(
-        "no_circular_ignore",
-        Tester::rule("no-circular", json!({ "ignore": ["index.ts"] })).fail(&[
+        "circular_dependencies_ignore",
+        Tester::rule("circular-dependencies", json!({ "ignore": ["index.ts"] })).fail(&[
             "a.ts -> index.ts",
             "index.ts -> a.ts",
             "x.ts -> y.ts",
@@ -76,7 +76,7 @@ fn no_circular_ignore_removes_modules_before_searching() {
 }
 
 #[test]
-fn no_circular_caps_searches_per_component() {
+fn circular_dependencies_caps_searches_per_component() {
     // a ring of five plus an unrelated two-cycle
     let lines = [
         "r0.ts -> r1.ts",
@@ -87,7 +87,10 @@ fn no_circular_caps_searches_per_component() {
         "x.ts -> y.ts",
         "y.ts -> x.ts",
     ];
-    let capped = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 2 }));
+    let capped = Tester::rule(
+        "circular-dependencies",
+        json!({ "maxCyclesPerComponent": 2 }),
+    );
     let r = capped.run(&lines);
     let messages: Vec<_> = r.violations.iter().map(|v| v.message.as_str()).collect();
     // the ring is one cycle, found from its first edges; the summary names what was left out
@@ -106,16 +109,20 @@ fn no_circular_caps_searches_per_component() {
             .count(),
         1
     );
-    insta::assert_snapshot!("no_circular_capped", capped.fail(&lines));
+    insta::assert_snapshot!("circular_dependencies_capped", capped.fail(&lines));
 
     // the default limit and `0` leave small cycles alone
-    let r = Tester::rule("no-circular", none()).run(&lines);
+    let r = Tester::rule("circular-dependencies", none()).run(&lines);
     assert!(
         r.violations
             .iter()
             .all(|v| !v.message.contains("more dependencies"))
     );
-    let r = Tester::rule("no-circular", json!({ "maxCyclesPerComponent": 0 })).run(&lines);
+    let r = Tester::rule(
+        "circular-dependencies",
+        json!({ "maxCyclesPerComponent": 0 }),
+    )
+    .run(&lines);
     assert!(
         r.violations
             .iter()
@@ -124,9 +131,9 @@ fn no_circular_caps_searches_per_component() {
 }
 
 #[test]
-fn no_orphans() {
+fn orphan_modules() {
     // the defaults cover declarations and tool configuration
-    let t = Tester::rule("no-orphans", none());
+    let t = Tester::rule("orphan-modules", none());
     t.pass(&[
         "a.ts -> b.ts",
         "types.d.ts",
@@ -136,60 +143,60 @@ fn no_orphans() {
         "sub/tailwind.config.js",
     ]);
     insta::assert_snapshot!(
-        "no_orphans",
+        "orphan_modules",
         t.fail(&["a.ts -> b.ts", "lonely.ts", "dir/other.ts"])
     );
 
     // `ignore` extends the defaults instead of replacing them
-    let t = Tester::rule("no-orphans", json!({ "ignore": ["**/*.stories.ts"] }));
+    let t = Tester::rule("orphan-modules", json!({ "ignore": ["**/*.stories.ts"] }));
     t.pass(&["a.stories.ts", "types.d.ts"]);
     t.fail(&["lonely.ts"]);
 }
 
 #[test]
 fn dependency_type_rules() {
-    let deprecated = Tester::rule("no-deprecated", none());
+    let deprecated = Tester::rule("deprecated-dependencies", none());
     deprecated.pass(&["a.ts -> fs [core]", "a.ts -> left-pad [npm]"]);
     insta::assert_snapshot!(
-        "no_deprecated",
+        "deprecated_dependencies",
         deprecated.fail(&[
             "a.ts -> sys [core deprecated]",
             "a.ts -> left-pad [npm deprecated]"
         ])
     );
 
-    Tester::rule("no-undeclared-deps", none()).pass(&["a.ts -> x [npm]"]);
+    Tester::rule("undeclared-packages", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "no_undeclared_deps",
-        Tester::rule("no-undeclared-deps", none()).fail(&["a.ts -> x [npm-no-pkg]"])
+        "undeclared_packages",
+        Tester::rule("undeclared-packages", none()).fail(&["a.ts -> x [npm-no-pkg]"])
     );
 
-    Tester::rule("no-unresolvable", none()).pass(&["a.ts -> b.ts"]);
+    Tester::rule("unresolved-dependencies", none()).pass(&["a.ts -> b.ts"]);
     insta::assert_snapshot!(
-        "no_unresolvable",
-        Tester::rule("no-unresolvable", none()).fail(&["a.ts -> ./nope [unknown]"])
+        "unresolved_dependencies",
+        Tester::rule("unresolved-dependencies", none()).fail(&["a.ts -> ./nope [unknown]"])
     );
 
-    let dup = Tester::rule("no-duplicate-deps", none());
+    let dup = Tester::rule("duplicate-packages", none());
     dup.pass(&["a.ts -> x [npm-dev]", "a.ts -> y [npm npm-dev type-only]"]);
-    insta::assert_snapshot!("no_duplicate_deps", dup.fail(&["a.ts -> x [npm npm-dev]"]));
+    insta::assert_snapshot!("duplicate_packages", dup.fail(&["a.ts -> x [npm npm-dev]"]));
 
-    Tester::rule("no-optional-deps", none()).pass(&["a.ts -> x [npm]"]);
+    Tester::rule("optional-dependencies", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "no_optional_deps",
-        Tester::rule("no-optional-deps", none()).fail(&["a.ts -> x [npm-optional]"])
+        "optional_dependencies",
+        Tester::rule("optional-dependencies", none()).fail(&["a.ts -> x [npm-optional]"])
     );
-    Tester::rule("no-peer-deps", none()).pass(&["a.ts -> x [npm]"]);
+    Tester::rule("peer-dependencies", none()).pass(&["a.ts -> x [npm]"]);
     insta::assert_snapshot!(
-        "no_peer_deps",
-        Tester::rule("no-peer-deps", none()).fail(&["a.ts -> x [npm-peer]"])
+        "peer_dependencies",
+        Tester::rule("peer-dependencies", none()).fail(&["a.ts -> x [npm-peer]"])
     );
 }
 
 #[test]
-fn no_unresolvable_ignore() {
+fn unresolved_dependencies_ignore() {
     let t = Tester::rule(
-        "no-unresolvable",
+        "unresolved-dependencies",
         json!({ "ignore": ["virtual:*", "src/generated/**"] }),
     );
     t.pass(&[
@@ -200,8 +207,8 @@ fn no_unresolvable_ignore() {
 }
 
 #[test]
-fn no_test_imports() {
-    let t = Tester::rule("no-test-imports", none());
+fn dependencies_on_tests() {
+    let t = Tester::rule("dependencies-on-tests", none());
     t.pass(&[
         "src/a.ts -> src/b.ts",
         "src/a.test.ts -> src/a.ts",
@@ -209,7 +216,7 @@ fn no_test_imports() {
         "src/a.spec.ts -> src/helpers.test.ts",
     ]);
     insta::assert_snapshot!(
-        "no_test_imports",
+        "dependencies_on_tests",
         t.fail(&[
             "src/a.ts -> src/a.test.ts",
             "src/a.ts -> test/util.ts",
@@ -219,8 +226,8 @@ fn no_test_imports() {
 }
 
 #[test]
-fn no_dev_deps_in_prod() {
-    let t = Tester::rule("no-dev-deps-in-prod", none());
+fn dev_dependencies_in_production() {
+    let t = Tester::rule("dev-dependencies-in-production", none());
     t.pass(&[
         "src/a.ts -> vitest [npm-dev type-only]",
         "src/a.test.ts -> vitest [npm-dev]",
@@ -228,7 +235,7 @@ fn no_dev_deps_in_prod() {
         "src/b.ts -> both [npm npm-dev]",
     ]);
     insta::assert_snapshot!(
-        "no_dev_deps_in_prod",
+        "dev_dependencies_in_production",
         t.fail(&[
             "src/a.ts -> vitest [npm-dev]",
             "packages/x/src/b.ts -> vite [npm-dev]"
@@ -236,7 +243,7 @@ fn no_dev_deps_in_prod() {
     );
 
     let custom = Tester::rule(
-        "no-dev-deps-in-prod",
+        "dev-dependencies-in-production",
         json!({ "prod": ["scripts/**"], "test": ["scripts/ok/**"] }),
     );
     custom.pass(&[
@@ -281,8 +288,8 @@ fn layers_reject_unknown_names() {
 }
 
 #[test]
-fn internal_modules() {
-    let t = Tester::rule("internal-modules", none());
+fn visibility() {
+    let t = Tester::rule("visibility", none());
     t.pass(&[
         "src/a/x.ts -> src/a/internal/y.ts",
         "src/a/internal/y.ts -> src/a/internal/z.ts",
@@ -291,19 +298,18 @@ fn internal_modules() {
         "src/b.ts -> src/internal.ts",
     ]);
     insta::assert_snapshot!(
-        "internal_modules",
+        "visibility",
         t.fail(&[
             "src/b/x.ts -> src/a/internal/y.ts",
             "src/a2/x.ts -> src/a/internal/deep/y.ts"
         ])
     );
-    Tester::rule("internal-modules", json!({ "marker": "private" }))
-        .fail(&["b/x.ts -> a/private/y.ts"]);
+    Tester::rule("visibility", json!({ "marker": "private" })).fail(&["b/x.ts -> a/private/y.ts"]);
 }
 
 #[test]
-fn no_cross_package_relative() {
-    let t = Tester::rule("no-cross-package-relative", none())
+fn cross_package_relative_dependencies() {
+    let t = Tester::rule("cross-package-relative-dependencies", none())
         .with_package("packages/a", 0)
         .with_package("packages/b", 1);
     t.pass(&[
@@ -311,25 +317,50 @@ fn no_cross_package_relative() {
         "packages/a/x.ts -> packages/b/src/y.ts as @acme/b",
     ]);
     insta::assert_snapshot!(
-        "no_cross_package_relative",
+        "cross_package_relative_dependencies",
         t.fail(&["packages/a/x.ts -> packages/b/src/y.ts as ../b/src/y"])
     );
 }
 
 #[test]
 fn unknown_rule_suggests_a_name() {
-    let cfg: oxcruise_config::OxcruiseConfig =
-        serde_json::from_value(json!({ "rules": { "no-circluar": "error", "acme/x": "warn" } }))
-            .unwrap();
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(
+        json!({ "rules": { "circular-dependancies": "error", "acme/x": "warn" } }),
+    )
+    .unwrap();
     let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
     assert!(
-        err.iter().any(|e| e.contains("did you mean `no-circular`")),
+        err.iter()
+            .any(|e| e.contains("did you mean `circular-dependencies`")),
         "{err:?}"
     );
     assert!(
         err.iter().any(|e| e.contains("plugin rules need")),
         "{err:?}"
     );
+}
+
+#[test]
+fn old_rule_names_say_they_were_renamed() {
+    for (old, new) in oxcruise_rules::registry::RENAMED {
+        let cfg: oxcruise_config::OxcruiseConfig =
+            serde_json::from_value(json!({ "rules": { *old: "error" } })).unwrap();
+        let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+        assert!(
+            err.iter()
+                .any(|e| e.contains(&format!("`{old}`; it was renamed to `{new}`"))),
+            "{old}: {err:?}"
+        );
+        let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+            "overrides": [{ "files": "src/**", "rules": { *old: "off" } }]
+        }))
+        .unwrap();
+        let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+        assert!(
+            err.iter().any(|e| e.contains("it was renamed to")),
+            "{old}: {err:?}"
+        );
+    }
 }
 
 #[test]

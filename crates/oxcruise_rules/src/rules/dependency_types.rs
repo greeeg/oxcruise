@@ -5,7 +5,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 declare_rule! {
@@ -15,11 +15,11 @@ declare_rule! {
     ///
     /// Node.js deprecates built-in modules such as `sys` and `punycode`.
     /// An npm package has a deprecation mark in its own `package.json`.
-    NoDeprecated, category = suspicious, version = "0.1.0"
+    DeprecatedDependencies, category = suspicious, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoDeprecated;
-impl Rule for NoDeprecated {
+pub struct DeprecatedDependencies;
+impl Rule for DeprecatedDependencies {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
@@ -50,11 +50,11 @@ declare_rule! {
     ///
     /// The import works only because of hoisting or a transitive install.
     /// It breaks when the dependency tree changes.
-    NoUndeclaredDeps, category = correctness, version = "0.1.0"
+    UndeclaredPackages, category = correctness, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoUndeclaredDeps;
-impl Rule for NoUndeclaredDeps {
+pub struct UndeclaredPackages;
+impl Rule for UndeclaredPackages {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
@@ -73,7 +73,7 @@ impl Rule for NoUndeclaredDeps {
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoUnresolvableConfig {
+pub struct UnresolvedDependenciesConfig {
     /// Globs of imports that are allowed to be unresolvable. An import is skipped when its
     /// specifier (`virtual:icons`) or the importing module's path matches.
     pub ignore: Vec<String>,
@@ -88,17 +88,17 @@ declare_rule! {
     ///
     /// * `ignore`: globs for virtual modules and generated code.
     ///   The rule matches each glob against the import specifier and against the path of the importing module.
-    NoUnresolvable, category = correctness, version = "0.1.0", config = NoUnresolvableConfig
+    UnresolvedDependencies, category = correctness, version = "0.1.0", config = UnresolvedDependenciesConfig
 }
 #[derive(Debug, Default)]
-pub struct NoUnresolvable {
+pub struct UnresolvedDependencies {
     ignore: Option<PathPatterns>,
 }
-impl Rule for NoUnresolvable {
+impl Rule for UnresolvedDependencies {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: NoUnresolvableConfig = parse_options("no-unresolvable", value)?;
+        let c: UnresolvedDependenciesConfig = parse_options(Self::NAME, value)?;
         Ok(Self {
             ignore: Some(PathPatterns::new(&c.ignore, Role::Referencing)?),
         })
@@ -133,11 +133,11 @@ declare_rule! {
     /// Reports a package that more than one `package.json` section declares,
     /// for example both `dependencies` and `devDependencies`.
     /// The rule ignores type-only imports.
-    NoDuplicateDeps, category = suspicious, version = "0.1.0"
+    DuplicatePackages, category = suspicious, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoDuplicateDeps;
-impl Rule for NoDuplicateDeps {
+pub struct DuplicatePackages;
+impl Rule for DuplicatePackages {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
@@ -161,11 +161,11 @@ declare_rule! {
     ///
     /// Reports use of optional dependencies.
     /// An install can skip an optional dependency, so the package may not exist at runtime.
-    NoOptionalDeps, category = restriction, version = "0.1.0"
+    OptionalDependencies, category = restriction, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoOptionalDeps;
-impl Rule for NoOptionalDeps {
+pub struct OptionalDependencies;
+impl Rule for OptionalDependencies {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {
@@ -187,11 +187,11 @@ declare_rule! {
     ///
     /// Reports use of peer dependencies.
     /// The consuming project must provide a peer dependency.
-    NoPeerDeps, category = restriction, version = "0.1.0"
+    PeerDependencies, category = restriction, version = "0.1.0"
 }
 #[derive(Debug, Default)]
-pub struct NoPeerDeps;
-impl Rule for NoPeerDeps {
+pub struct PeerDependencies;
+impl Rule for PeerDependencies {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn check_edge(&self, e: EdgeId, cx: &RuleCtx<'_>) {

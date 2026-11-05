@@ -211,7 +211,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         std::fs::write(
             d.path().join("base.json"),
-            r#"{ "entries": ["src"], "rules": { "no-circular": "warn" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "warn" } }"#,
         )
         .unwrap();
         std::fs::write(
@@ -219,7 +219,7 @@ mod tests {
             r#"{
               // comment
               "extends": ["./base.json"],
-              "rules": { "no-orphans": "off", },
+              "rules": { "orphan-modules": "off", },
             }"#,
         )
         .unwrap();
@@ -228,10 +228,13 @@ mod tests {
         let c = ConfigLoader::new(&NoJs).load(&found).unwrap().config;
         assert_eq!(c.entries, ["src"]);
         assert_eq!(
-            c.rules["no-circular"].parts().unwrap().0,
+            c.rules["circular-dependencies"].parts().unwrap().0,
             crate::Level::Warn
         );
-        assert_eq!(c.rules["no-orphans"].parts().unwrap().0, crate::Level::Off);
+        assert_eq!(
+            c.rules["orphan-modules"].parts().unwrap().0,
+            crate::Level::Off
+        );
     }
 
     #[test]
@@ -287,7 +290,7 @@ mod tests {
         let ts = d.path().join("oxcruise.config.ts");
         std::fs::write(
             &ts,
-            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'no-circular': 'error' as const } };\n",
+            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'circular-dependencies': 'error' as const } };\n",
         )
         .unwrap();
         let l = ConfigLoader::new(&NodeSubprocessLoader);

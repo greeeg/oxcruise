@@ -29,7 +29,7 @@ export default defineConfig({
 });
 ```
 
-The [`no-cross-package-relative`](/reference/rules/no-cross-package-relative) rule is on by default.
+The [`cross-package-relative-dependencies`](/reference/rules/cross-package-relative-dependencies) rule is on by default.
 It reports a relative import that reaches into another package.
 
 ## Change rules for some modules
@@ -40,10 +40,10 @@ An override cannot change a plugin rule.
 
 ```ts
 export default defineConfig({
-  rules: { "no-dev-deps-in-prod": "error" },
+  rules: { "dev-dependencies-in-production": "error" },
   overrides: [
-    { files: ["scripts/**", "tools/**"], rules: { "no-dev-deps-in-prod": "off" } },
-    { files: ["packages/legacy/**"], rules: { "no-circular": "warn" } },
+    { files: ["scripts/**", "tools/**"], rules: { "dev-dependencies-in-production": "off" } },
+    { files: ["packages/legacy/**"], rules: { "circular-dependencies": "warn" } },
   ],
 });
 ```

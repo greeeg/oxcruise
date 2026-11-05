@@ -15,18 +15,18 @@ use crate::{Category, ForbidRule, Kind, Level, OneOrMany, OxcruiseConfig, ToCond
 
 /// dependency-cruiser's recommended rule names and the oxcruise built-in that does the same job.
 const BUILTIN_EQUIVALENTS: &[(&str, &str)] = &[
-    ("no-circular", "no-circular"),
-    ("no-orphans", "no-orphans"),
-    ("no-deprecated-core", "no-deprecated"),
-    ("no-deprecated-npm", "no-deprecated"),
-    ("no-non-package-json", "no-undeclared-deps"),
-    ("not-to-unresolvable", "no-unresolvable"),
-    ("no-duplicate-dep-types", "no-duplicate-deps"),
-    ("not-to-test", "no-test-imports"),
-    ("not-to-spec", "no-test-imports"),
-    ("not-to-dev-dep", "no-dev-deps-in-prod"),
-    ("optional-deps-used", "no-optional-deps"),
-    ("peer-deps-used", "no-peer-deps"),
+    ("no-circular", "circular-dependencies"),
+    ("no-orphans", "orphan-modules"),
+    ("no-deprecated-core", "deprecated-dependencies"),
+    ("no-deprecated-npm", "deprecated-dependencies"),
+    ("no-non-package-json", "undeclared-packages"),
+    ("not-to-unresolvable", "unresolved-dependencies"),
+    ("no-duplicate-dep-types", "duplicate-packages"),
+    ("not-to-test", "dependencies-on-tests"),
+    ("not-to-spec", "dependencies-on-tests"),
+    ("not-to-dev-dep", "dev-dependencies-in-production"),
+    ("optional-deps-used", "optional-dependencies"),
+    ("peer-deps-used", "peer-dependencies"),
 ];
 
 /// Convert a depcruise config object. Returns the config and one warning per

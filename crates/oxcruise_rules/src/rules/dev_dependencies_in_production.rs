@@ -4,12 +4,12 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::is_test_module;
-use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoDevDepsInProdConfig {
+pub struct DevDependenciesInProductionConfig {
     /// Globs of production code. Defaults to `src`, `app`, `lib` and `packages/*/src`.
     pub prod: Vec<String>,
     /// Globs of test code, exempt from the rule (on top of `*.test.*`, `*.spec.*` and test directories).
@@ -31,20 +31,20 @@ declare_rule! {
     /// * `prod`: globs of production code. The default is `src`, `app`, `lib` and `packages/*/src`.
     /// * `test`: globs of test code. The rule does not apply to test code.
     ///   These globs add to `*.test.*`, `*.spec.*` and test directories.
-    NoDevDepsInProd, category = correctness, version = "0.1.0", config = NoDevDepsInProdConfig
+    DevDependenciesInProduction, category = correctness, version = "0.1.0", config = DevDependenciesInProductionConfig
 }
 
 #[derive(Debug, Default)]
-pub struct NoDevDepsInProd {
+pub struct DevDependenciesInProduction {
     prod: Option<PathPatterns>,
     test: Option<PathPatterns>,
 }
 
-impl Rule for NoDevDepsInProd {
+impl Rule for DevDependenciesInProduction {
     const HOOKS: Hooks = Hooks::EDGE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let mut c: NoDevDepsInProdConfig = parse_options("no-dev-deps-in-prod", value)?;
+        let mut c: DevDependenciesInProductionConfig = parse_options(Self::NAME, value)?;
         if c.prod.is_empty() {
             c.prod = ["src", "app", "lib", "packages/*/src"]
                 .map(String::from)

@@ -94,7 +94,7 @@ is parsed separately and its offsets are mapped back to the file.
 #### Symbols
 
 With `ExtractOptions.symbols` the same single pass also records what a file exports and how it uses its imports. It
-is **off unless something needs it**: `Engine::wants_symbols()` (`no-unused-exports` is enabled), a loaded plugin that
+is **off unless something needs it**: `Engine::wants_symbols()` (`unused-exports` is enabled), a loaded plugin that
 declares `needs: ["symbols"]`, `--symbols`, the `symbols` config key, or `cruise({ symbols: true })`. `--format json`
 lists exports and names only then. Without it, nothing changes in speed or output.
 
@@ -162,7 +162,7 @@ website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos]
   target; a `reachable` rule looks at `local` and `package` modules. The module kinds are the same in the config, the
   JSON result and the plugin API.
 * **Overrides** change a rule's severity and options for importing modules matching `files`. The engine runs one variant of
-  the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`no-unused-deps`)
+  the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`unused-packages`)
   belongs to the module it is reported on: the first module of the package that declares the dependency.
 * **CLI-only settings** (`--max-warnings`, `--deny-warnings`, `--max-depth`, `--ignore-pattern`, `--production`, `--fix`)
   are in the [CLI reference](website/src/pages/reference/cli.mdx). `--max-depth` leaves deeper modules out of the graph,

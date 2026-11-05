@@ -5,7 +5,7 @@ expression: "read(\"src/util.ts\")"
 export const helper = () => 1;
 export const testOnly = () => 2;
 const dead = 3;
-// oxcruise-ignore-next-line no-unused-exports
+// oxcruise-ignore-next-line unused-exports
 export const kept = 4;
 export enum Color {
   Red,

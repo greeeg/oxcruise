@@ -42,9 +42,9 @@ Give a level, or give an array of a level and an options object.
 ```ts
 export default defineConfig({
   rules: {
-    "no-orphans": "error",
-    "no-circular": ["error", { ignore: ["src/index.ts"] }],
-    "no-peer-deps": "warn",
+    "orphan-modules": "error",
+    "circular-dependencies": ["error", { ignore: ["src/index.ts"] }],
+    "peer-dependencies": "warn",
   },
 });
 ```
@@ -59,7 +59,7 @@ The [rules reference](/reference/rules) has one page for each rule.
 ## Other kinds of rules
 
 * [Forbid rules](/features/forbid-rules) are your own rules for dependencies that the project does not allow.
-* [Layers and internal modules](/features/layers-and-internal-modules) are two built-in rules for architecture.
+* [Layers and visibility](/features/layers-and-visibility) are two built-in rules for architecture.
 * A [JS plugin](/features/js-plugins) can add rules that you write in TypeScript.
 
 ## Cycles and suppression

@@ -11,7 +11,7 @@ type Page =
   | { path: '/features/inline-ignore-comments'; render: 'static' }
   | { path: '/features/js-plugins'; render: 'static' }
   | { path: '/features/languages'; render: 'static' }
-  | { path: '/features/layers-and-internal-modules'; render: 'static' }
+  | { path: '/features/layers-and-visibility'; render: 'static' }
   | { path: '/features/output-formats'; render: 'static' }
   | { path: '/features/programmatic-api'; render: 'static' }
   | { path: '/features/rules-and-categories'; render: 'static' }
@@ -28,22 +28,22 @@ type Page =
   | { path: '/reference/cli'; render: 'static' }
   | { path: '/reference/config'; render: 'static' }
   | { path: '/reference/rules'; render: 'static' }
-  | { path: '/reference/rules/internal-modules'; render: 'static' }
+  | { path: '/reference/rules/visibility'; render: 'static' }
   | { path: '/reference/rules/layers'; render: 'static' }
-  | { path: '/reference/rules/no-circular'; render: 'static' }
-  | { path: '/reference/rules/no-cross-package-relative'; render: 'static' }
-  | { path: '/reference/rules/no-deprecated'; render: 'static' }
-  | { path: '/reference/rules/no-dev-deps-in-prod'; render: 'static' }
-  | { path: '/reference/rules/no-duplicate-deps'; render: 'static' }
-  | { path: '/reference/rules/no-optional-deps'; render: 'static' }
-  | { path: '/reference/rules/no-orphans'; render: 'static' }
-  | { path: '/reference/rules/no-peer-deps'; render: 'static' }
-  | { path: '/reference/rules/no-test-imports'; render: 'static' }
-  | { path: '/reference/rules/no-undeclared-deps'; render: 'static' }
-  | { path: '/reference/rules/no-unresolvable'; render: 'static' }
-  | { path: '/reference/rules/no-unused-deps'; render: 'static' }
-  | { path: '/reference/rules/no-unused-exports'; render: 'static' }
-  | { path: '/reference/rules/no-unused-files'; render: 'static' };
+  | { path: '/reference/rules/circular-dependencies'; render: 'static' }
+  | { path: '/reference/rules/cross-package-relative-dependencies'; render: 'static' }
+  | { path: '/reference/rules/deprecated-dependencies'; render: 'static' }
+  | { path: '/reference/rules/dev-dependencies-in-production'; render: 'static' }
+  | { path: '/reference/rules/duplicate-packages'; render: 'static' }
+  | { path: '/reference/rules/optional-dependencies'; render: 'static' }
+  | { path: '/reference/rules/orphan-modules'; render: 'static' }
+  | { path: '/reference/rules/peer-dependencies'; render: 'static' }
+  | { path: '/reference/rules/dependencies-on-tests'; render: 'static' }
+  | { path: '/reference/rules/undeclared-packages'; render: 'static' }
+  | { path: '/reference/rules/unresolved-dependencies'; render: 'static' }
+  | { path: '/reference/rules/unused-packages'; render: 'static' }
+  | { path: '/reference/rules/unused-exports'; render: 'static' }
+  | { path: '/reference/rules/unused-modules'; render: 'static' };
 
 // prettier-ignore
 declare module 'waku/router' {

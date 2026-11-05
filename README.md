@@ -9,7 +9,7 @@ npx oxcruise src
 ```
 
 ```
-error[no-circular]: circular dependency: src/a.ts → src/b.ts → src/a.ts
+error[circular-dependencies]: circular dependency: src/a.ts → src/b.ts → src/a.ts
   --> src/a.ts:1:19
    |
  1 | import { b } from "./b";
@@ -75,7 +75,7 @@ export default defineConfig({
   ignorePatterns: ["src/generated/**"], // .gitignore is always honoured
   categories: { correctness: "error", suspicious: "warn" }, // this is the default
   rules: {
-    "no-circular": "error",
+    "circular-dependencies": "error",
     layers: [
       "error",
       {
@@ -93,14 +93,14 @@ export default defineConfig({
     },
     { name: "no-node-in-browser", from: "src/web/**", to: { kind: "builtin" } },
   ],
-  overrides: [{ files: ["scripts/**"], rules: { "no-dev-deps-in-prod": "off" } }],
+  overrides: [{ files: ["scripts/**"], rules: { "dev-dependencies-in-production": "off" } }],
 });
 ```
 
 To silence one violation, say why in a comment:
 
 ```ts
-// oxcruise-ignore-next-line no-circular -- the registry needs the plugin list
+// oxcruise-ignore-next-line circular-dependencies -- the registry needs the plugin list
 import { plugins } from "./plugins";
 ```
 
@@ -113,10 +113,10 @@ Run `npx oxcruise --rules` for the list on your version.
 
 | Category      | Default | Rules                                                                                                                         |
 | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `correctness` | error   | `no-circular`, `no-unresolvable`, `no-undeclared-deps`, `no-dev-deps-in-prod`, `no-test-imports`, `no-cross-package-relative` |
-| `suspicious`  | warn    | `no-orphans`, `no-duplicate-deps`, `no-deprecated`                                                                            |
-| `restriction` | off     | `layers`, `internal-modules`, `no-optional-deps`, `no-peer-deps`                                                              |
-| `nursery`     | off     | `no-unused-exports`, `no-unused-deps`, `no-unused-files`                                                                      |
+| `correctness` | error   | `circular-dependencies`, `unresolved-dependencies`, `undeclared-packages`, `dev-dependencies-in-production`, `dependencies-on-tests`, `cross-package-relative-dependencies` |
+| `suspicious`  | warn    | `orphan-modules`, `duplicate-packages`, `deprecated-dependencies`                                                                            |
+| `restriction` | off     | `layers`, `visibility`, `optional-dependencies`, `peer-dependencies`                                                              |
+| `nursery`     | off     | `unused-exports`, `unused-packages`, `unused-modules`                                                                      |
 
 The unused-code rules need exports, so they cost an extra walk. Enable them in `rules`, add `--production` to leave
 tests out, and `--fix` to apply the automatic repairs.
@@ -170,7 +170,7 @@ on GitHub:
   [Monorepos](website/src/pages/guide/monorepos.mdx), [CI](website/src/pages/guide/ci.mdx),
   [Coding agents](website/src/pages/guide/coding-agents.mdx)
 - Features: [Forbid rules](website/src/pages/features/forbid-rules.mdx),
-  [Layers and internal modules](website/src/pages/features/layers-and-internal-modules.mdx),
+  [Layers and visibility](website/src/pages/features/layers-and-visibility.mdx),
   [Unused code](website/src/pages/features/unused-code.mdx), [Output formats](website/src/pages/features/output-formats.mdx),
   [Inline ignore comments](website/src/pages/features/inline-ignore-comments.mdx)
 - Reference: [CLI](website/src/pages/reference/cli.mdx), [config](website/src/pages/reference/config.mdx),

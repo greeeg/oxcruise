@@ -1,9 +1,9 @@
 ---
-title: "Layers and internal modules"
+title: "Layers and visibility"
 description: "Enforce a layered architecture and private folders with two built-in rules."
 ---
 
-# Layers and internal modules
+# Layers and visibility
 
 Two built-in rules in the `restriction` category check the structure of a project.
 They are off by default. Enable them in `rules`.
@@ -33,14 +33,14 @@ export default defineConfig({
 
 With this config, a module in `src/ui/` cannot import `src/db/`.
 
-## Internal modules
+## Visibility
 
-The [`internal-modules`](/reference/rules/internal-modules) rule works like the `internal` directories of the Go language.
+The [`visibility`](/reference/rules/visibility) rule works like the `internal` directories of the Go language.
 Only code under `a/b/` can import a module under `a/b/internal/`.
 
 ```ts
 export default defineConfig({
-  rules: { "internal-modules": "error" },
+  rules: { "visibility": "error" },
 });
 ```
 
@@ -48,7 +48,7 @@ To use another directory name, set the `marker` option:
 
 ```ts
 export default defineConfig({
-  rules: { "internal-modules": ["error", { marker: "private" }] },
+  rules: { "visibility": ["error", { marker: "private" }] },
 });
 ```
 

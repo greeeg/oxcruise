@@ -40,8 +40,8 @@ export default defineConfig({
   doNotFollow: ["**/*.spec.ts"],
   categories: { correctness: "error", suspicious: "warn" },
   rules: {
-    "no-circular": "error",
-    "no-dev-deps-in-prod": ["error", { prod: ["src/**"], test: ["**/*.test.ts"] }],
+    "circular-dependencies": "error",
+    "dev-dependencies-in-production": ["error", { prod: ["src/**"], test: ["**/*.test.ts"] }],
     layers: [
       "error",
       { layers: { ui: "src/ui/**", domain: "src/domain/**" }, allow: { ui: ["domain"], domain: [] } },
@@ -55,7 +55,7 @@ export default defineConfig({
       to: ["src/features/**", "!src/features/{feature}/**"],
     },
   ],
-  overrides: [{ files: ["scripts/**"], rules: { "no-dev-deps-in-prod": "off" } }],
+  overrides: [{ files: ["scripts/**"], rules: { "dev-dependencies-in-production": "off" } }],
   resolve: { tsconfig: "tsconfig.app.json", conditions: ["source"], alias: { "~": "./src" } },
   calls: ["jest.mock"],
   jsPlugins: ["./tools/acme-plugin.ts"],

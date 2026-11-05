@@ -93,13 +93,15 @@ export default definePlugin({
 });
 ```
 
-`Export.used`, `no-unused-exports` and `no-unused-files` treat these modules as entry points.
+`Export.used`, `unused-exports` and `unused-modules` treat these modules as entry points.
 
 ## The plugin name
 
 A plugin must have a `meta.name`. It must start with a lowercase letter or a digit, and it can contain lowercase letters, digits, `.`, `_` and `-`.
 The name is the prefix of the rules and reporters of the plugin, for example `acme/max-fan-out`.
 When two plugins have the same name, Oxcruise stops with an error. Give one plugin an alias in `jsPlugins` to solve this.
+
+Name a rule after what it reports, as the built-in rules do, for example `max-fan-out` and `unused-exports`. Do not start the name with `no-`.
 
 ## Options schema
 

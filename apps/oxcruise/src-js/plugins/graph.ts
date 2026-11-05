@@ -440,7 +440,7 @@ export class GraphFacade implements Graph {
    * Modules that import export `name` of `module`: those that use it, and those that re-export
    * it (`export { name } from`, `export *`), followed through the re-exports to their users.
    * A module that exports `name` itself hides the `export *` of another one, as in the
-   * `no-unused-exports` rule. `name` may be `Export.member`.
+   * `unused-exports` rule. `name` may be `Export.member`.
    */
   importersOf(module: Module, name: string): Module[] {
     if (!this.buf.symbols)

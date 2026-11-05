@@ -2,4 +2,4 @@
 source: crates/oxcruise_rules/tests/symbols.rs
 expression: "deps(json!({\n    \"sections\": [\"devDependencies\"], \"conventions\": false\n})).with_manifest(\"\",\n&[(\"devDependencies\", \"vitest\"),\n(\"devDependencies\",\n\"@vitest/coverage-v8\"),],).fail(&[\"src/a.ts -> vitest [npm-dev]\"])"
 ---
-error no-unused-deps package.json:3:5: `@vitest/coverage-v8` is in `devDependencies` but no module imports it
+error unused-packages package.json:3:5: `@vitest/coverage-v8` is in `devDependencies` but no module imports it

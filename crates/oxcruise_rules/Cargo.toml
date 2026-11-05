@@ -35,5 +35,5 @@ insta = { workspace = true }
 oxcruise_rules = { path = ".", features = ["testing"] }
 
 [[bench]]
-name = "no_circular"
+name = "circular_dependencies"
 harness = false

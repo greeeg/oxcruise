@@ -32,7 +32,7 @@ impl Scc {
 
 /// Iterative Tarjan over the edges accepted by `keep`.
 ///
-/// Rules such as `no-circular` (by default) pass a filter that drops
+/// Rules such as `circular-dependencies` (by default) pass a filter that drops
 /// type-only edges *before* the search, so the result is exact.
 pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> Scc {
     let n = g.module_count();

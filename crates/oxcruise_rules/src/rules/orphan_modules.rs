@@ -3,7 +3,7 @@ use oxcruise_macros::declare_rule;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::meta::{Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 /// Files that are legitimately unconnected: dotfiles, declarations, and tool configuration.
@@ -11,7 +11,7 @@ const DEFAULT_IGNORE: &[&str] = &["**/.*", "**/*.d.ts", "**/tsconfig*.json", "**
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoOrphansConfig {
+pub struct OrphanModulesConfig {
     /// Globs of modules that are never reported, on top of the defaults
     /// (`**/.*`, `**/*.d.ts`, `**/tsconfig*.json`, `**/*.config.*`).
     pub ignore: Vec<String>,
@@ -31,21 +31,21 @@ declare_rule! {
     /// * `ignore`: globs of modules that have no connection on purpose.
     ///   These globs add to the built-in list: dotfiles (`**/.*`), declaration files (`**/*.d.ts`),
     ///   `**/tsconfig*.json` and the configuration files of tools (`**/*.config.*`).
-    NoOrphans, category = suspicious, version = "0.1.0", config = NoOrphansConfig
+    OrphanModules, category = suspicious, version = "0.1.0", config = OrphanModulesConfig
 }
 
 #[derive(Debug)]
-pub struct NoOrphans {
+pub struct OrphanModules {
     ignore: PathPatterns,
 }
 
-impl Default for NoOrphans {
+impl Default for OrphanModules {
     fn default() -> Self {
         Self::build(&[]).expect("default ignore globs are valid")
     }
 }
 
-impl NoOrphans {
+impl OrphanModules {
     fn build(extra: &[String]) -> Result<Self, String> {
         let globs: Vec<String> = DEFAULT_IGNORE
             .iter()
@@ -58,11 +58,11 @@ impl NoOrphans {
     }
 }
 
-impl Rule for NoOrphans {
+impl Rule for OrphanModules {
     const HOOKS: Hooks = Hooks::MODULE;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: NoOrphansConfig = parse_options("no-orphans", value)?;
+        let c: OrphanModulesConfig = parse_options(Self::NAME, value)?;
         Self::build(&c.ignore)
     }
 

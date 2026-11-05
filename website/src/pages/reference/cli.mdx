@@ -61,14 +61,14 @@ The exit code is:
 | `--ignore-pattern <GLOB>` | Leave out modules that match these globs, in addition to `ignorePatterns`. Repeat the flag for more globs |
 | `--max-depth <N>` | Follow dependencies at most N hops from the entries. Deeper modules are not in the graph, so no output or rule sees them |
 | `--symbols` | Extract exports and the names that each import uses, for `json` output and plugins. Rules that need them enable this flag |
-| `--production` | Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`. The rules ignore tests, and they do not check `devDependencies` |
+| `--production` | Production mode for `unused-exports`, `unused-packages` and `unused-modules`. The rules ignore tests, and they do not check `devDependencies` |
 
 ## Output
 
 | Flag | Description |
 |---|---|
 | `-f, --format <FORMAT>` | The output format: default, long, json, github, text, or plugin/reporter (default: `default`) |
-| `--fix` | Apply the automatic fixes of `no-unused-exports` and `no-unused-deps`: remove an `export` keyword, a list entry or a `package.json` entry. Run again for the fixes that these changes unlock |
+| `--fix` | Apply the automatic fixes of `unused-exports` and `unused-packages`: remove an `export` keyword, a list entry or a `package.json` entry. Run again for the fixes that these changes unlock |
 | `--quiet` | Report errors only. Warnings still count for the warning limits |
 
 ## Handle Warnings

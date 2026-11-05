@@ -14,22 +14,22 @@ fn engine(rules: Value) -> Engine {
 }
 
 #[test]
-fn unused_files_needs_manifests_but_not_symbols() {
-    let e = engine(json!({ "no-unused-files": "error" }));
+fn unused_modules_needs_manifests_but_not_symbols() {
+    let e = engine(json!({ "unused-modules": "error" }));
     assert!(!e.wants_symbols());
     assert!(e.wants_manifests());
 }
 
 #[test]
 fn unused_exports_needs_symbols_and_manifests() {
-    let e = engine(json!({ "no-unused-exports": "warn" }));
+    let e = engine(json!({ "unused-exports": "warn" }));
     assert!(e.wants_symbols());
     assert!(e.wants_manifests());
 }
 
 #[test]
-fn unused_deps_needs_manifests_only() {
-    let e = engine(json!({ "no-unused-deps": "error" }));
+fn unused_packages_needs_manifests_only() {
+    let e = engine(json!({ "unused-packages": "error" }));
     assert!(!e.wants_symbols());
     assert!(e.wants_manifests());
 }
@@ -50,7 +50,7 @@ fn only_the_unused_rules_have_a_production_option() {
         .collect();
     assert_eq!(
         with,
-        ["no-unused-deps", "no-unused-exports", "no-unused-files"]
+        ["unused-exports", "unused-modules", "unused-packages"]
     );
     assert!(!oxcruise_rules::RuleEnum::has_production_option("nope"));
 }

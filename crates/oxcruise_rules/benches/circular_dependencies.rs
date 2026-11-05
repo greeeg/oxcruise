@@ -53,7 +53,7 @@ fn bench(c: &mut Criterion) {
         ("default limit (100 per component)", json!(null)),
         ("no limit", json!({ "maxCyclesPerComponent": 0 })),
     ] {
-        let t = Tester::rule("no-circular", options);
+        let t = Tester::rule("circular-dependencies", options);
         group.bench_function(name, |b| b.iter(|| black_box(t.run_graph(&g))));
     }
     group.finish();

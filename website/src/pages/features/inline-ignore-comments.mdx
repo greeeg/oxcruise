@@ -20,15 +20,15 @@ The comment can be a line comment or a block comment.
 Text after `--` is a reason. Oxcruise ignores it, but your colleagues can read it.
 
 ```ts
-// oxcruise-ignore-next-line no-circular -- the registry needs the plugin list
+// oxcruise-ignore-next-line circular-dependencies -- the registry needs the plugin list
 import { plugins } from "./plugins";
 
-import legacy from "./legacy"; // oxcruise-ignore-line no-deprecated
+import legacy from "./legacy"; // oxcruise-ignore-line deprecated-dependencies
 ```
 
 ## Violations of a module
 
-Some violations belong to a module, not to a dependency. For example, `no-orphans` reports a module that nothing imports.
+Some violations belong to a module, not to a dependency. For example, `orphan-modules` reports a module that nothing imports.
 Only `// oxcruise-ignore-file` suppresses these violations. The `ignore-line` and `ignore-next-line` comments do not.
 
 ## Cycles
@@ -44,9 +44,9 @@ A rule stays suppressed on a merged dependency only when every import suppresses
 ## Unused code
 
 * To keep a module and the modules that it imports, put `// oxcruise-ignore-file` at the top.
-  The `no-unused-files` rule and the `no-unused-exports` rule then treat the module as an entry point.
-* To suppress one unused export, put `// oxcruise-ignore-next-line no-unused-exports` above it.
-* A violation of `no-unused-deps` is in a `package.json`. A comment cannot suppress it. Use the `ignore` option.
+  The `unused-modules` rule and the `unused-exports` rule then treat the module as an entry point.
+* To suppress one unused export, put `// oxcruise-ignore-next-line unused-exports` above it.
+* A violation of `unused-packages` is in a `package.json`. A comment cannot suppress it. Use the `ignore` option.
 
 ## Plugin rules
 

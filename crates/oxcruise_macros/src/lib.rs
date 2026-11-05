@@ -4,7 +4,7 @@
 //! declare_rule! {
 //!     /// ### What it does
 //!     /// Reports circular dependencies.
-//!     NoCircular, category = correctness, version = "0.1.0", config = NoCircularConfig
+//!     CircularDependencies, category = correctness, version = "0.1.0", config = CircularDependenciesConfig
 //! }
 //! ```
 //!

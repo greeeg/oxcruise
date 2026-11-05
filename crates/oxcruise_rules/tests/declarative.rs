@@ -200,7 +200,8 @@ fn a_forbid_rule_takes_its_level_from_severity_only() {
 
     // a forbid rule may not reuse a built-in name
     let err = oxcruise_rules::Engine::new(
-        &serde_json::from_value(json!({ "forbid": [{ "name": "no-circular" }] })).unwrap(),
+        &serde_json::from_value(json!({ "forbid": [{ "name": "circular-dependencies" }] }))
+            .unwrap(),
         None,
     )
     .err()
@@ -224,33 +225,43 @@ fn overrides_can_change_a_forbid_rule_per_file() {
 
 #[test]
 fn suppression_comments() {
-    let tester = t(json!({ "rules": { "no-circular": "error", "no-orphans": "error" } }));
+    let tester =
+        t(json!({ "rules": { "circular-dependencies": "error", "orphan-modules": "error" } }));
     // a cycle is reported once; annotating any one of its imports accepts the whole cycle
-    tester.pass(&["a.ts -> b.ts [ignore=no-circular]", "b.ts -> a.ts"]);
-    tester.pass(&["a.ts -> b.ts", "b.ts -> a.ts [ignore=no-circular]"]);
+    tester.pass(&[
+        "a.ts -> b.ts [ignore=circular-dependencies]",
+        "b.ts -> a.ts",
+    ]);
+    tester.pass(&[
+        "a.ts -> b.ts",
+        "b.ts -> a.ts [ignore=circular-dependencies]",
+    ]);
     // ... but an independent cycle next to it is still reported
     let out = tester.fail(&[
-        "a.ts -> b.ts [ignore=no-circular]",
+        "a.ts -> b.ts [ignore=circular-dependencies]",
         "b.ts -> a.ts",
         "c.ts -> d.ts",
         "d.ts -> c.ts",
     ]);
     insta::assert_snapshot!("suppression_cycle", out);
     // a different rule name does not suppress it
-    tester.fail(&["a.ts -> b.ts [ignore=no-orphans]", "b.ts -> a.ts"]);
+    tester.fail(&["a.ts -> b.ts [ignore=orphan-modules]", "b.ts -> a.ts"]);
     // `*` silences every rule on that edge
     tester.pass(&["a.ts -> b.ts [ignore=*]", "b.ts -> a.ts"]);
     // file-level suppression silences the module-level orphan rule
-    tester.pass(&["lonely.ts [ignore-file=no-orphans]"]);
-    tester.fail(&["lonely.ts [ignore-file=no-circular]"]);
-    let r = tester.run(&["a.ts -> b.ts [ignore=no-circular]", "b.ts -> a.ts"]);
+    tester.pass(&["lonely.ts [ignore-file=orphan-modules]"]);
+    tester.fail(&["lonely.ts [ignore-file=circular-dependencies]"]);
+    let r = tester.run(&[
+        "a.ts -> b.ts [ignore=circular-dependencies]",
+        "b.ts -> a.ts",
+    ]);
     assert_eq!(r.violations.len(), 0);
     assert_eq!(r.suppressed, 1, "one cycle, not one per edge");
 }
 
 #[test]
 fn every_edge_of_a_cycle_is_one_violation_total() {
-    let tester = t(json!({ "rules": { "no-circular": "error" } }));
+    let tester = t(json!({ "rules": { "circular-dependencies": "error" } }));
     let r = tester.run(&["a.ts -> b.ts", "b.ts -> c.ts", "c.ts -> a.ts"]);
     assert_eq!(r.violations.len(), 1);
     assert_eq!(r.violations[0].path.len(), 3);
@@ -267,10 +278,10 @@ fn every_edge_of_a_cycle_is_one_violation_total() {
 #[test]
 fn overrides_change_severity_and_options_per_file() {
     let tester = t(json!({
-        "rules": { "no-circular": "error" },
+        "rules": { "circular-dependencies": "error" },
         "overrides": [
-            { "files": ["legacy/**"], "rules": { "no-circular": "warn" } },
-            { "files": ["generated/**"], "rules": { "no-circular": "off" } }
+            { "files": ["legacy/**"], "rules": { "circular-dependencies": "warn" } },
+            { "files": ["generated/**"], "rules": { "circular-dependencies": "off" } }
         ]
     }));
     let out = tester.fail(&[
@@ -284,8 +295,9 @@ fn overrides_change_severity_and_options_per_file() {
     insta::assert_snapshot!("overrides", out);
 
     // an override can enable a rule that is off, with its own options
-    let enable =
-        t(json!({ "overrides": [{ "files": ["strict/**"], "rules": { "no-orphans": "error" } }] }));
+    let enable = t(
+        json!({ "overrides": [{ "files": ["strict/**"], "rules": { "orphan-modules": "error" } }] }),
+    );
     enable.pass(&["loose/lonely.ts"]);
     enable.fail(&["strict/lonely.ts"]);
 }
@@ -359,7 +371,8 @@ fn bad_glob_names_the_rule() {
 
 #[test]
 fn output_is_sorted_errors_first() {
-    let tester = t(json!({ "rules": { "no-orphans": "warn", "no-unresolvable": "error" } }));
+    let tester =
+        t(json!({ "rules": { "orphan-modules": "warn", "unresolved-dependencies": "error" } }));
     let out = tester.fail(&["z.ts -> ./nope [unknown]", "a.ts"]);
     insta::assert_snapshot!("sorted", out);
 }

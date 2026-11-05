@@ -19,7 +19,7 @@ When a rule finds a violation, Oxcruise shows the source line, the dependency an
 This output is from the `tests/fixtures/monorepo` fixture of the repository:
 
 ```text
-error[no-circular]: circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts
+error[circular-dependencies]: circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts
   --> packages/app/src/cycle-a.ts:1:19
    |
  1 | import { b } from "./cycle-b";

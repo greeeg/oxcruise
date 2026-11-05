@@ -576,7 +576,12 @@ impl Engine {
 }
 
 fn unknown_rule_message(name: &str) -> String {
-    if name.contains('/') {
+    if let Some((_, new)) = crate::registry::RENAMED
+        .iter()
+        .find(|(old, _)| *old == name)
+    {
+        format!("unknown rule `{name}`; it was renamed to `{new}`")
+    } else if name.contains('/') {
         format!("unknown rule `{name}`: plugin rules need `jsPlugins` and the npm package")
     } else {
         let near = crate::registry::builtin_rules()

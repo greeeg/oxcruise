@@ -144,7 +144,7 @@ fn exit_codes() {
         ("src/lonely.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-orphans": "warn" } }"#,
+            r#"{ "entries": ["src"], "rules": { "orphan-modules": "warn" } }"#,
         ),
     ]);
     let p = warn_only.path();
@@ -173,7 +173,7 @@ fn exit_codes() {
         ("src/a.ts", "import './a';\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "error" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "error" } }"#,
         ),
     ]);
     let plain = run_in(errors.path(), &[]);
@@ -209,7 +209,7 @@ fn config_discovery() {
         ("src/a.ts", "import './a';\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "off" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "off" } }"#,
         ),
     ]);
     assert_eq!(run_in(d.path(), &[]).result, CliRunResult::Success);
@@ -230,7 +230,7 @@ fn config_errors_are_reported_together() {
         ("src/a.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circluar": "error", "layers": ["error", { "allow": { "x": [] } }] } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependancies": "error", "layers": ["error", { "allow": { "x": [] } }] } }"#,
         ),
     ]);
     let o = run_in(d.path(), &[]);
@@ -295,7 +295,7 @@ fn typescript_config_is_evaluated_by_node() {
         ("src/a.ts", "import './a';\n"),
         (
             "oxcruise.config.ts",
-            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'no-circular': 'warn' as const } };\n",
+            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'circular-dependencies': 'warn' as const } };\n",
         ),
     ]);
     let o = run_in(d.path(), &[]);
@@ -306,7 +306,11 @@ fn typescript_config_is_evaluated_by_node() {
         o.stdout,
         o.stderr
     );
-    assert!(o.stdout.contains("warn[no-circular]"), "{}", o.stdout);
+    assert!(
+        o.stdout.contains("warn[circular-dependencies]"),
+        "{}",
+        o.stdout
+    );
 }
 
 #[test]
@@ -423,7 +427,7 @@ fn rules_table_and_json() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|r| r["name"] == "no-circular" && r["category"] == "correctness")
+            .any(|r| r["name"] == "circular-dependencies" && r["category"] == "correctness")
     );
 
     let bad = run(&["--rules", "-f", "dot"]);
@@ -457,15 +461,15 @@ fn quiet_hides_warnings_but_keeps_limits() {
         ("src/lonely.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-orphans": "warn" } }"#,
+            r#"{ "entries": ["src"], "rules": { "orphan-modules": "warn" } }"#,
         ),
     ]);
     let p = d.path();
     let loud = run_in(p, &[]);
-    assert!(loud.stdout.contains("no-orphans"), "{}", loud.stdout);
+    assert!(loud.stdout.contains("orphan-modules"), "{}", loud.stdout);
     let quiet = run_in(p, &["--quiet"]);
     assert_eq!(quiet.result, CliRunResult::Success);
-    assert!(!quiet.stdout.contains("no-orphans"), "{}", quiet.stdout);
+    assert!(!quiet.stdout.contains("orphan-modules"), "{}", quiet.stdout);
     // the warning is still counted
     assert!(matches!(
         run_in(p, &["--quiet", "--deny-warnings"]).result,
@@ -493,7 +497,7 @@ fn json_circular_does_not_depend_on_the_rule() {
         ("src/c.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "off" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "off" } }"#,
         ),
     ]);
     let json: serde_json::Value =
@@ -703,7 +707,7 @@ fn fix_removes_neighbouring_unused_dependencies_in_one_run() {
         ),
         (
             ".oxcruiserc.json",
-            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-deps": "error" } }"#,
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "unused-packages": "error" } }"#,
         ),
     ]);
     let first = run_in(d.path(), &["-f", "github", "--fix", "src"]);
@@ -719,25 +723,25 @@ fn fix_removes_neighbouring_unused_dependencies_in_one_run() {
     let second = run_in(d.path(), &["-f", "github", "src"]);
     assert_eq!(second.result.code(), 0, "{}", second.stdout);
     assert!(
-        !second.stdout.contains("no-unused-deps"),
+        !second.stdout.contains("unused-packages"),
         "{}",
         second.stdout
     );
 }
 
 #[test]
-fn unused_files_warns_when_it_finds_no_entry_point() {
+fn unused_modules_warns_when_it_finds_no_entry_point() {
     let d = project(&[
         ("package.json", r#"{ "name": "p" }"#),
         ("src/a.ts", "import \"./b\";\n"),
         ("src/b.ts", "export const b = 1;\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-files": "error" } }"#,
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "unused-modules": "error" } }"#,
         ),
     ]);
     let o = run_in(d.path(), &["-f", "github", "src"]);
-    insta::assert_snapshot!("unused_files_without_entry", report(&o));
+    insta::assert_snapshot!("unused_modules_without_entry", report(&o));
     // an entry point makes the warning go away
     std::fs::write(
         d.path().join("package.json"),

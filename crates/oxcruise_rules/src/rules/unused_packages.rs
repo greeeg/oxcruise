@@ -6,12 +6,12 @@ use serde::Deserialize;
 
 use super::is_test_module;
 use crate::conventions::{self, ConventionFilter};
-use crate::meta::{Analyses, Hooks, Rule, RuleCtx, parse_options};
+use crate::meta::{Analyses, Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
-pub struct NoUnusedDepsConfig {
+pub struct UnusedPackagesConfig {
     /// The `package.json` sections to check (default `dependencies`, `peerDependencies` and
     /// `optionalDependencies`; `devDependencies` are mostly tools that are never imported).
     pub sections: Vec<DepSectionName>,
@@ -46,7 +46,7 @@ impl From<DepSectionName> for DepSection {
     }
 }
 
-impl Default for NoUnusedDepsConfig {
+impl Default for UnusedPackagesConfig {
     fn default() -> Self {
         Self {
             sections: vec![
@@ -105,11 +105,11 @@ declare_rule! {
     /// ### Fix
     ///
     /// This rule is fixable. `oxcruise --fix` removes the entry from the `package.json`.
-    NoUnusedDeps, category = nursery, version = "0.1.0", config = NoUnusedDepsConfig
+    UnusedPackages, category = nursery, version = "0.1.0", config = UnusedPackagesConfig
 }
 
 #[derive(Debug, Default)]
-pub struct NoUnusedDeps {
+pub struct UnusedPackages {
     sections: Vec<DepSection>,
     ignore: Option<PathPatterns>,
     conventions: ConventionFilter,
@@ -167,11 +167,11 @@ fn types_target(name: &str) -> Option<String> {
     })
 }
 
-impl Rule for NoUnusedDeps {
+impl Rule for UnusedPackages {
     const HOOKS: Hooks = Hooks::GRAPH;
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
-        let c: NoUnusedDepsConfig = parse_options("no-unused-deps", value)?;
+        let c: UnusedPackagesConfig = parse_options(Self::NAME, value)?;
         c.conventions.validate()?;
         Ok(Self {
             conventions: c.conventions,

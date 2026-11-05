@@ -2,5 +2,5 @@
 source: crates/oxcruise_rules/tests/categories.rs
 expression: "run(json!({\n    \"categories\":\n    { \"correctness\": \"warn\", \"suspicious\": \"off\", \"restriction\": \"error\" }\n}))"
 ---
-error no-peer-deps c.ts:4:1 -> react: `react` is a peer dependency
-warn no-circular a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → a.ts
+error peer-dependencies c.ts:4:1 -> react: `react` is a peer dependency
+warn circular-dependencies a.ts:1:1 -> b.ts: circular dependency: a.ts → b.ts → a.ts

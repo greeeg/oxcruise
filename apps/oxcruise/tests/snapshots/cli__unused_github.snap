@@ -4,11 +4,11 @@ expression: report(&o)
 ---
 exit: 1
 --- stdout
-::error file=package.json,line=6,col=5,title=no-unused-deps::`unused-dep` is in `dependencies` but no module imports it
-::error file=package.json,line=7,col=5,title=no-unused-deps::`other-unused` is in `dependencies` but no module imports it
-::error file=src/orphan.ts,title=no-unused-files::this module cannot be reached from any entry point
-::warning file=src/api.ts,line=5,col=20,title=no-unused-exports::unused export `renamed`
-::warning file=src/util.ts,line=3,col=14,title=no-unused-exports::unused export `dead`
-::warning file=src/util.ts,line=8,col=3,title=no-unused-exports::unused member `Color.Green`
-::warning file=src/util.ts,line=10,col=13,title=no-unused-exports::unused type export `Unused`
+::error file=package.json,line=6,col=5,title=unused-packages::`unused-dep` is in `dependencies` but no module imports it
+::error file=package.json,line=7,col=5,title=unused-packages::`other-unused` is in `dependencies` but no module imports it
+::error file=src/orphan.ts,title=unused-modules::this module cannot be reached from any entry point
+::warning file=src/api.ts,line=5,col=20,title=unused-exports::unused export `renamed`
+::warning file=src/util.ts,line=3,col=14,title=unused-exports::unused export `dead`
+::warning file=src/util.ts,line=8,col=3,title=unused-exports::unused member `Color.Green`
+::warning file=src/util.ts,line=10,col=13,title=unused-exports::unused type export `Unused`
 --- stderr
