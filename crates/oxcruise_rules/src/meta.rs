@@ -4,8 +4,8 @@ use std::sync::Mutex;
 
 use bitflags::bitflags;
 use oxcruise_core::{
-    CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Severity,
-    Subject, Violation,
+    CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Subject,
+    Violation, ViolationLevel,
 };
 use oxcruise_graph::analyses::{
     ExportUsage, Scc, distinct_dependents, export_usage, strongly_connected,
@@ -181,16 +181,16 @@ pub struct Shared<'a> {
 pub struct RuleCtx<'a> {
     pub shared: &'a Shared<'a>,
     pub rule: &'a str,
-    pub severity: Severity,
+    pub level: ViolationLevel,
     out: RefCell<Vec<Violation>>,
 }
 
 impl<'a> RuleCtx<'a> {
-    pub fn new(shared: &'a Shared<'a>, rule: &'a str, severity: Severity) -> Self {
+    pub fn new(shared: &'a Shared<'a>, rule: &'a str, level: ViolationLevel) -> Self {
         Self {
             shared,
             rule,
-            severity,
+            level,
             out: RefCell::new(vec![]),
         }
     }
@@ -231,12 +231,9 @@ impl<'a> RuleCtx<'a> {
 
     /// Violation on a whole module.
     pub fn report_module(&self, m: ModuleId, message: impl Into<String>) {
-        self.out.borrow_mut().push(Violation::module(
-            self.rule,
-            self.severity,
-            m,
-            message.into(),
-        ));
+        self.out
+            .borrow_mut()
+            .push(Violation::module(self.rule, self.level, m, message.into()));
     }
 
     /// Violation on a dependency; carries its line and column.
@@ -253,7 +250,7 @@ impl<'a> RuleCtx<'a> {
         let edge = self.edge(e);
         self.out.borrow_mut().push(Violation {
             rule: self.rule.to_string(),
-            severity: self.severity,
+            level: self.level,
             from: edge.from,
             to: Some(edge.to),
             edge: Some(e),
@@ -275,7 +272,7 @@ impl<'a> RuleCtx<'a> {
         fixable: bool,
     ) {
         let module = self.module(m);
-        let mut v = Violation::module(self.rule, self.severity, m, message.into());
+        let mut v = Violation::module(self.rule, self.level, m, message.into());
         v.loc = loc.or(Some(module.exports[export].loc));
         v.subject = Subject::Export(export as u32);
         v.fix = module.exports[export]
@@ -297,7 +294,7 @@ impl<'a> RuleCtx<'a> {
         message: impl Into<String>,
         fix: Option<Fix>,
     ) {
-        let mut v = Violation::module(self.rule, self.severity, from, message.into());
+        let mut v = Violation::module(self.rule, self.level, from, message.into());
         v.fix = fix;
         v.loc = Some(loc);
         v.subject = Subject::File(file.to_string());

@@ -50,11 +50,9 @@ Use these terms, and no others, for these things.
 | dependency | An import from one module to another module, package or built-in. | edge, link, import (as a noun) |
 | rule | A check that reports violations. | check, validator |
 | category | A group of built-in rules that has one default level. | preset, group |
-| level | `off`, `warn` or `error`: what a rule does when it finds a violation. | severity (in prose), mode |
+| level | `off`, `warn` or `error`: what a rule does when it finds a violation. | severity, mode |
 | entry | A path or glob where the graph starts. | root, start point |
 | violation | One finding that a rule reports. | problem, issue, error (for a finding) |
 | config file | `oxcruise.config.ts` or `.oxcruiserc.json`. | configuration (for the file), rc file |
 | plugin | A JS or TS module that adds rules or reporters. | extension, add-on |
 | reporter | Code that formats the result of a run. | formatter, output plugin |
-
-The key `severity` in `forbid` is a code identifier. Write it in `code`.

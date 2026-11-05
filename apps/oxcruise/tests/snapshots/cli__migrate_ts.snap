@@ -17,7 +17,7 @@ export default defineConfig({
     {
       "name": "feature-isolation",
       "message": "features stay apart",
-      "severity": "error",
+      "level": "error",
       "from": "src/features/{c1}/**",
       "to": [
         "src/features/**",
@@ -26,7 +26,7 @@ export default defineConfig({
     },
     {
       "name": "not-in-prod",
-      "severity": "warn",
+      "level": "warn",
       "from": "src*",
       "to": "**/*.spec.ts"
     }

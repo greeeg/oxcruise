@@ -74,10 +74,13 @@ fn parse_export(token: &str, line: u32) -> Export {
 impl Tester {
     /// Enable one rule at `error` with the given options (`null` for none).
     pub fn rule(name: &str, options: serde_json::Value) -> Self {
-        let entry = if options.is_null() {
-            serde_json::json!("error")
-        } else {
-            serde_json::json!(["error", options])
+        let entry = match options {
+            serde_json::Value::Null => serde_json::json!("error"),
+            serde_json::Value::Object(mut o) => {
+                o.insert("level".into(), "error".into());
+                serde_json::Value::Object(o)
+            }
+            other => panic!("the options of a rule are an object, not {other}"),
         };
         Self::config(serde_json::json!({ "rules": { name: entry } }))
     }
@@ -390,7 +393,7 @@ impl Tester {
     }
 }
 
-/// One line per violation: `severity rule file:line:col from -> to: message`.
+/// One line per violation: `level rule file:line:col from -> to: message`.
 pub fn render(g: &Graph, r: &RunResult) -> String {
     r.violations
         .iter()
@@ -402,7 +405,7 @@ pub fn render(g: &Graph, r: &RunResult) -> String {
                 v.to.map_or(String::new(), |t| format!(" -> {}", g.module(t).path));
             format!(
                 "{} {} {}{}{}: {}",
-                v.severity.as_str(),
+                v.level.as_str(),
                 v.rule,
                 match &v.subject {
                     Subject::File(f) => f,

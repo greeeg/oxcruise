@@ -108,6 +108,15 @@ macro_rules! register_rules {
             }
         }
 
+        /// The JSON schema of the options of every built-in rule, sorted by name. `None` for a rule
+        /// without options.
+        #[cfg(feature = "ruledocs")]
+        pub fn builtin_option_schemas() -> Vec<(&'static str, Option<serde_json::Value>)> {
+            let mut v = vec![$((<$ty as RuleMeta>::NAME, <$ty as RuleMeta>::config_schema()),)*];
+            v.sort_by_key(|(name, _)| *name);
+            v
+        }
+
         /// All built-in rules, sorted by name.
         pub fn builtin_rules() -> Vec<RuleInfo> {
             let mut v = vec![$(RuleInfo {

@@ -15,7 +15,7 @@ import type {
 export interface RuleSpec {
   id: number;
   name: string;
-  severity: "error" | "warn";
+  level: "error" | "warn";
   options: unknown;
 }
 
@@ -91,7 +91,7 @@ export function runRules(buffer: Uint8Array, specsJson: string, registry: Plugin
       options: withDefaults(rule.meta?.schema, spec.options, spec.name),
       graph,
       ruleName: spec.name,
-      severity: spec.severity,
+      level: spec.level,
       report(report: Report) {
         const targets = (["module", "dependency", "export"] as const).filter(
           (k) => (report as Record<string, unknown>)[k] !== undefined,

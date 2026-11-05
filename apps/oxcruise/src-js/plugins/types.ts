@@ -133,8 +133,8 @@ export interface RuleContext<Options = Record<string, unknown>> {
   readonly graph: Graph;
   /** Fully qualified rule name, e.g. `acme/max-fan-out`. */
   readonly ruleName: string;
-  /** The level the rule is configured with; what it reports gets this severity. */
-  readonly severity: "error" | "warn";
+  /** The level the rule is configured with; what it reports gets this level. */
+  readonly level: "error" | "warn";
   report(report: Report): void;
 }
 
@@ -228,12 +228,12 @@ export interface CycleHopJson {
 
 export interface RuleRefJson {
   name: string;
-  severity: "error" | "warn";
+  level: "error" | "warn";
 }
 
 export interface ViolationJson {
   rule: string;
-  severity: "error" | "warn";
+  level: "error" | "warn";
   /**
    * `export`: an export of the module `from`. `file`: a file that is not a module (a
    * `package.json`), and `from` is its path.

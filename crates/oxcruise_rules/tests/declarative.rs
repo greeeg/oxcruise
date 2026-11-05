@@ -10,7 +10,7 @@ fn forbid_by_path_with_glob_captures() {
     // features may not import each other
     let tester = t(json!({
         "forbid": [{
-            "name": "feature-isolation", "severity": "error",
+            "name": "feature-isolation", "level": "error",
             "from": "src/features/{feature}/**",
             "to": ["src/features/**", "!src/features/{feature}/**"]
         }]
@@ -184,8 +184,8 @@ fn unsupported_combinations_are_errors() {
 }
 
 #[test]
-fn a_forbid_rule_takes_its_level_from_severity_only() {
-    let forbid = json!([{ "name": "r", "severity": "warn", "to": "bad.ts" }]);
+fn a_forbid_rule_takes_its_level_from_level_only() {
+    let forbid = json!([{ "name": "r", "level": "warn", "to": "bad.ts" }]);
     let out = t(json!({ "forbid": forbid })).fail(&["a.ts -> bad.ts"]);
     assert!(out.starts_with("warn r"), "{out}");
 
@@ -300,6 +300,47 @@ fn overrides_change_severity_and_options_per_file() {
     );
     enable.pass(&["loose/lonely.ts"]);
     enable.fail(&["strict/lonely.ts"]);
+}
+
+#[test]
+fn an_object_entry_without_a_level_means_error() {
+    let tester = t(json!({ "rules": { "orphan-modules": { "ignore": ["skip/**"] } } }));
+    tester.pass(&["skip/lonely.ts"]);
+    let out = tester.fail(&["src/lonely.ts"]);
+    assert!(out.starts_with("error "), "{out}");
+}
+
+#[test]
+fn an_override_without_a_level_keeps_the_level_and_changes_the_options() {
+    let tester = t(json!({
+        "rules": { "orphan-modules": "warn" },
+        "overrides": [
+            { "files": ["loose/**"], "rules": { "orphan-modules": { "ignore": ["loose/**"] } } },
+            { "files": ["strict/**"], "rules": { "orphan-modules": { "level": "error" } } }
+        ]
+    }));
+    tester.pass(&["loose/lonely.ts"]);
+    let out = tester.fail(&["src/lonely.ts", "strict/lonely.ts"]);
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("warn ") && l.contains("src/lonely.ts")),
+        "{out}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("error ") && l.contains("strict/lonely.ts")),
+        "{out}"
+    );
+
+    // a rule that is off stays off for an override that sets no level
+    let off = t(json!({
+        "categories": { "suspicious": "off" },
+        "overrides": [{ "files": ["src/**"], "rules": { "orphan-modules": { "ignore": ["x"] } } }]
+    }));
+    off.pass(&["src/lonely.ts"]);
 }
 
 #[test]

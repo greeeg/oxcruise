@@ -1,7 +1,7 @@
 //! Callback interface to out-of-process (JS) rules. No napi dependency lives here:
 //! the `oxcruise` app implements [`ExternalRules`] on top of its napi callbacks.
 
-use oxcruise_core::{EdgeId, Graph, ModuleId, Severity};
+use oxcruise_core::{EdgeId, Graph, ModuleId, ViolationLevel};
 use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_resolve::WorkspacePackage;
 
@@ -15,7 +15,7 @@ pub struct ExternalRuleId(pub u32);
 pub struct ExternalRuleSpec {
     pub id: ExternalRuleId,
     pub name: String,
-    pub severity: Severity,
+    pub level: ViolationLevel,
     pub options: serde_json::Value,
 }
 

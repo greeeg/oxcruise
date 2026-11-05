@@ -46,7 +46,7 @@ fn rule_options_apply_on_top_of_the_category() {
     // a rule listed with options is configured by them, whatever its category says
     let out = run(json!({
         "categories": { "suspicious": "off" },
-        "rules": { "orphan-modules": ["warn", { "ignore": ["lonely.ts"] }] }
+        "rules": { "orphan-modules": { "level": "warn", "ignore": ["lonely.ts"] } }
     }));
     assert!(!out.contains("orphan-modules"), "{out}");
 }

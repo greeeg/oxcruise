@@ -14,4 +14,4 @@ pub use loc::{LineIndex, Loc, Span};
 pub use symbols::{
     DeclaredDep, DeclaredManifest, DepSection, Export, ExportKind, ExportMember, UsedNames,
 };
-pub use violation::{CycleStep, Fix, Severity, Subject, Violation};
+pub use violation::{CycleStep, Fix, Subject, Violation, ViolationLevel};

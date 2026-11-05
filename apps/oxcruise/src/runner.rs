@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use clap::Parser;
 use oxcruise_config::{Category, JsConfigLoader, NodeSubprocessLoader};
-use oxcruise_core::Severity;
+use oxcruise_core::ViolationLevel;
 use oxcruise_graph::analyses::ExportUsage;
 use oxcruise_graph::cruise;
 use oxcruise_report::{
@@ -230,9 +230,9 @@ impl CliRunner {
         let (violations, errors, warnings) = if args.fix {
             match crate::fix::apply(&cwd, violations) {
                 Ok(applied) => {
-                    let count = |s| applied.fixed.iter().filter(|v| v.severity == s).count();
+                    let count = |s| applied.fixed.iter().filter(|v| v.level == s).count();
                     let (fixed_errors, fixed_warnings) =
-                        (count(Severity::Error), count(Severity::Warn));
+                        (count(ViolationLevel::Error), count(ViolationLevel::Warn));
                     if !applied.fixed.is_empty() {
                         let _ = writeln!(
                             err,
@@ -255,7 +255,7 @@ impl CliRunner {
         let violations = if args.quiet {
             violations
                 .into_iter()
-                .filter(|v| v.severity == Severity::Error)
+                .filter(|v| v.level == ViolationLevel::Error)
                 .collect()
         } else {
             violations
@@ -436,8 +436,8 @@ impl CliRunner {
             return Err(CliRunResult::InvalidOptions);
         }
         let (errors, warnings) = (
-            run.count(oxcruise_core::Severity::Error),
-            run.count(oxcruise_core::Severity::Warn),
+            run.count(oxcruise_core::ViolationLevel::Error),
+            run.count(oxcruise_core::ViolationLevel::Warn),
         );
         // problems with the config itself (a forbid rule that matches nothing) go to stderr
         for w in &run.warnings {

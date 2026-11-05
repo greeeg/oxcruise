@@ -80,7 +80,7 @@ How oxcruise resolves imports.
 
 ## rules
 
-Type: object of [`RuleEntry`](#ruleentry), by name.
+Type: [`Rules`](#rules).
 
 The built-in and plugin rules, by name. A rule listed here wins over its category.
 
@@ -101,6 +101,19 @@ The keys above refer to these types.
 | `name` (required) | `string` |  | The prefix of the rules: `<name>/<rule>`. It replaces the `meta.name` of the plugin. |
 | `specifier` (required) | `string` |  | A path or a package name. |
 
+### ConventionFilter
+
+Which conventions a rule takes into account: `true` (all, the default), `false` (none) or the names of the ones to use.
+
+One of:
+
+* `boolean`
+* list of `string`
+
+### DepSectionName
+
+Allowed values: `"dependencies"` or `"devDependencies"` or `"peerDependencies"` or `"optionalDependencies"`.
+
 ### ForbidRule
 
 A dependency that the project does not allow. An import from a module that matches `from` to a target that matches `to` is a violation.
@@ -108,9 +121,9 @@ A dependency that the project does not allow. An import from a module that match
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `from` | `string` or a list |  | Globs of the importing module. `{name}` captures a path segment, and `to` can use the capture. |
+| `level` | [`Level`](#level) | `"error"` | The level of the rule. |
 | `message` | `string` |  | Why the dependency is forbidden. Oxcruise shows it instead of the generic message. |
 | `name` (required) | `string` |  | The name of the rule. Reports and `overrides` use it. |
-| `severity` | [`Level`](#level) | `"error"` | The level of the rule. |
 | `to` | [`ToSpec`](#tospec) |  | The target of the dependency: globs, or an object with conditions. |
 
 ### JsPlugin
@@ -146,7 +159,7 @@ Changes the settings of rules for some modules.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `files` (required) | `string` or a list |  | Globs of the importing modules that this override applies to. |
-| `rules` | object of [`RuleEntry`](#ruleentry), by name |  | The rules to change, by name. |
+| `rules` | [`Rules`](#rules) |  | The built-in and plugin rules, by name. A rule listed here wins over its category. |
 
 ### Relation
 
@@ -173,12 +186,35 @@ How oxcruise resolves imports.
 
 ### RuleEntry
 
-The setting of a rule: a level, or an array of a level and an options object. For example `"error"` or `["error", { "includeTypeOnly": true }]`.
+The setting of a rule: a level, or an object with a `level` and the options of the rule.
 
 One of:
 
 * [`Level`](#level)
-* `array`
+* object of `any`, by name
+
+### Rules
+
+The built-in and plugin rules, by name. A rule listed here wins over its category.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `circular-dependencies` | [`Level`](#level) or `object` |  | Reports dependencies that are part of a circular chain of imports. The message shows the shortest cycle through each dependency. |
+| `cross-package-relative-dependencies` | [`Level`](#level) or `object` |  | Reports relative imports that reach into another workspace package, for example `../other-package/src/x`. |
+| `dependencies-on-tests` | [`Level`](#level) or `object` |  | Reports a non-test module that imports a test file or a test directory. Test files match `*.test.*` or `*.spec.*`. Test directories are `test`, `tests`, `__tests__` and `__mocks__`. |
+| `deprecated-dependencies` | [`Level`](#level) or `object` |  | Reports imports of deprecated Node.js built-in modules and deprecated npm packages. |
+| `dev-dependencies-in-production` | [`Level`](#level) or `object` |  | Reports a production module that imports a package from `devDependencies` only. |
+| `duplicate-packages` | [`Level`](#level) or `object` |  | Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`. The rule ignores type-only imports. |
+| `layers` | [`Level`](#level) or `object` |  | Enforces a layered architecture: a layer can import only the layers that `allow` lists for it. The rule checks dependencies on local modules. Packages and built-in modules have no layer. |
+| `optional-dependencies` | [`Level`](#level) or `object` |  | Reports use of optional dependencies. An install can skip an optional dependency, so the package may not exist at runtime. |
+| `orphan-modules` | [`Level`](#level) or `object` |  | Reports modules that no other module imports and that import no module. |
+| `peer-dependencies` | [`Level`](#level) or `object` |  | Reports use of peer dependencies. The consuming project must provide a peer dependency. |
+| `undeclared-packages` | [`Level`](#level) or `object` |  | Reports imports of installed npm packages that no `package.json` section declares. |
+| `unresolved-dependencies` | [`Level`](#level) or `object` |  | Reports an import that oxcruise cannot resolve to a file or a package. |
+| `unused-exports` | [`Level`](#level) or `object` |  | Reports exports that no other module imports. The rule also reports: |
+| `unused-modules` | [`Level`](#level) or `object` |  | Reports source modules that no path from an entry point reaches. |
+| `unused-packages` | [`Level`](#level) or `object` |  | Reports a package that a `package.json` declares and that none of its modules imports. |
+| `visibility` | [`Level`](#level) or `object` |  | Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules. |
 
 ### ToCondition
 

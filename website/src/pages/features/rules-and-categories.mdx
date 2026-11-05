@@ -37,17 +37,21 @@ A level is `off`, `warn` or `error`.
 ## Configure one rule
 
 A rule in the `rules` key wins over its category. A rule that its category switches off can still be on here.
-Give a level, or give an array of a level and an options object.
+Give a level, or give an object with a `level` and the options of the rule.
+An object without `level` means `error`.
 
 ```ts
 export default defineConfig({
   rules: {
     "orphan-modules": "error",
-    "circular-dependencies": ["error", { ignore: ["src/index.ts"] }],
+    "circular-dependencies": { level: "error", ignore: ["src/index.ts"] },
     "peer-dependencies": "warn",
   },
 });
 ```
+
+In `overrides`, an object without `level` keeps the level that the rule has for those modules and replaces the options.
+Oxcruise reserves the name `level`. No rule has an option with this name.
 
 Oxcruise checks the options of every rule. It stops with the name of the rule and the option when an option is not valid.
 

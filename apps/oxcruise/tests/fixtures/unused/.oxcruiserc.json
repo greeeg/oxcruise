@@ -2,7 +2,7 @@
   "categories": { "correctness": "off", "suspicious": "off" },
   "rules": {
     "unused-exports": "warn",
-    "unused-packages": ["error", { "sections": ["dependencies", "devDependencies"] }],
+    "unused-packages": { "level": "error", "sections": ["dependencies", "devDependencies"] },
     "unused-modules": "error"
   }
 }

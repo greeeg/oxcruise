@@ -50,13 +50,30 @@ export type Relation =
  */
 export type JsPlugin = string | AliasedPlugin;
 /**
- * The setting of a rule: a level, or an array of a level and an options object.
- * For example `"error"` or `["error", { "includeTypeOnly": true }]`.
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "DepSectionName".
+ */
+export type DepSectionName = "dependencies" | "devDependencies" | "peerDependencies" | "optionalDependencies";
+/**
+ * The setting of a rule: a level, or an object with a `level` and the options of the rule.
  *
  * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
  * via the `definition` "RuleEntry".
  */
-export type RuleEntry = Level | unknown[];
+export type RuleEntry =
+  | Level
+  | {
+      level?: Level;
+      [k: string]: unknown;
+    };
+/**
+ * Which conventions a rule takes into account: `true` (all, the default), `false` (none) or the
+ * names of the ones to use.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "ConventionFilter".
+ */
+export type ConventionFilter = boolean | string[];
 
 /**
  * The oxcruise config file.
@@ -106,12 +123,7 @@ export interface OxcruiseConfig {
    */
   overrides?: Override[];
   resolve?: ResolveSection;
-  /**
-   * The built-in and plugin rules, by name. A rule listed here wins over its category.
-   */
-  rules?: {
-    [k: string]: RuleEntry;
-  };
+  rules?: Rules;
   /**
    * Extract exports and the names that each import uses, for `json` output and plugins.
    * Rules that need them enable this option.
@@ -131,6 +143,10 @@ export interface ForbidRule {
    */
   from?: OneOrMany | null;
   /**
+   * The level of the rule.
+   */
+  level?: "off" | "warn" | "error";
+  /**
    * Why the dependency is forbidden. Oxcruise shows it instead of the generic message.
    */
   message?: string | null;
@@ -138,10 +154,6 @@ export interface ForbidRule {
    * The name of the rule. Reports and `overrides` use it.
    */
   name: string;
-  /**
-   * The level of a rule. `off` disables the rule, `warn` reports violations as warnings, and `error` reports them as errors.
-   */
-  severity?: "off" | "warn" | "error";
   /**
    * The target of the dependency: globs, or an object with conditions.
    */
@@ -201,12 +213,276 @@ export interface Override {
    * Globs of the importing modules that this override applies to.
    */
   files: string | string[];
+  rules?: Rules;
+}
+/**
+ * The built-in and plugin rules, by name. A rule listed here wins over its category.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "Rules".
+ */
+export interface Rules {
   /**
-   * The rules to change, by name.
+   * Reports dependencies that are part of a circular chain of imports. The message shows the shortest cycle through each dependency.
    */
-  rules?: {
-    [k: string]: RuleEntry;
-  };
+  "circular-dependencies"?:
+    | Level
+    | {
+        /**
+         * Globs of modules to leave out before looking for cycles, so no cycle goes through them.
+         */
+        ignore?: string[];
+        /**
+         * Also report cycles that exist only through type-only imports (`import type`).
+         * By default only cycles that exist at runtime are reported.
+         */
+        includeTypeOnly?: boolean;
+        level?: Level;
+        /**
+         * How many dependencies of one strongly connected component are searched for their shortest
+         * cycle (default 100); `0` removes the limit. Several of them can share one cycle.
+         */
+        maxCyclesPerComponent?: number | null;
+      };
+  /**
+   * Reports relative imports that reach into another workspace package, for example `../other-package/src/x`.
+   */
+  "cross-package-relative-dependencies"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports a non-test module that imports a test file or a test directory. Test files match `*.test.*` or `*.spec.*`. Test directories are `test`, `tests`, `__tests__` and `__mocks__`.
+   */
+  "dependencies-on-tests"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
+   */
+  "deprecated-dependencies"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports a production module that imports a package from `devDependencies` only.
+   */
+  "dev-dependencies-in-production"?:
+    | Level
+    | {
+        level?: Level;
+        /**
+         * Globs of production code. Defaults to `src`, `app`, `lib` and `packages/* /src`.
+         */
+        prod?: string[];
+        /**
+         * Globs of test code, exempt from the rule (on top of `*.test.*`, `*.spec.*` and test directories).
+         */
+        test?: string[];
+      };
+  /**
+   * Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`. The rule ignores type-only imports.
+   */
+  "duplicate-packages"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Enforces a layered architecture: a layer can import only the layers that `allow` lists for it. The rule checks dependencies on local modules. Packages and built-in modules have no layer.
+   */
+  layers?:
+    | Level
+    | {
+        /**
+         * Layer name to the layers it may import. A layer missing here is unrestricted.
+         * Importing within the same layer is always allowed.
+         */
+        allow?: {
+          [k: string]: string[];
+        };
+        /**
+         * Layer name to the paths it contains. Layers should not overlap; if they do the first by name wins.
+         */
+        layers?: {
+          [k: string]: OneOrMany;
+        };
+        level?: Level;
+      };
+  /**
+   * Reports use of optional dependencies. An install can skip an optional dependency, so the package may not exist at runtime.
+   */
+  "optional-dependencies"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports modules that no other module imports and that import no module.
+   */
+  "orphan-modules"?:
+    | Level
+    | {
+        /**
+         * Globs of modules that are never reported, on top of the defaults
+         * (`** /.*`, `** /*.d.ts`, `** /tsconfig*.json`, `** /*.config.*`).
+         */
+        ignore?: string[];
+        level?: Level;
+      };
+  /**
+   * Reports use of peer dependencies. The consuming project must provide a peer dependency.
+   */
+  "peer-dependencies"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports imports of installed npm packages that no `package.json` section declares.
+   */
+  "undeclared-packages"?:
+    | Level
+    | {
+        level?: Level;
+      };
+  /**
+   * Reports an import that oxcruise cannot resolve to a file or a package.
+   */
+  "unresolved-dependencies"?:
+    | Level
+    | {
+        /**
+         * Globs of imports that are allowed to be unresolvable. An import is skipped when its
+         * specifier (`virtual:icons`) or the importing module's path matches.
+         */
+        ignore?: string[];
+        level?: Level;
+      };
+  /**
+   * Reports exports that no other module imports. The rule also reports:
+   */
+  "unused-exports"?:
+    | Level
+    | {
+        /**
+         * Which tool conventions count as entry points: `true` (all, the default), `false`, or names.
+         */
+        conventions?: boolean | string[];
+        /**
+         * Globs of modules whose exports are public API, on top of the entry points oxcruise finds:
+         * modules nothing imports, and the files `package.json` points to.
+         */
+        entries?: string[];
+        /**
+         * Globs of modules that are never reported.
+         */
+        ignore?: string[];
+        /**
+         * Do not report an export that the file itself uses.
+         */
+        ignoreExportsUsedInFile?: boolean;
+        /**
+         * Also report unused exports of entry points, checking them against their importers only.
+         */
+        includeEntryExports?: boolean;
+        level?: Level;
+        /**
+         * Report unused members of exported enums and namespaces (default `true`).
+         */
+        members?: boolean;
+        /**
+         * Production mode: tests neither are entry points nor use anything, so an export used only
+         * by tests is reported.
+         */
+        production?: boolean;
+        /**
+         * Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.
+         */
+        test?: string[];
+        /**
+         * Report unused types and interfaces too (default `true`).
+         */
+        types?: boolean;
+      };
+  /**
+   * Reports source modules that no path from an entry point reaches.
+   */
+  "unused-modules"?:
+    | Level
+    | {
+        /**
+         * Which tool conventions count as entry points: `true` (all, the default), `false`, or names.
+         */
+        conventions?: boolean | string[];
+        /**
+         * Globs of entry points, on top of the ones oxcruise finds (`package.json` entry files, the
+         * conventions of the tools you use, `index`, `main` and `cli` files, plugins).
+         */
+        entries?: string[];
+        /**
+         * Globs of modules that are never reported, on top of the defaults
+         * (`** /.*`, `** /*.d.ts`, `** /*.config.*`).
+         */
+        ignore?: string[];
+        level?: Level;
+        /**
+         * Production mode: tests are not entry points and are not reported, so a module that only
+         * tests use is reported.
+         */
+        production?: boolean;
+        /**
+         * Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.
+         */
+        test?: string[];
+      };
+  /**
+   * Reports a package that a `package.json` declares and that none of its modules imports.
+   */
+  "unused-packages"?:
+    | Level
+    | {
+        /**
+         * Whether packages that the tools you use load by name count as used (`@vitest/*` with
+         * `vitest`): `true` (all, the default), `false`, or the names of the conventions to use.
+         */
+        conventions?: boolean | string[];
+        /**
+         * Globs of package names that are never reported.
+         */
+        ignore?: string[];
+        level?: Level;
+        /**
+         * Production mode: `devDependencies` are not checked and tests do not use anything.
+         */
+        production?: boolean;
+        /**
+         * The `package.json` sections to check (default `dependencies`, `peerDependencies` and
+         * `optionalDependencies`; `devDependencies` are mostly tools that are never imported).
+         */
+        sections?: DepSectionName[];
+        /**
+         * Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.
+         */
+        test?: string[];
+      };
+  /**
+   * Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules.
+   */
+  visibility?:
+    | Level
+    | {
+        level?: Level;
+        /**
+         * Directory name that marks code as internal. Defaults to `internal`.
+         */
+        marker?: string;
+      };
+  [k: string]: RuleEntry | undefined;
 }
 /**
  * How oxcruise resolves imports.

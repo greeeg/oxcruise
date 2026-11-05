@@ -37,7 +37,8 @@ The options of the rule:
 ```json
 {
   "rules": {
-    "layers": ["error", {
+    "layers": {
+      "level": "error",
       "layers": {
         "ui": "src/ui/**",
         "domain": "src/domain/**"
@@ -48,9 +49,9 @@ The options of the rule:
         ],
         "domain": []
       }
-    }]
+    }
   }
 }
 ```
 
-The array has the level first, then the options of the rule.
+The object has the `level` first, then the options of the rule.

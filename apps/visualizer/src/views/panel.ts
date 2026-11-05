@@ -434,7 +434,7 @@ function modulePanel(host: HTMLElement, model: Model, m: number, nav: Nav): void
   const violations = (model.violationsOf.get(m) ?? []).map((i) => {
     const v = d.violations[i];
     const item = el("span", {}, [
-      el("b", { class: `sev-${v.severity}`, text: d.rules[v.rule] }),
+      el("b", { class: `sev-${v.level}`, text: d.rules[v.rule] }),
       `: ${v.message}`,
     ]);
     return item;

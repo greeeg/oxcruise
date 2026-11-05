@@ -228,13 +228,10 @@ mod tests {
         let c = ConfigLoader::new(&NoJs).load(&found).unwrap().config;
         assert_eq!(c.entries, ["src"]);
         assert_eq!(
-            c.rules["circular-dependencies"].parts().unwrap().0,
-            crate::Level::Warn
+            c.rules["circular-dependencies"].parts().0,
+            Some(crate::Level::Warn)
         );
-        assert_eq!(
-            c.rules["orphan-modules"].parts().unwrap().0,
-            crate::Level::Off
-        );
+        assert_eq!(c.rules["orphan-modules"].parts().0, Some(crate::Level::Off));
     }
 
     #[test]

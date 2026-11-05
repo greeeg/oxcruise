@@ -26,7 +26,7 @@ on the oxc toolchain: one parser, parallel everywhere, a modern config, and JS/T
 
 | Path | What lives there |
 |---|---|
-| `crates/oxcruise_core` | Data model: `Graph` (forward + reverse CSR, deterministic order), `Module`, `Edge`, `DepKinds` bitflags with depcruise's names, `Violation`, `Severity`, `LineIndex`. No I/O. |
+| `crates/oxcruise_core` | Data model: `Graph` (forward + reverse CSR, deterministic order), `Module`, `Edge`, `DepKinds` bitflags with depcruise's names, `Violation`, `ViolationLevel`, `LineIndex`. No I/O. |
 | `crates/oxcruise_extract` | One file → `FileFacts` (dependencies, suppression comments, export/import names). oxc parser + `ModuleRecord` + an AST visitor; SFC script-block splitter. |
 | `crates/oxcruise_resolve` | One shared `oxc_resolver` per module system (ESM `import` condition, CJS `require`), dependency classification, package.json section lookup, workspace discovery. |
 | `crates/oxcruise_graph` | The parallel runtime (discovery), path matcher, and analyses: Tarjan SCC, shortest cycle per edge, reachability, metrics, bitset. |
@@ -59,7 +59,7 @@ Analyses, only those some rule asked for: SCC (all edges / runtime-only), distin
       │
 Rules: par_iter over modules and edges, per-task violation buffers (no locks)
        + plugin rules: ONE batched call with the serialised graph
-       → inline suppressions → one violation per distinct cycle → sort (severity, location)
+       → inline suppressions → one violation per distinct cycle → sort (level, location)
       │
 CruiseResult ──▶ reporter ──▶ exit code (errors / --deny-warnings / --max-warnings)
 ```
@@ -161,7 +161,10 @@ website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos]
   rule whose `from` or `to.path` matches nothing is reported on stderr. Without `kind` a rule matches every kind of
   target; a `reachable` rule looks at `local` and `package` modules. The module kinds are the same in the config, the
   JSON result and the plugin API.
-* **Overrides** change a rule's severity and options for importing modules matching `files`. The engine runs one variant of
+* **Rule entries** are a level (`"error"`) or an object (`{ "level": "error", ...options }`). In `rules`, an object without
+  `level` means `error`. In an override, it keeps the level the rule has and replaces the options. The array form
+  (`["error", {...}]`) is an error. `level` is reserved: no rule has an option of that name.
+* **Overrides** change a rule's level and options for importing modules matching `files`. The engine runs one variant of
   the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`unused-packages`)
   belongs to the module it is reported on: the first module of the package that declares the dependency.
 * **CLI-only settings** (`--max-warnings`, `--deny-warnings`, `--max-depth`, `--ignore-pattern`, `--production`, `--fix`)
@@ -216,7 +219,7 @@ The reporters are in `crates/oxcruise_report`; the formats are described in
 [CLI reference](website/src/pages/reference/cli.mdx).
 
 The `json` result (and what plugin reporters receive) is versioned (`version`) and uses camelCase names, like the config
-and the JS API. **Version 2 renamed these from snake_case**, and renamed the module kinds
+and the JS API. **Version 3 renamed `severity` to `level`**, everywhere. **Version 2 renamed these from snake_case**, and renamed the module kinds
 `source | stub | core | unresolved` to `local | package | builtin | unresolved`. A dependency's `circular` is true when it
 lies on an import cycle of the whole graph, type-only imports included, whether or not a rule reports it; its `cycle` and
 `rules` are what the rules reported. `--quiet` hides warnings but `summary.warn` still counts them.

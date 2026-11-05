@@ -43,7 +43,7 @@ The `json` format is the complete result of a run. Its keys are in camelCase.
 
 | Key | Content |
 |---|---|
-| `version` | The version of the format. The current version is `2`. |
+| `version` | The version of the format. The current version is `3`. |
 | `modules` | Each module with its `path`, `kind`, `dependencies` and `dependents`. |
 | `violations` | Each violation. |
 | `summary` | `error`, `warn`, `suppressed`, `totalModules` and `totalDependencies`. |
@@ -76,7 +76,7 @@ Each dependency has these keys:
 | `line`, `col` | The position of the import. |
 | `circular` | See below. |
 | `cycle` | The cycle that a rule reported, as a list of `module` and `kinds`. |
-| `rules` | The rules that reported the dependency, with `name` and `severity`. |
+| `rules` | The rules that reported the dependency, with `name` and `level`. |
 | `names` | The names that the import uses. |
 
 A dependency has `circular: true` when it is on an import cycle of the whole graph, including type-only imports. This is true whether or not a rule reports it.
@@ -87,6 +87,7 @@ Exports and the names that each import uses are in the output only when Oxcruise
 :::warning
 Check `version` before you read a saved result. Version 2 renamed the snake_case keys to camelCase.
 It also renamed the module kinds `source`, `stub`, `core` and `unresolved` to `local`, `package`, `builtin` and `unresolved`.
+Version 3 renamed the key `severity` to `level`.
 :::
 
 ## github

@@ -281,7 +281,7 @@ impl CompiledRule {
                     .message
                     .clone()
                     .unwrap_or_else(|| format!("`{}` is reachable from here", to.path));
-                let mut v = oxcruise_core::Violation::module(cx.rule, cx.severity, m, msg);
+                let mut v = oxcruise_core::Violation::module(cx.rule, cx.level, m, msg);
                 v.to = Some(t);
                 v.path = reach.path_to(g, t).unwrap_or_default();
                 cx.push(v);

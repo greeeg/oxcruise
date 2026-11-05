@@ -37,7 +37,7 @@ pub type PairCb = ThreadsafeFunction<RenderRequest, Promise<String>, RenderReque
 pub struct RunRulesRequest {
     /// The graph in the layout of `graph_buffer`.
     pub graph: Buffer,
-    /// JSON `[{ id, name, severity, options }]`.
+    /// JSON `[{ id, name, level, options }]`.
     pub rules: String,
 }
 
@@ -174,7 +174,7 @@ impl ExternalRules for Host {
                 serde_json::json!({
                     "id": r.id.0,
                     "name": r.name,
-                    "severity": r.severity.as_str(),
+                    "level": r.level.as_str(),
                     "options": r.options,
                 })
             })

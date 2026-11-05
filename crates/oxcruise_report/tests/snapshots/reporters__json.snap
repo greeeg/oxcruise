@@ -3,7 +3,7 @@ source: crates/oxcruise_report/tests/reporters.rs
 expression: "rendered(\"json\", &plain())"
 ---
 {
-  "version": 2,
+  "version": 3,
   "modules": [
     {
       "path": "fs",
@@ -114,7 +114,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "circular-dependencies",
-              "severity": "error"
+              "level": "error"
             }
           ]
         }
@@ -162,7 +162,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "circular-dependencies",
-              "severity": "error"
+              "level": "error"
             }
           ]
         }
@@ -220,7 +220,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "unresolved-dependencies",
-              "severity": "error"
+              "level": "error"
             }
           ]
         },
@@ -266,11 +266,11 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "undeclared-packages",
-              "severity": "error"
+              "level": "error"
             },
             {
               "name": "deprecated-dependencies",
-              "severity": "warn"
+              "level": "warn"
             }
           ]
         },
@@ -315,7 +315,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "dev-dependencies-in-production",
-              "severity": "error"
+              "level": "error"
             }
           ]
         },
@@ -433,7 +433,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "deprecated-dependencies",
-              "severity": "warn"
+              "level": "warn"
             }
           ]
         }
@@ -493,7 +493,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "unresolved-dependencies",
-              "severity": "error"
+              "level": "error"
             }
           ]
         },
@@ -546,7 +546,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "dependencies-on-tests",
-              "severity": "error"
+              "level": "error"
             }
           ]
         }
@@ -601,7 +601,7 @@ expression: "rendered(\"json\", &plain())"
           "rules": [
             {
               "name": "unresolved-dependencies",
-              "severity": "error"
+              "level": "error"
             }
           ]
         },
@@ -651,7 +651,7 @@ expression: "rendered(\"json\", &plain())"
   "violations": [
     {
       "rule": "circular-dependencies",
-      "severity": "error",
+      "level": "error",
       "kind": "cycle",
       "from": "packages/app/src/cycle-a.ts",
       "to": "packages/app/src/cycle-b.ts",
@@ -678,7 +678,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "dev-dependencies-in-production",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
       "to": "node_modules/vitest/index.js",
@@ -689,7 +689,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "undeclared-packages",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
       "to": "node_modules/left-pad/index.js",
@@ -700,7 +700,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "unresolved-dependencies",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
       "to": "./missing",
@@ -711,7 +711,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "unresolved-dependencies",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/app/src/suppressed.ts",
       "to": "./also-nope",
@@ -722,7 +722,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "dependencies-on-tests",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/app/src/uses-test.ts",
       "to": "packages/app/src/thing.test.ts",
@@ -733,7 +733,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "unresolved-dependencies",
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": "packages/lib/src/index.ts",
       "to": "@app/helpers",
@@ -744,7 +744,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "deprecated-dependencies",
-      "severity": "warn",
+      "level": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
       "to": "node_modules/left-pad/index.js",
@@ -755,7 +755,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "deprecated-dependencies",
-      "severity": "warn",
+      "level": "warn",
       "kind": "dependency",
       "from": "packages/app/src/index.ts",
       "to": "sys",
@@ -766,7 +766,7 @@ expression: "rendered(\"json\", &plain())"
     },
     {
       "rule": "orphan-modules",
-      "severity": "warn",
+      "level": "warn",
       "kind": "module",
       "from": "packages/app/src/orphan.ts",
       "message": "this module is not imported by any module and imports nothing"

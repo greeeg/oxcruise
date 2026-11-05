@@ -3,7 +3,7 @@ source: crates/oxcruise_visualize/tests/viz.rs
 expression: data
 ---
 {
-  "version": 1,
+  "version": 2,
   "root": "<root>",
   "generatedAt": 0,
   "summary": {
@@ -297,7 +297,7 @@ expression: data
   "violations": [
     {
       "rule": 0,
-      "severity": "error",
+      "level": "error",
       "kind": "cycle",
       "from": 7,
       "to": 8,
@@ -310,7 +310,7 @@ expression: data
     },
     {
       "rule": 1,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 10,
       "to": 5,
@@ -319,7 +319,7 @@ expression: data
     },
     {
       "rule": 2,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 10,
       "to": 2,
@@ -328,7 +328,7 @@ expression: data
     },
     {
       "rule": 3,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 10,
       "line": 11,
@@ -336,7 +336,7 @@ expression: data
     },
     {
       "rule": 3,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 14,
       "line": 3,
@@ -344,7 +344,7 @@ expression: data
     },
     {
       "rule": 4,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 16,
       "to": 15,
@@ -353,7 +353,7 @@ expression: data
     },
     {
       "rule": 3,
-      "severity": "error",
+      "level": "error",
       "kind": "dependency",
       "from": 18,
       "line": 2,
@@ -361,7 +361,7 @@ expression: data
     },
     {
       "rule": 5,
-      "severity": "warn",
+      "level": "warn",
       "kind": "dependency",
       "from": 10,
       "to": 2,
@@ -370,7 +370,7 @@ expression: data
     },
     {
       "rule": 5,
-      "severity": "warn",
+      "level": "warn",
       "kind": "dependency",
       "from": 10,
       "to": 20,
@@ -379,7 +379,7 @@ expression: data
     },
     {
       "rule": 6,
-      "severity": "warn",
+      "level": "warn",
       "kind": "module",
       "from": 13,
       "message": "this module is not imported by any module and imports nothing"

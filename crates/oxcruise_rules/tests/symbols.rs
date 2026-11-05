@@ -369,7 +369,7 @@ fn conventions_make_exports_public_and_packages_used() {
 #[test]
 fn unknown_conventions_are_rejected() {
     let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
-        "rules": { "unused-modules": ["error", { "conventions": ["nope"] }] }
+        "rules": { "unused-modules": { "level": "error", "conventions": ["nope"] } }
     }))
     .unwrap();
     let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
@@ -418,7 +418,7 @@ fn production_mode_leaves_tests_out() {
 fn set_option_overrides_the_config() {
     let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
         "categories": { "correctness": "off", "suspicious": "off" },
-        "rules": { "unused-exports": ["error", { "types": false }] }
+        "rules": { "unused-exports": { "level": "error", "types": false } }
     }))
     .unwrap();
     let mut engine = oxcruise_rules::Engine::new(&cfg, None).unwrap();

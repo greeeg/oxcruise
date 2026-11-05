@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
-use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Severity, Subject, Violation};
+use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Subject, Violation, ViolationLevel};
 use oxcruise_graph::PathMatcher;
 use oxcruise_graph::analyses::{BitSet, ExportUsage};
 use oxcruise_resolve::WorkspacePackage;
@@ -16,9 +16,18 @@ use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalT
 use crate::meta::{Analyses, AnalysisCache, Hooks, RuleCtx, Shared};
 use crate::registry::{RuleEnum, builtin_rules};
 
+/// The setting of a rule in `rules`, in its category or in `forbid`.
 #[derive(Clone)]
 struct Entry {
     level: Level,
+    options: serde_json::Value,
+}
+
+/// The setting of a rule in `overrides[].rules`. Without a level, the override keeps the level
+/// that the rule has for the module.
+#[derive(Clone)]
+struct Override {
+    level: Option<Level>,
     options: serde_json::Value,
 }
 
@@ -33,7 +42,7 @@ struct Plan {
     source: Source,
     base: Option<Entry>,
     /// `(override index, entry)`; the override's `files` decide which modules it affects.
-    overrides: Vec<(usize, Entry)>,
+    overrides: Vec<(usize, Override)>,
 }
 
 pub struct Engine {
@@ -46,7 +55,7 @@ pub struct Engine {
 
 #[derive(Debug, Default)]
 pub struct RunResult {
-    /// Sorted: severity, then location.
+    /// Sorted: level, then location.
     pub violations: Vec<Violation>,
     /// Violations silenced by `oxcruise-ignore-*` comments.
     pub suppressed: usize,
@@ -59,21 +68,30 @@ pub struct RunResult {
 }
 
 impl RunResult {
-    pub fn count(&self, s: Severity) -> usize {
-        self.violations.iter().filter(|v| v.severity == s).count()
+    pub fn count(&self, s: ViolationLevel) -> usize {
+        self.violations.iter().filter(|v| v.level == s).count()
     }
 }
 
-fn rank(s: Severity) -> u8 {
+fn rank(s: ViolationLevel) -> u8 {
     match s {
-        Severity::Error => 0,
-        Severity::Warn => 1,
+        ViolationLevel::Error => 0,
+        ViolationLevel::Warn => 1,
     }
 }
 
-fn entry_of(name: &str, e: &RuleEntry) -> Result<Entry, String> {
-    let (level, options) = e.parts().map_err(|m| format!("rule `{name}`: {m}"))?;
-    Ok(Entry { level, options })
+/// An entry of `rules`: an object without a level means `error`.
+fn entry_of(e: &RuleEntry) -> Entry {
+    let (level, options) = e.parts();
+    Entry {
+        level: level.unwrap_or(Level::Error),
+        options,
+    }
+}
+
+fn override_of(e: &RuleEntry) -> Override {
+    let (level, options) = e.parts();
+    Override { level, options }
 }
 
 impl Engine {
@@ -109,13 +127,7 @@ impl Engine {
 
         // ... then `rules`, which win over the category.
         for (name, entry) in &config.rules {
-            let entry = match entry_of(name, entry) {
-                Ok(e) => e,
-                Err(e) => {
-                    errors.push(e);
-                    continue;
-                }
-            };
+            let entry = entry_of(entry);
             let source = match RuleEnum::builtin(name, entry.options.clone()) {
                 Some(Ok(_)) => Source::Builtin,
                 Some(Err(e)) => {
@@ -144,7 +156,7 @@ impl Engine {
             }
         }
 
-        // Forbidden dependencies. Their level comes only from their own `severity`.
+        // Forbidden dependencies. Their level comes only from their own `level`.
         let builtin_names: Vec<&str> = builtin_rules().into_iter().map(|r| r.name).collect();
         for r in &config.forbid {
             let taken = builtin_names.contains(&r.name.as_str())
@@ -163,7 +175,7 @@ impl Engine {
                     name: r.name.clone(),
                     source: Source::Declarative(Arc::new(c)),
                     base: Some(Entry {
-                        level: r.severity,
+                        level: r.level,
                         options: serde_json::Value::Null,
                     }),
                     overrides: vec![],
@@ -183,13 +195,7 @@ impl Engine {
                 }
             }
             for (name, entry) in &o.rules {
-                let entry = match entry_of(name, entry) {
-                    Ok(e) => e,
-                    Err(e) => {
-                        errors.push(format!("overrides[{i}]: {e}"));
-                        continue;
-                    }
-                };
+                let entry = override_of(entry);
                 match plans.iter_mut().find(|p| &p.name == name) {
                     Some(plan) => {
                         match &plan.source {
@@ -243,11 +249,11 @@ impl Engine {
     /// off stay off.
     pub fn set_option(&mut self, rule: &str, key: &str, value: serde_json::Value) {
         self.wanted = OnceLock::new();
-        let patch = |e: &mut Entry| {
-            if e.options.is_null() {
-                e.options = serde_json::json!({});
+        let patch = |options: &mut serde_json::Value| {
+            if options.is_null() {
+                *options = serde_json::json!({});
             }
-            if let Some(o) = e.options.as_object_mut() {
+            if let Some(o) = options.as_object_mut() {
                 o.insert(key.to_string(), value.clone());
             }
         };
@@ -256,8 +262,10 @@ impl Engine {
             .iter_mut()
             .filter(|p| p.name == rule && matches!(p.source, Source::Builtin))
         {
-            plan.base.iter_mut().for_each(patch);
-            plan.overrides.iter_mut().for_each(|(_, e)| patch(e));
+            plan.base.iter_mut().for_each(|e| patch(&mut e.options));
+            plan.overrides
+                .iter_mut()
+                .for_each(|(_, e)| patch(&mut e.options));
         }
     }
 
@@ -287,12 +295,23 @@ impl Engine {
             if !matches!(plan.source, Source::Builtin) {
                 continue;
             }
-            let entries = plan
+            // an override without a level is on when anything else switches the rule on
+            let on = |l: Option<Level>| l.is_some_and(|l| l != Level::Off);
+            let some_on = on(plan.base.as_ref().map(|b| b.level))
+                || plan.overrides.iter().any(|(_, o)| on(o.level));
+            let options = plan
                 .base
                 .iter()
-                .chain(plan.overrides.iter().map(|(_, e)| e));
-            for entry in entries.filter(|e| e.level != Level::Off) {
-                if let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, entry.options.clone()) {
+                .filter(|e| e.level != Level::Off)
+                .map(|e| &e.options)
+                .chain(
+                    plan.overrides
+                        .iter()
+                        .filter(|(_, o)| o.level.map_or(some_on, |l| l != Level::Off))
+                        .map(|(_, o)| &o.options),
+                );
+            for options in options {
+                if let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, options.clone()) {
                     wanted |= rule.requirements();
                 }
             }
@@ -367,11 +386,11 @@ impl Engine {
                     .base
                     .as_ref()
                     .expect("external rules have a base entry");
-                if let Some(sev) = base.level.to_severity() {
+                if let Some(sev) = base.level.to_violation_level() {
                     externals.push(ExternalRuleSpec {
                         id: *id,
                         name: plan.name.clone(),
-                        severity: sev,
+                        level: sev,
                         options: base.options.clone(),
                     });
                 }
@@ -434,11 +453,11 @@ impl Engine {
                             let spec = specs[&f.rule];
                             let mut v = match f.target {
                                 ExternalTarget::Module(m) => {
-                                    Violation::module(&spec.name, spec.severity, m, f.message)
+                                    Violation::module(&spec.name, spec.level, m, f.message)
                                 }
                                 ExternalTarget::Export(m, i) => {
                                     let mut v =
-                                        Violation::module(&spec.name, spec.severity, m, f.message);
+                                        Violation::module(&spec.name, spec.level, m, f.message);
                                     v.loc = Some(graph.module(m).exports[i as usize].loc);
                                     v.subject = Subject::Export(i);
                                     v
@@ -447,7 +466,7 @@ impl Engine {
                                     let edge = graph.edge(e);
                                     Violation {
                                         rule: spec.name.clone(),
-                                        severity: spec.severity,
+                                        level: spec.level,
                                         from: edge.from,
                                         to: Some(edge.to),
                                         edge: Some(e),
@@ -497,7 +516,7 @@ impl Engine {
         }
     }
 
-    /// Turn a plan into runnable rules: one per distinct effective (severity, options),
+    /// Turn a plan into runnable rules: one per distinct effective (level, options),
     /// each limited to the modules it applies to.
     fn resolve_plan(
         &self,
@@ -516,58 +535,72 @@ impl Engine {
         };
         if plan.overrides.is_empty() {
             let Some(base) = &plan.base else { return };
-            if let (Some(sev), Some(rule)) = (base.level.to_severity(), make(&base.options)) {
+            if let (Some(sev), Some(rule)) = (base.level.to_violation_level(), make(&base.options))
+            {
                 out.push(Resolved {
                     name: plan.name.clone(),
                     rule,
-                    severity: sev,
+                    level: sev,
                     modules: None,
                 });
             }
             return;
         }
 
-        // Effective entry per module: base, then each matching override in order, so the last
-        // matching override decides. Modules are grouped by that index (0 = the base), and only
-        // the groups, not the modules, are keyed by their entry.
+        // Effective setting per module: base, then each matching override in order. The last
+        // matching override decides the options, and the last one with a level decides the level.
+        // Modules are grouped by (the setting that gave the options, level), not one by one.
         let n = graph.module_count();
-        let mut by_slot: Vec<(Option<&Entry>, BitSet)> = std::iter::once(plan.base.as_ref())
-            .chain(plan.overrides.iter().map(|(_, e)| Some(e)))
-            .map(|e| (e.filter(|e| e.level != Level::Off), BitSet::new(n)))
-            .collect();
+        let base_level = plan.base.as_ref().map_or(Level::Off, |b| b.level);
+        let mut by_slot: BTreeMap<(usize, u8), BitSet> = BTreeMap::new();
         for i in 0..n {
-            let slot = plan
-                .overrides
-                .iter()
-                .rposition(|(oi, _)| override_sets[*oi].contains(i))
-                .map_or(0, |p| p + 1);
-            if by_slot[slot].0.is_some() {
-                by_slot[slot].1.insert(i);
+            let (mut slot, mut level) = (0, base_level);
+            for (k, (oi, o)) in plan.overrides.iter().enumerate() {
+                if override_sets[*oi].contains(i) {
+                    slot = k + 1;
+                    level = o.level.unwrap_or(level);
+                }
             }
+            let code = match level {
+                Level::Off => continue,
+                Level::Warn => 1,
+                Level::Error => 0,
+            };
+            by_slot
+                .entry((slot, code))
+                .or_insert_with(|| BitSet::new(n))
+                .insert(i);
         }
-        // Slots with the same effective entry become one rule.
-        let mut groups: BTreeMap<String, (&Entry, BitSet)> = BTreeMap::new();
-        for (entry, set) in by_slot {
-            let Some(entry) = entry else { continue };
-            if set.count() == 0 {
-                continue;
-            }
-            let key = format!("{:?}|{}", entry.level, entry.options);
+        // Slots with the same effective setting become one rule.
+        let mut groups: BTreeMap<String, (Level, &serde_json::Value, BitSet)> = BTreeMap::new();
+        for ((slot, code), set) in by_slot {
+            let level = if code == 1 { Level::Warn } else { Level::Error };
+            let options = match slot {
+                0 => {
+                    &plan
+                        .base
+                        .as_ref()
+                        .expect("a module on the base level")
+                        .options
+                }
+                k => &plan.overrides[k - 1].1.options,
+            };
+            let key = format!("{level:?}|{options}");
             match groups.entry(key) {
                 std::collections::btree_map::Entry::Occupied(mut o) => {
-                    o.get_mut().1.union_with(&set)
+                    o.get_mut().2.union_with(&set)
                 }
                 std::collections::btree_map::Entry::Vacant(v) => {
-                    v.insert((entry, set));
+                    v.insert((level, options, set));
                 }
             }
         }
-        for (_, (entry, set)) in groups {
-            if let (Some(sev), Some(rule)) = (entry.level.to_severity(), make(&entry.options)) {
+        for (_, (level, options, set)) in groups {
+            if let (Some(level), Some(rule)) = (level.to_violation_level(), make(options)) {
                 out.push(Resolved {
                     name: plan.name.clone(),
                     rule,
-                    severity: sev,
+                    level,
                     modules: Some(set),
                 });
             }
@@ -613,14 +646,14 @@ fn edit_distance(a: &str, b: &str) -> usize {
 struct Resolved {
     name: String,
     rule: RuleEnum,
-    severity: Severity,
+    level: ViolationLevel,
     modules: Option<BitSet>,
 }
 
 fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
     let g = shared.graph;
     let in_scope = |m: ModuleId| r.modules.as_ref().is_none_or(|s| s.contains(m.idx()));
-    let new_cx = || RuleCtx::new(shared, &r.name, r.severity);
+    let new_cx = || RuleCtx::new(shared, &r.name, r.level);
     let join = |mut a: Vec<Violation>, mut b: Vec<Violation>| {
         a.append(&mut b);
         a
@@ -671,7 +704,7 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
 #[allow(clippy::type_complexity)]
 fn sort_key(v: &Violation) -> (u8, ModuleId, Option<Loc>, Option<ModuleId>, &str, &str) {
     (
-        rank(v.severity),
+        rank(v.level),
         v.from,
         v.loc,
         v.to,

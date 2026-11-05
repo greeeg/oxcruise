@@ -1,107 +1,7 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OxcruiseConfig",
-  "description": "The oxcruise config file.",
-  "type": "object",
-  "properties": {
-    "$schema": {
-      "description": "The URL or path of the JSON schema, for editors.",
-      "type": [
-        "string",
-        "null"
-      ],
-      "default": null
-    },
-    "calls": {
-      "description": "Names of functions whose first string argument is a dependency, for example `jest.mock`.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "type": "string"
-      }
-    },
-    "categories": {
-      "description": "The level of each category of built-in rules. The categories are `correctness`, `suspicious`,\n`style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.",
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/Level"
-      },
-      "default": {}
-    },
-    "doNotFollow": {
-      "description": "Globs of modules that stay in the graph. Oxcruise does not parse their imports.",
-      "$ref": "#/$defs/OneOrMany",
-      "default": []
-    },
-    "entries": {
-      "description": "Files, directories or globs where the graph starts. The default is `[\".\"]`.",
-      "$ref": "#/$defs/OneOrMany",
-      "default": []
-    },
-    "extends": {
-      "description": "Paths to other config files. Their settings are the base, and this file changes them.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "type": "string"
-      }
-    },
-    "forbid": {
-      "description": "Forbidden dependencies, written as rules.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/ForbidRule"
-      }
-    },
-    "ignorePatterns": {
-      "description": "Globs of modules to leave out of the graph. Oxcruise also uses the rules of `.gitignore` when it looks for modules.",
-      "$ref": "#/$defs/OneOrMany",
-      "default": []
-    },
-    "jsPlugins": {
-      "description": "JS or TS plugins: paths or package names.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/JsPlugin"
-      }
-    },
-    "overrides": {
-      "description": "Settings that change rules for some modules.",
-      "type": "array",
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/Override"
-      }
-    },
-    "resolve": {
-      "description": "How oxcruise resolves imports.",
-      "$ref": "#/$defs/ResolveSection",
-      "default": {
-        "alias": {},
-        "conditions": [],
-        "tsconfig": null
-      }
-    },
-    "rules": {
-      "description": "The built-in and plugin rules, by name. A rule listed here wins over its category.",
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/RuleEntry"
-      },
-      "default": {}
-    },
-    "symbols": {
-      "description": "Extract exports and the names that each import uses, for `json` output and plugins.\nRules that need them enable this option.",
-      "type": "boolean",
-      "default": false
-    }
-  },
-  "additionalProperties": false,
   "$defs": {
     "AliasedPlugin": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "The prefix of the rules: `<name>/<rule>`. It replaces the `meta.name` of the plugin.",
@@ -112,18 +12,39 @@
           "type": "string"
         }
       },
-      "additionalProperties": false,
       "required": [
         "name",
         "specifier"
-      ]
+      ],
+      "type": "object"
+    },
+    "ConventionFilter": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Which conventions a rule takes into account: `true` (all, the default), `false` (none) or the\nnames of the ones to use."
+    },
+    "DepSectionName": {
+      "enum": [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies"
+      ],
+      "type": "string"
     },
     "ForbidRule": {
       "description": "A dependency that the project does not allow.\nAn import from a module that matches `from` to a target that matches `to` is a violation.",
-      "type": "object",
       "properties": {
         "from": {
-          "description": "Globs of the importing module. `{name}` captures a path segment, and `to` can use the capture.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany"
@@ -131,7 +52,13 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Globs of the importing module. `{name}` captures a path segment, and `to` can use the capture."
+        },
+        "level": {
+          "$ref": "#/$defs/Level",
+          "default": "error",
+          "description": "The level of the rule."
         },
         "message": {
           "description": "Why the dependency is forbidden. Oxcruise shows it instead of the generic message.",
@@ -144,13 +71,7 @@
           "description": "The name of the rule. Reports and `overrides` use it.",
           "type": "string"
         },
-        "severity": {
-          "description": "The level of the rule.",
-          "$ref": "#/$defs/Level",
-          "default": "error"
-        },
         "to": {
-          "description": "The target of the dependency: globs, or an object with conditions.",
           "anyOf": [
             {
               "$ref": "#/$defs/ToSpec"
@@ -158,58 +79,59 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The target of the dependency: globs, or an object with conditions."
         }
       },
-      "additionalProperties": false,
       "required": [
         "name"
-      ]
+      ],
+      "type": "object"
     },
     "JsPlugin": {
-      "description": "A JS or TS plugin: a path or package name, or an object that also gives the prefix of its rules.",
       "anyOf": [
         {
           "description": "A path, such as `\"./tools/acme.ts\"`, or a package name, such as `\"acme\"`.\nFor a package name, oxcruise tries `oxcruise-plugin-acme` first and then `acme`.",
           "type": "string"
         },
         {
-          "description": "An object with the specifier of the plugin and the prefix of its rules.",
-          "$ref": "#/$defs/AliasedPlugin"
+          "$ref": "#/$defs/AliasedPlugin",
+          "description": "An object with the specifier of the plugin and the prefix of its rules."
         }
-      ]
+      ],
+      "description": "A JS or TS plugin: a path or package name, or an object that also gives the prefix of its rules."
     },
     "Level": {
       "description": "The level of a rule. `off` disables the rule, `warn` reports violations as warnings, and `error` reports them as errors.",
-      "type": "string",
       "enum": [
         "off",
         "warn",
         "error"
-      ]
+      ],
+      "type": "string"
     },
     "ModuleKind": {
       "description": "What a module is. The names are the ones the config (`to.kind`), the JSON and plugins use.",
       "oneOf": [
         {
+          "const": "local",
           "description": "A file of the project, parsed.",
-          "type": "string",
-          "const": "local"
+          "type": "string"
         },
         {
+          "const": "package",
           "description": "A file inside `node_modules`: resolved, not parsed.",
-          "type": "string",
-          "const": "package"
+          "type": "string"
         },
         {
+          "const": "builtin",
           "description": "A Node.js built-in module.",
-          "type": "string",
-          "const": "builtin"
+          "type": "string"
         },
         {
+          "const": "unresolved",
           "description": "An import that could not be resolved.",
-          "type": "string",
-          "const": "unresolved"
+          "type": "string"
         }
       ]
     },
@@ -219,10 +141,10 @@
           "type": "string"
         },
         {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       ]
     },
@@ -232,10 +154,10 @@
           "$ref": "#/$defs/ModuleKind"
         },
         {
-          "type": "array",
           "items": {
             "$ref": "#/$defs/ModuleKind"
-          }
+          },
+          "type": "array"
         }
       ]
     },
@@ -245,127 +167,605 @@
           "$ref": "#/$defs/Relation"
         },
         {
-          "type": "array",
           "items": {
             "$ref": "#/$defs/Relation"
-          }
+          },
+          "type": "array"
         }
       ]
     },
     "Override": {
+      "additionalProperties": false,
       "description": "Changes the settings of rules for some modules.",
-      "type": "object",
       "properties": {
         "files": {
-          "description": "Globs of the importing modules that this override applies to.",
-          "$ref": "#/$defs/OneOrMany"
+          "$ref": "#/$defs/OneOrMany",
+          "description": "Globs of the importing modules that this override applies to."
         },
         "rules": {
-          "description": "The rules to change, by name.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/RuleEntry"
-          },
-          "default": {}
+          "$ref": "#/$defs/Rules"
         }
       },
-      "additionalProperties": false,
       "required": [
         "files"
-      ]
+      ],
+      "type": "object"
     },
     "Relation": {
       "description": "How two modules relate, for the `relation` condition.",
       "oneOf": [
         {
+          "const": "same-folder",
           "description": "`to` is in the same folder as `from`.",
-          "type": "string",
-          "const": "same-folder"
+          "type": "string"
         },
         {
+          "const": "descendant-of-from",
           "description": "`to` is below the folder of `from`.",
-          "type": "string",
-          "const": "descendant-of-from"
+          "type": "string"
         },
         {
+          "const": "descendant-of-from-parent",
           "description": "`to` is below the parent folder of `from`.",
-          "type": "string",
-          "const": "descendant-of-from-parent"
+          "type": "string"
         },
         {
+          "const": "sibling",
           "description": "`to` is in a sibling folder of `from`'s folder.",
-          "type": "string",
-          "const": "sibling"
+          "type": "string"
         },
         {
+          "const": "same-package",
           "description": "`to` is in the same workspace package as `from`.",
-          "type": "string",
-          "const": "same-package"
+          "type": "string"
         },
         {
+          "const": "cross-package",
           "description": "`to` is in another workspace package than `from`.",
-          "type": "string",
-          "const": "cross-package"
+          "type": "string"
         }
       ]
     },
     "ResolveSection": {
+      "additionalProperties": false,
       "description": "How oxcruise resolves imports.",
-      "type": "object",
       "properties": {
         "alias": {
-          "description": "Path aliases. For example `{ \"~\": \"./src\" }`.",
-          "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/OneOrMany"
           },
-          "default": {}
+          "default": {},
+          "description": "Path aliases. For example `{ \"~\": \"./src\" }`.",
+          "type": "object"
         },
         "conditions": {
-          "description": "Export and import condition names. Oxcruise tries them before `import`, `require`, `node` and `default`.\nFor example, use `[\"source\"]` to resolve workspace packages to their source.",
-          "type": "array",
           "default": [],
+          "description": "Export and import condition names. Oxcruise tries them before `import`, `require`, `node` and `default`.\nFor example, use `[\"source\"]` to resolve workspace packages to their source.",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "tsconfig": {
+          "default": null,
           "description": "The tsconfig for every file. By default, each file uses the nearest tsconfig.",
           "type": [
             "string",
             "null"
-          ],
-          "default": null
+          ]
         }
       },
-      "additionalProperties": false
+      "type": "object"
     },
     "RuleEntry": {
-      "description": "The setting of a rule: a level, or an array of a level and an options object.\nFor example `\"error\"` or `[\"error\", { \"includeTypeOnly\": true }]`.",
       "anyOf": [
         {
           "$ref": "#/$defs/Level"
         },
         {
-          "type": "array",
-          "items": true
+          "additionalProperties": true,
+          "properties": {
+            "level": {
+              "$ref": "#/$defs/Level"
+            }
+          },
+          "type": "object"
         }
-      ]
+      ],
+      "description": "The setting of a rule: a level, or an object with a `level` and the options of the rule."
+    },
+    "Rules": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RuleEntry"
+      },
+      "default": {},
+      "description": "The built-in and plugin rules, by name. A rule listed here wins over its category.",
+      "properties": {
+        "circular-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of modules to leave out before looking for cycles, so no cycle goes through them.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "includeTypeOnly": {
+                  "default": false,
+                  "description": "Also report cycles that exist only through type-only imports (`import type`).\nBy default only cycles that exist at runtime are reported.",
+                  "type": "boolean"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "maxCyclesPerComponent": {
+                  "default": null,
+                  "description": "How many dependencies of one strongly connected component are searched for their shortest\ncycle (default 100); `0` removes the limit. Several of them can share one cycle.",
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports dependencies that are part of a circular chain of imports. The message shows the shortest cycle through each dependency."
+        },
+        "cross-package-relative-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports relative imports that reach into another workspace package, for example `../other-package/src/x`."
+        },
+        "dependencies-on-tests": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports a non-test module that imports a test file or a test directory. Test files match `*.test.*` or `*.spec.*`. Test directories are `test`, `tests`, `__tests__` and `__mocks__`."
+        },
+        "deprecated-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports imports of deprecated Node.js built-in modules and deprecated npm packages."
+        },
+        "dev-dependencies-in-production": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "prod": {
+                  "default": [],
+                  "description": "Globs of production code. Defaults to `src`, `app`, `lib` and `packages/*/src`.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "test": {
+                  "default": [],
+                  "description": "Globs of test code, exempt from the rule (on top of `*.test.*`, `*.spec.*` and test directories).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports a production module that imports a package from `devDependencies` only."
+        },
+        "duplicate-packages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`. The rule ignores type-only imports."
+        },
+        "layers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "allow": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "default": {},
+                  "description": "Layer name to the layers it may import. A layer missing here is unrestricted.\nImporting within the same layer is always allowed.",
+                  "type": "object"
+                },
+                "layers": {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/OneOrMany"
+                  },
+                  "default": {},
+                  "description": "Layer name to the paths it contains. Layers should not overlap; if they do the first by name wins.",
+                  "type": "object"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Enforces a layered architecture: a layer can import only the layers that `allow` lists for it. The rule checks dependencies on local modules. Packages and built-in modules have no layer."
+        },
+        "optional-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports use of optional dependencies. An install can skip an optional dependency, so the package may not exist at runtime."
+        },
+        "orphan-modules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of modules that are never reported, on top of the defaults\n(`**/.*`, `**/*.d.ts`, `**/tsconfig*.json`, `**/*.config.*`).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports modules that no other module imports and that import no module."
+        },
+        "peer-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports use of peer dependencies. The consuming project must provide a peer dependency."
+        },
+        "undeclared-packages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports imports of installed npm packages that no `package.json` section declares."
+        },
+        "unresolved-dependencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of imports that are allowed to be unresolvable. An import is skipped when its\nspecifier (`virtual:icons`) or the importing module's path matches.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports an import that oxcruise cannot resolve to a file or a package."
+        },
+        "unused-exports": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "conventions": {
+                  "$ref": "#/$defs/ConventionFilter",
+                  "description": "Which tool conventions count as entry points: `true` (all, the default), `false`, or names."
+                },
+                "entries": {
+                  "default": [],
+                  "description": "Globs of modules whose exports are public API, on top of the entry points oxcruise finds:\nmodules nothing imports, and the files `package.json` points to.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of modules that are never reported.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "ignoreExportsUsedInFile": {
+                  "default": false,
+                  "description": "Do not report an export that the file itself uses.",
+                  "type": "boolean"
+                },
+                "includeEntryExports": {
+                  "default": false,
+                  "description": "Also report unused exports of entry points, checking them against their importers only.",
+                  "type": "boolean"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "members": {
+                  "default": true,
+                  "description": "Report unused members of exported enums and namespaces (default `true`).",
+                  "type": "boolean"
+                },
+                "production": {
+                  "default": false,
+                  "description": "Production mode: tests neither are entry points nor use anything, so an export used only\nby tests is reported.",
+                  "type": "boolean"
+                },
+                "test": {
+                  "default": [],
+                  "description": "Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "types": {
+                  "default": true,
+                  "description": "Report unused types and interfaces too (default `true`).",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports exports that no other module imports. The rule also reports:"
+        },
+        "unused-modules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "conventions": {
+                  "$ref": "#/$defs/ConventionFilter",
+                  "description": "Which tool conventions count as entry points: `true` (all, the default), `false`, or names."
+                },
+                "entries": {
+                  "default": [],
+                  "description": "Globs of entry points, on top of the ones oxcruise finds (`package.json` entry files, the\nconventions of the tools you use, `index`, `main` and `cli` files, plugins).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of modules that are never reported, on top of the defaults\n(`**/.*`, `**/*.d.ts`, `**/*.config.*`).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "production": {
+                  "default": false,
+                  "description": "Production mode: tests are not entry points and are not reported, so a module that only\ntests use is reported.",
+                  "type": "boolean"
+                },
+                "test": {
+                  "default": [],
+                  "description": "Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports source modules that no path from an entry point reaches."
+        },
+        "unused-packages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "conventions": {
+                  "$ref": "#/$defs/ConventionFilter",
+                  "description": "Whether packages that the tools you use load by name count as used (`@vitest/*` with\n`vitest`): `true` (all, the default), `false`, or the names of the conventions to use."
+                },
+                "ignore": {
+                  "default": [],
+                  "description": "Globs of package names that are never reported.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "production": {
+                  "default": false,
+                  "description": "Production mode: `devDependencies` are not checked and tests do not use anything.",
+                  "type": "boolean"
+                },
+                "sections": {
+                  "description": "The `package.json` sections to check (default `dependencies`, `peerDependencies` and\n`optionalDependencies`; `devDependencies` are mostly tools that are never imported).",
+                  "items": {
+                    "$ref": "#/$defs/DepSectionName"
+                  },
+                  "type": "array"
+                },
+                "test": {
+                  "default": [],
+                  "description": "Globs of test modules, on top of `*.test.*`, `*.spec.*` and test directories.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Reports a package that a `package.json` declares and that none of its modules imports."
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "$ref": "#/$defs/Level"
+                },
+                "marker": {
+                  "default": "internal",
+                  "description": "Directory name that marks code as internal. Defaults to `internal`.",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules."
+        }
+      },
+      "type": "object"
     },
     "ToCondition": {
+      "additionalProperties": false,
       "description": "Conditions on the dependency and the module it points to.",
-      "type": "object",
       "properties": {
         "dynamic": {
+          "default": null,
           "description": "The dependency is a dynamic `import()`.",
           "type": [
             "boolean",
             "null"
-          ],
-          "default": null
+          ]
         },
         "kind": {
-          "description": "What the dependency points to. A dependency matches when it has any of these kinds.\nBy default, every kind matches, except for `reachable` rules, which check only `local` and `package` modules.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany2"
@@ -374,10 +774,10 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What the dependency points to. A dependency matches when it has any of these kinds.\nBy default, every kind matches, except for `reachable` rules, which check only `local` and `package` modules."
         },
         "path": {
-          "description": "Globs that the target of the dependency must match.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany"
@@ -386,18 +786,18 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Globs that the target of the dependency must match."
         },
         "reachable": {
+          "default": null,
           "description": "`to` is reachable from `from` through other modules.",
           "type": [
             "boolean",
             "null"
-          ],
-          "default": null
+          ]
         },
         "relation": {
-          "description": "How `to` relates to `from`. A dependency matches when it has any of these relations.",
           "anyOf": [
             {
               "$ref": "#/$defs/OneOrMany3"
@@ -406,30 +806,126 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "How `to` relates to `from`. A dependency matches when it has any of these relations."
         },
         "typeOnly": {
+          "default": null,
           "description": "The dependency is only `import type` or `export type`.",
           "type": [
             "boolean",
             "null"
-          ],
-          "default": null
+          ]
         }
       },
-      "additionalProperties": false
+      "type": "object"
     },
     "ToSpec": {
       "anyOf": [
         {
-          "description": "Globs the dependency's target must match.",
-          "$ref": "#/$defs/OneOrMany"
+          "$ref": "#/$defs/OneOrMany",
+          "description": "Globs the dependency's target must match."
         },
         {
-          "description": "An object with conditions on the dependency and its target.",
-          "$ref": "#/$defs/ToCondition"
+          "$ref": "#/$defs/ToCondition",
+          "description": "An object with conditions on the dependency and its target."
         }
       ]
     }
-  }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The oxcruise config file.",
+  "properties": {
+    "$schema": {
+      "default": null,
+      "description": "The URL or path of the JSON schema, for editors.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "calls": {
+      "default": [],
+      "description": "Names of functions whose first string argument is a dependency, for example `jest.mock`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "categories": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Level"
+      },
+      "default": {},
+      "description": "The level of each category of built-in rules. The categories are `correctness`, `suspicious`,\n`style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.",
+      "type": "object"
+    },
+    "doNotFollow": {
+      "$ref": "#/$defs/OneOrMany",
+      "default": [],
+      "description": "Globs of modules that stay in the graph. Oxcruise does not parse their imports."
+    },
+    "entries": {
+      "$ref": "#/$defs/OneOrMany",
+      "default": [],
+      "description": "Files, directories or globs where the graph starts. The default is `[\".\"]`."
+    },
+    "extends": {
+      "default": [],
+      "description": "Paths to other config files. Their settings are the base, and this file changes them.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "forbid": {
+      "default": [],
+      "description": "Forbidden dependencies, written as rules.",
+      "items": {
+        "$ref": "#/$defs/ForbidRule"
+      },
+      "type": "array"
+    },
+    "ignorePatterns": {
+      "$ref": "#/$defs/OneOrMany",
+      "default": [],
+      "description": "Globs of modules to leave out of the graph. Oxcruise also uses the rules of `.gitignore` when it looks for modules."
+    },
+    "jsPlugins": {
+      "default": [],
+      "description": "JS or TS plugins: paths or package names.",
+      "items": {
+        "$ref": "#/$defs/JsPlugin"
+      },
+      "type": "array"
+    },
+    "overrides": {
+      "default": [],
+      "description": "Settings that change rules for some modules.",
+      "items": {
+        "$ref": "#/$defs/Override"
+      },
+      "type": "array"
+    },
+    "resolve": {
+      "$ref": "#/$defs/ResolveSection",
+      "default": {
+        "alias": {},
+        "conditions": [],
+        "tsconfig": null
+      },
+      "description": "How oxcruise resolves imports."
+    },
+    "rules": {
+      "$ref": "#/$defs/Rules"
+    },
+    "symbols": {
+      "default": false,
+      "description": "Extract exports and the names that each import uses, for `json` output and plugins.\nRules that need them enable this option.",
+      "type": "boolean"
+    }
+  },
+  "title": "OxcruiseConfig",
+  "type": "object"
 }

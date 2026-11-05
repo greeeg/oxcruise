@@ -48,16 +48,17 @@ const optionsExample = (docs) => {
 const exampleLevel = (category) => (level(category) === "error" ? "warn" : "error");
 const configExample = (r) => {
   const options = optionsExample(r.docs);
+  const levelText = exampleLevel(r.category);
   const setting = options
-    ? `["${exampleLevel(r.category)}", ${JSON.stringify(options, null, 2).replace(/\n/g, "\n    ")}]`
-    : `"${exampleLevel(r.category)}"`;
+    ? JSON.stringify({ level: levelText, ...options }, null, 2).replace(/\n/g, "\n    ")
+    : `"${levelText}"`;
   return `{\n  "rules": {\n    "${r.name}": ${setting}\n  }\n}`;
 };
 const optionsText = (docs) =>
   optionsExample(docs)
-    ? "The array has the level first, then the options of the rule."
+    ? "The object has the `level` first, then the options of the rule."
     : /^### Options$/m.test(docs)
-      ? "To set options, use an array: the level first, then an object with the options."
+      ? "To set options, use an object: the `level`, then the options of the rule."
       : "";
 const isFixable = (docs) => /^### Fix$/m.test(docs);
 

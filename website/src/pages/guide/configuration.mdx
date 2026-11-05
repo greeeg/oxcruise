@@ -41,11 +41,12 @@ export default defineConfig({
   categories: { correctness: "error", suspicious: "warn" },
   rules: {
     "circular-dependencies": "error",
-    "dev-dependencies-in-production": ["error", { prod: ["src/**"], test: ["**/*.test.ts"] }],
-    layers: [
-      "error",
-      { layers: { ui: "src/ui/**", domain: "src/domain/**" }, allow: { ui: ["domain"], domain: [] } },
-    ],
+    "dev-dependencies-in-production": { level: "error", prod: ["src/**"], test: ["**/*.test.ts"] },
+    layers: {
+      level: "error",
+      layers: { ui: "src/ui/**", domain: "src/domain/**" },
+      allow: { ui: ["domain"], domain: [] },
+    },
   },
   forbid: [
     {

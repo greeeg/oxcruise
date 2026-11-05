@@ -161,6 +161,12 @@ describe("validation of bad plugin shapes", () => {
       /invalid rule name/,
     );
   });
+  test("meta.schema cannot declare level", () => {
+    const rule = { meta: { schema: { level: { type: "string" } } }, create() {} };
+    expect(bad({ meta: { name: "a" }, rules: { r: rule } })).toThrow(
+      /rule `r` declares the option `level` in `meta.schema`/,
+    );
+  });
   test("reporters are functions", () => {
     expect(bad({ meta: { name: "a" }, reporters: { r: "no" } })).toThrow(
       /reporter `r` must be a function/,

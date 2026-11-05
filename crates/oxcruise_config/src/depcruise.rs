@@ -240,7 +240,7 @@ impl Importer {
             }
         };
         Some(ForbidRule {
-            severity: self.severity(r, &name),
+            level: self.severity(r, &name),
             name,
             message: r.get("comment").and_then(Value::as_str).map(str::to_string),
             from: paths(from),

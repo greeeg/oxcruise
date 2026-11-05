@@ -35,7 +35,7 @@ describe("plugin rules through the CLI", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         jsPlugins: [join(fixtures, "plugins/acme.ts")],
-        rules: { "acme/max-fan-out": ["error", { max: 1 }] },
+        rules: { "acme/max-fan-out": { level: "error", max: 1 } },
       }),
     });
     const o = await runCli(strict, []);
@@ -50,7 +50,7 @@ describe("plugin rules through the CLI", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         jsPlugins: [join(fixtures, "plugins/acme.ts")],
-        rules: { "acme/cycle-budget": ["error", { max: 0 }] },
+        rules: { "acme/cycle-budget": { level: "error", max: 0 } },
       }),
     });
     const o = await runCli(dir, []);
@@ -76,7 +76,7 @@ describe("plugin rules through the CLI", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         jsPlugins: [join(fixtures, "plugins/acme.ts")],
-        rules: { "acme/max-fan-out": ["error", { max: 1 }] },
+        rules: { "acme/max-fan-out": { level: "error", max: 1 } },
       }),
     });
     expect((await runCli(file, [])).code).toBe(0);
@@ -101,11 +101,11 @@ describe("plugin rules through the CLI", () => {
     expect(withNeeds.stdout).toContain("symbols=true");
   });
 
-  test("a plugin rule can report an export, and sees its own severity", async () => {
+  test("a plugin rule can report an export, and sees its own level", async () => {
     const dir = project({
       "src/a.ts": "export const a = 1;\nexport const b = 2;\n",
       "plugin.mjs":
-        'export default { meta: { name: "p" }, needs: ["symbols"], rules: { r: { create(ctx) { return { module(m) { for (const x of m.exports) if (x.name === "b") ctx.report({ export: x, message: "no b (" + ctx.severity + ")" }); } }; } } } };\n',
+        'export default { meta: { name: "p" }, needs: ["symbols"], rules: { r: { create(ctx) { return { module(m) { for (const x of m.exports) if (x.name === "b") ctx.report({ export: x, message: "no b (" + ctx.level + ")" }); } }; } } } };\n',
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         categories: { correctness: "off", suspicious: "off" },
@@ -163,7 +163,7 @@ describe("plugin rules through the CLI", () => {
       ".oxcruiserc.json": JSON.stringify({
         entries: ["src"],
         jsPlugins: [{ name: "team", specifier: join(fixtures, "plugins/acme.ts") }],
-        rules: { "team/max-fan-out": ["error", { max: 1 }] },
+        rules: { "team/max-fan-out": { level: "error", max: 1 } },
       }),
     });
     const o = await runCli(dir, []);
@@ -182,7 +182,7 @@ describe("plugin reporters", () => {
       .map((l) => JSON.parse(l));
     expect(lines.map((l) => l.rule).sort()).toEqual(["acme/max-fan-out", "acme/no-direct-db"]);
     expect(lines.find((l) => l.rule === "acme/no-direct-db")).toMatchObject({
-      severity: "error",
+      level: "error",
       file: "src/ui/page.ts",
       line: 3,
     });

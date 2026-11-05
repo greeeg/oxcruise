@@ -280,7 +280,7 @@ fn layers() {
 #[test]
 fn layers_reject_unknown_names() {
     let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(
-        json!({ "rules": { "layers": ["error", { "layers": { "ui": "ui/**" }, "allow": { "ui": ["nope"] } }] } }),
+        json!({ "rules": { "layers": { "level": "error", "layers": { "ui": "ui/**" }, "allow": { "ui": ["nope"] } } } }),
     )
     .unwrap();
     let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
@@ -361,6 +361,48 @@ fn old_rule_names_say_they_were_renamed() {
             "{old}: {err:?}"
         );
     }
+}
+
+#[cfg(feature = "ruledocs")]
+#[test]
+fn no_rule_has_an_option_named_level() {
+    for (name, schema) in oxcruise_rules::registry::builtin_option_schemas() {
+        let has = schema
+            .as_ref()
+            .and_then(|s| s["properties"].as_object())
+            .is_some_and(|p| p.contains_key("level"));
+        assert!(!has, "`{name}` has an option `level`, which is reserved");
+    }
+}
+
+#[cfg(feature = "ruledocs")]
+#[test]
+fn the_config_schema_types_the_options_of_each_rule() {
+    let schema = oxcruise_rules::schema::config_json_schema();
+    let rules = &schema["$defs"]["Rules"];
+    let names: Vec<&str> = oxcruise_rules::builtin_rules()
+        .iter()
+        .map(|r| r.name)
+        .collect();
+    for name in &names {
+        let entry = &rules["properties"][*name]["anyOf"];
+        assert_eq!(entry[0]["$ref"], "#/$defs/Level", "{name}");
+        assert_eq!(
+            entry[1]["properties"]["level"]["$ref"], "#/$defs/Level",
+            "{name}"
+        );
+    }
+    // a rule with options lists them next to `level`, and rejects the rest
+    let layers = &rules["properties"]["layers"]["anyOf"][1];
+    assert!(layers["properties"]["allow"].is_object());
+    assert_eq!(layers["additionalProperties"], false);
+    // plugin rules keep the generic entry
+    assert_eq!(rules["additionalProperties"]["$ref"], "#/$defs/RuleEntry");
+    assert_eq!(schema["properties"]["rules"]["$ref"], "#/$defs/Rules");
+    assert_eq!(
+        schema["$defs"]["Override"]["properties"]["rules"]["$ref"],
+        "#/$defs/Rules"
+    );
 }
 
 #[test]

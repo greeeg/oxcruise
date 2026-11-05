@@ -38,7 +38,7 @@ export interface VizData {
 
 export interface VizViolation {
   rule: number;
-  severity: "error" | "warn";
+  level: "error" | "warn";
   kind: "dependency" | "module" | "cycle" | "reachability" | "export" | "file";
   from?: number;
   file?: string;

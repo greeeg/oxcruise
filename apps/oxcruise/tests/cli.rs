@@ -230,12 +230,43 @@ fn config_errors_are_reported_together() {
         ("src/a.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "circular-dependancies": "error", "layers": ["error", { "allow": { "x": [] } }] } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependancies": "error", "layers": { "level": "error", "allow": { "x": [] } } } }"#,
         ),
     ]);
     let o = run_in(d.path(), &[]);
     assert_eq!(o.result, CliRunResult::InvalidOptions);
     insta::assert_snapshot!("config_errors", o.stderr);
+}
+
+#[test]
+fn the_old_rule_entry_and_forbid_forms_exit_2_with_a_hint() {
+    let d = project(&[
+        ("src/a.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src"], "rules": { "layers": ["error", { "allow": {} }] } }"#,
+        ),
+    ]);
+    let o = run_in(d.path(), &[]);
+    assert_eq!(o.result, CliRunResult::InvalidOptions);
+    assert!(
+        o.stderr
+            .contains(r#"write {"level":"error","allow":{}} instead of ["error",{"allow":{}}]"#)
+            || o.stderr.contains(r#"write {"allow":{},"level":"error"}"#),
+        "{}",
+        o.stderr
+    );
+
+    let d = project(&[
+        ("src/a.ts", "export {};\n"),
+        (
+            ".oxcruiserc.json",
+            r#"{ "entries": ["src"], "forbid": [{ "name": "x", "severity": "warn", "to": "a.ts" }] }"#,
+        ),
+    ]);
+    let o = run_in(d.path(), &[]);
+    assert_eq!(o.result, CliRunResult::InvalidOptions);
+    assert!(o.stderr.contains("renamed to `level`"), "{}", o.stderr);
 }
 
 #[test]
@@ -771,7 +802,7 @@ fn visualize_writes_the_site_and_does_not_gate() {
         .and_then(|d| d.trim_end().strip_suffix("');"))
         .expect("data.js shape");
     let v: serde_json::Value = serde_json::from_str(&json.replace("\\\\", "\\")).unwrap();
-    assert_eq!(v["version"], 1);
+    assert_eq!(v["version"], 2);
     assert!(v["modules"]["name"].as_array().unwrap().len() > 5);
 }
 

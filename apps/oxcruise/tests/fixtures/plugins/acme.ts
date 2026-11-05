@@ -53,7 +53,7 @@ const plugin = {
   },
   reporters: {
     "json-lines": (result) =>
-      result.violations.map((v) => JSON.stringify({ rule: v.rule, severity: v.severity, file: v.from, line: v.line ?? null })).join("\n") + "\n",
+      result.violations.map((v) => JSON.stringify({ rule: v.rule, level: v.level, file: v.from, line: v.line ?? null })).join("\n") + "\n",
   },
 } satisfies PluginDefinition;
 
