@@ -7,9 +7,10 @@ export default defineConfig({
   title: "Oxcruise",
   description:
     "Validate and visualise your JS/TS module graph. Fast, with a small config and plugins in TypeScript.",
-  logoUrl: { light: "/logo-light.svg", dark: "/logo-dark.svg" },
-  iconUrl: "/icon.svg",
-  accentColor: "light-dark(#0f766e, #2dd4bf)",
+  logoUrl: { light: "/logo-light.png", dark: "/logo-dark.png" },
+  iconUrl: "/icon.png",
+  head: { link: [{ rel: "apple-touch-icon", href: "/apple-touch-icon.png" }] },
+  accentColor: "light-dark(#19478e, #5897e2)",
   baseUrl: "https://oxcruise.dev",
   renderStrategy: "full-static",
   checkDeadlinks: true,
