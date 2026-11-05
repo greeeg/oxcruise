@@ -238,7 +238,8 @@ export interface Rules {
         /**
          * Entries for cycles between folders. Each entry has a `path`. A dependency from a module in
          * one folder to a module in another folder of the same entry is a dependency between the
-         * folders. A cycle between two or more of them is a violation.
+         * folders. A cycle between two or more of them is a violation. The limit
+         * `maxCyclesPerComponent` applies to the dependencies between folders as well.
          */
         folders?: CircularFolder[];
         /**
@@ -306,7 +307,7 @@ export interface Rules {
         level?: Level;
       };
   /**
-   * Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules.
+   * Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules. For the folders above the entry folders, such as the root folder, it knows their own files and folders, but not what is inside the other folders. It does not check those other folders.
    */
   "folder-structure"?:
     | Level

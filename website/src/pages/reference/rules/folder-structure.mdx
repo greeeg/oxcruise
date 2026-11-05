@@ -13,6 +13,8 @@ Category: [nursery](/reference/rules#nursery). Default: off. Fixable: no. Since:
 
 Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
 The rule looks at all files in the entry folders, not only at modules.
+For the folders above the entry folders, such as the root folder, it knows their own files and folders, but not what is inside the other folders.
+It does not check those other folders.
 
 ## Why is this bad?
 
@@ -27,7 +29,7 @@ Without the check, the convention drifts: a page has no owner file, or a helper 
     A glob can also match a file, such as `src/components/**/{c}.tsx`. Then the checks apply to the folder of the file.
     A glob that starts with `!` removes folders from the match.
   * `require`: globs of the files and folders that the folder must have. A glob is relative to the folder and can contain `/`.
-    `{name}` stands for the capture of `path`. `{a,b}` means one of `a` and `b`.
+    `{name}` stands for the capture of `path`, and `path` must capture it. `{a,b}` means one of `a` and `b`.
   * `allow`: globs of the names that the files and folders directly in the folder can have.
     Deeper levels need their own entry. A glob that starts with `!` forbids a name.
     A list of only such globs allows every other name.

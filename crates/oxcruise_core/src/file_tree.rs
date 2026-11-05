@@ -1,6 +1,6 @@
 //! The files of the project and the folders above them, for rules that check the shape of the tree.
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// The index of a folder in [`FileTree::folders`]. The root folder is `FolderId(0)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -19,10 +19,16 @@ impl FolderId {
 /// Paths are relative to the cruise root and use `/`. The root folder has the path `""`. Files and
 /// folders are sorted by path, so the paths below a folder are one slice, and the children of a
 /// folder are stored in CSR form. The tree is frozen once built.
+///
+/// Every folder is listed (its files and folders are all in the tree), except those given to
+/// [`FileTree::with_unlisted`]. Those are known to exist and nothing more, so a rule must not
+/// conclude from the tree that something is missing from them.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FileTree {
     files: Vec<String>,
     folders: Vec<String>,
+    /// Per folder: is its content in the tree?
+    listed: Vec<bool>,
     child_folder_offsets: Vec<u32>,
     child_folders: Vec<FolderId>,
     child_file_offsets: Vec<u32>,
@@ -41,22 +47,38 @@ pub fn parent_path(path: &str) -> &str {
 
 impl FileTree {
     /// Build the tree of `files`: paths relative to the root. Duplicates are dropped.
-    pub fn new(mut files: Vec<String>) -> FileTree {
+    pub fn new(files: Vec<String>) -> FileTree {
+        FileTree::with_unlisted(files, vec![])
+    }
+
+    /// Like [`FileTree::new`], with folders whose content is not in `files`: `unlisted` are
+    /// folder paths, and the folders above them are derived as for a file.
+    pub fn with_unlisted(mut files: Vec<String>, unlisted: Vec<String>) -> FileTree {
         files.sort_unstable();
         files.dedup();
 
         // every folder that holds a file, and every folder above them
-        let mut seen: FxHashMap<&str, ()> = FxHashMap::default();
-        seen.insert("", ());
-        for file in &files {
-            let mut dir = parent_path(file);
-            while seen.insert(dir, ()).is_none() {
+        let mut seen: FxHashSet<&str> = FxHashSet::default();
+        seen.insert("");
+        for dir in files
+            .iter()
+            .map(|f| parent_path(f))
+            .chain(unlisted.iter().map(String::as_str))
+        {
+            let mut dir = dir;
+            while seen.insert(dir) {
                 dir = parent_path(dir);
             }
         }
-        let mut folders: Vec<String> = seen.keys().map(|p| p.to_string()).collect();
+        let mut folders: Vec<String> = seen.iter().map(|p| p.to_string()).collect();
         drop(seen);
         folders.sort_unstable();
+        let mut listed = vec![true; folders.len()];
+        for dir in &unlisted {
+            if let Ok(i) = folders.binary_search(dir) {
+                listed[i] = false;
+            }
+        }
 
         let ids: FxHashMap<&str, u32> = folders
             .iter()
@@ -97,6 +119,7 @@ impl FileTree {
         FileTree {
             files,
             folders,
+            listed,
             child_folder_offsets,
             child_folders,
             child_file_offsets,
@@ -120,6 +143,11 @@ impl FileTree {
 
     pub fn folder(&self, f: FolderId) -> &str {
         &self.folders[f.idx()]
+    }
+
+    /// Is the content of `f` in the tree? `false` for a folder that was only seen from above.
+    pub fn is_listed(&self, f: FolderId) -> bool {
+        self.listed[f.idx()]
     }
 
     pub fn file(&self, i: u32) -> &str {
@@ -247,6 +275,20 @@ mod tests {
         let (first, below) = t.folders_with_prefix("a/");
         assert_eq!(below, ["a/c"]);
         assert_eq!(t.folder(first), "a/c");
+    }
+
+    #[test]
+    fn unlisted_folders_exist_but_are_not_listed() {
+        let t = FileTree::with_unlisted(
+            vec!["package.json".into(), "src/a.ts".into()],
+            vec!["lib".into(), "docs/api".into()],
+        );
+        assert_eq!(t.folders(), ["", "docs", "docs/api", "lib", "src"]);
+        let listed: Vec<bool> = (0..t.folder_count() as u32)
+            .map(|i| t.is_listed(FolderId(i)))
+            .collect();
+        assert_eq!(listed, [true, true, false, false, true]);
+        assert!(FileTree::new(vec!["a/b.ts".into()]).is_listed(FolderId(1)));
     }
 
     #[test]

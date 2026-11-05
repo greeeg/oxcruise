@@ -563,45 +563,53 @@ impl Engine {
         // Modules are grouped by (the setting that gave the options, level), not one by one.
         let n = graph.module_count();
         let base_level = plan.base.as_ref().map_or(Level::Off, |b| b.level);
-        let mut by_slot: BTreeMap<(usize, u8), BitSet> = BTreeMap::new();
+        let mut by_slot: BTreeMap<(usize, ViolationLevel), BitSet> = BTreeMap::new();
         for i in 0..n {
             let (slot, level) =
                 self.effective(plan, base_level, |oi| override_sets[oi].contains(i));
-            if let Some(code) = level_code(level) {
+            if let Some(level) = level.to_violation_level() {
                 by_slot
-                    .entry((slot, code))
+                    .entry((slot, level))
                     .or_insert_with(|| BitSet::new(n))
                     .insert(i);
             }
         }
         // A rule that checks paths needs a variant for every setting a path can have, also those
-        // that no module has: a folder can match an override that no module matches.
-        let path_rule = make(&serde_json::Value::Null)
+        // that no module has: a folder can match an override that no module matches. Whether the
+        // rule checks paths is read from a rule built from one of the settings.
+        let path_rule = plan
+            .base
+            .iter()
+            .map(|b| &b.options)
+            .chain(plan.overrides.iter().map(|(_, o)| &o.options))
+            .find_map(make)
             .is_some_and(|r| r.requirements().contains(Analyses::FILE_TREE));
         if path_rule {
             for slot in 0..=plan.overrides.len() {
-                let codes: &[u8] = match slot {
-                    0 => &[],
+                let levels: Vec<ViolationLevel> = match slot {
+                    0 => base_level.to_violation_level().into_iter().collect(),
                     k => match plan.overrides[k - 1].1.level {
-                        Some(l) => &[level_code(l).unwrap_or(2)][..],
-                        None => &[0, 1],
+                        Some(l) => l.to_violation_level().into_iter().collect(),
+                        // the level so far, which depends on the overrides before it
+                        None => vec![ViolationLevel::Error, ViolationLevel::Warn],
                     },
                 };
-                let base_code = level_code(base_level);
-                for &code in codes.iter().chain(base_code.iter().filter(|_| slot == 0)) {
-                    if code < 2 {
-                        by_slot
-                            .entry((slot, code))
-                            .or_insert_with(|| BitSet::new(n));
-                    }
+                for level in levels {
+                    by_slot
+                        .entry((slot, level))
+                        .or_insert_with(|| BitSet::new(n));
                 }
             }
         }
         // Slots with the same effective setting become one rule.
-        type Group<'p> = (Level, &'p serde_json::Value, BitSet, Vec<(usize, u8)>);
+        type Group<'p> = (
+            ViolationLevel,
+            &'p serde_json::Value,
+            BitSet,
+            Vec<(usize, ViolationLevel)>,
+        );
         let mut groups: BTreeMap<String, Group<'_>> = BTreeMap::new();
-        for ((slot, code), set) in by_slot {
-            let level = if code == 1 { Level::Warn } else { Level::Error };
+        for ((slot, level), set) in by_slot {
             let options = match slot {
                 0 => match &plan.base {
                     Some(b) => &b.options,
@@ -609,19 +617,19 @@ impl Engine {
                 },
                 k => &plan.overrides[k - 1].1.options,
             };
-            let key = format!("{level:?}|{options}");
+            let key = format!("{}|{options}", level.as_str());
             match groups.entry(key) {
                 std::collections::btree_map::Entry::Occupied(mut o) => {
                     o.get_mut().2.union_with(&set);
-                    o.get_mut().3.push((slot, code));
+                    o.get_mut().3.push((slot, level));
                 }
                 std::collections::btree_map::Entry::Vacant(v) => {
-                    v.insert((level, options, set, vec![(slot, code)]));
+                    v.insert((level, options, set, vec![(slot, level)]));
                 }
             }
         }
         for (_, (level, options, set, slots)) in groups {
-            if let (Some(level), Some(rule)) = (level.to_violation_level(), make(options)) {
+            if let Some(rule) = make(options) {
                 out.push(Resolved {
                     name: plan.name.clone(),
                     rule,
@@ -657,21 +665,12 @@ impl Engine {
     }
 }
 
-/// `0` for `error`, `1` for `warn`, `None` for `off`.
-fn level_code(level: Level) -> Option<u8> {
-    match level {
-        Level::Off => None,
-        Level::Warn => Some(1),
-        Level::Error => Some(0),
-    }
-}
-
 /// Which paths a rule that reports paths applies to: those whose effective setting is one of
 /// `slots`. The `files` of the overrides match the path itself, not a module.
 struct PathScope<'e> {
     engine: &'e Engine,
     plan: &'e Plan,
-    slots: Vec<(usize, u8)>,
+    slots: Vec<(usize, ViolationLevel)>,
 }
 
 impl PathScope<'_> {
@@ -680,7 +679,9 @@ impl PathScope<'_> {
         let (slot, level) = self.engine.effective(self.plan, base_level, |oi| {
             self.engine.override_files[oi].is_match(path)
         });
-        level_code(level).is_some_and(|code| self.slots.contains(&(slot, code)))
+        level
+            .to_violation_level()
+            .is_some_and(|level| self.slots.contains(&(slot, level)))
     }
 }
 

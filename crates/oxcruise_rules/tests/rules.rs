@@ -774,6 +774,147 @@ fn folder_structure_ignore_file_silences_a_module_but_not_a_missing_file() {
     assert!(out.contains("y.tsx"), "{out}");
 }
 
+#[test]
+fn folder_structure_does_not_check_a_folder_it_has_not_listed() {
+    let entry = json!([{ "path": "lib", "require": "index.ts", "case": "kebab-case" }]);
+    // the root is listed, and `lib` is only known to exist: nothing says `index.ts` is missing
+    folders(entry.clone())
+        .with_files(&["README.md"])
+        .with_unlisted_folders(&["lib"])
+        .pass(&["src/a.ts"]);
+    // listed, with a file that is not `index.ts`, it is
+    folders(entry)
+        .with_files(&["README.md", "lib/notes.md"])
+        .fail(&["src/a.ts"]);
+    // the names in a listed folder include the unlisted folders in it
+    let out = folders(json!([{ "path": ".", "case": "pascal-case" }]))
+        .with_unlisted_folders(&["lib"])
+        .fail(&["Src/A.ts"]);
+    assert!(out.contains("`lib` in `.` must be in pascal-case"), "{out}");
+}
+
+#[test]
+fn folder_structure_matching_files_check_their_folder_once() {
+    // every file in the folder matches `path`, and the folder is still checked once
+    let t = folders(json!([{ "path": "src/**", "allow": "!tmp" }]));
+    let lines: Vec<String> = (0..20).map(|i| format!("src/a/f{i}.ts")).collect();
+    let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
+    t.pass(&lines);
+    let out = folders(json!([{ "path": "src/**", "require": "owner.ts" }])).fail(&lines);
+    assert_eq!(out.matches("src/a/owner.ts").count(), 1, "{out}");
+}
+
+#[test]
+fn folder_structure_case_accepts_letters_of_any_script() {
+    let t = folders(json!([{ "path": "src", "case": "kebab-case" }]));
+    t.pass(&["src/café-société.ts", "src/données.ts", "src/a1-b2.ts"]);
+    t.fail(&["src/__tests__/a.ts"]);
+    t.fail(&["src/Données.ts"]);
+    t.fail(&["src/a--b.ts"]);
+    t.fail(&["src/-a.ts"]);
+    t.fail(&["src/a-.ts"]);
+    let t = folders(json!([{ "path": "src", "case": "pascal-case" }]));
+    t.pass(&["src/Émile.ts", "src/Button2.ts"]);
+    t.fail(&["src/émile.ts"]);
+}
+
+#[test]
+fn folder_structure_a_reference_must_be_captured_by_the_path() {
+    let errors = |folders: Value| {
+        let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+            "rules": { "folder-structure": { "folders": folders } }
+        }))
+        .unwrap();
+        oxcruise_rules::Engine::new(&cfg, None)
+            .err()
+            .unwrap()
+            .join("\n")
+    };
+    let e = errors(json!([
+        { "path": "src/{a}", "require": "{b}.ts", "allow": ["{a}.ts", "{c}.ts"] },
+        // a capture in a negation of `path` captures nothing
+        { "path": ["src/{x}", "!src/{y}"], "require": "{y}.ts" },
+        // a bad `require`, a bad `allow` and no check at all: all three are reported
+        { "path": "z", "require": "!q", "allow": [] },
+        { "path": "w", "case": "kebab-case" }
+    ]));
+    assert!(
+        e.contains("folders[0]: `require`: `{b}` in `{b}.ts` is not captured"),
+        "{e}"
+    );
+    assert!(
+        e.contains("folders[0]: `allow`: `{c}` in `{c}.ts` is not captured"),
+        "{e}"
+    );
+    assert!(!e.contains("`{a}`"), "{e}");
+    assert!(e.contains("folders[1]: `require`: `{y}`"), "{e}");
+    assert!(
+        e.contains("folders[2]: `require` takes globs that name something: `!q`"),
+        "{e}"
+    );
+    assert!(e.contains("folders[2]: `allow` needs a glob"), "{e}");
+    assert!(!e.contains("folders[3]"), "{e}");
+}
+
+#[test]
+fn visibility_a_reference_must_be_captured_by_the_path() {
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+        "rules": { "visibility": { "folders": [
+            { "path": "src/{f}", "public": "{f}.ts", "private": "{g}.ts" }
+        ] } }
+    }))
+    .unwrap();
+    let err = oxcruise_rules::Engine::new(&cfg, None)
+        .err()
+        .unwrap()
+        .join("\n");
+    assert!(err.contains("folders[0]: `private`: `{g}`"), "{err}");
+    assert!(!err.contains("`public`"), "{err}");
+}
+
+#[test]
+fn circular_dependencies_between_folders_report_what_the_limit_left_out() {
+    // three folders that depend on each other both ways: six dependencies between folders
+    let lines = [
+        "src/features/a/x.ts -> src/features/b/x.ts",
+        "src/features/b/x.ts -> src/features/a/x.ts",
+        "src/features/a/y.ts -> src/features/c/x.ts",
+        "src/features/c/x.ts -> src/features/a/y.ts",
+        "src/features/b/y.ts -> src/features/c/y.ts",
+        "src/features/c/y.ts -> src/features/b/y.ts",
+    ];
+    let t = folder_cycles(json!({ "maxCyclesPerComponent": 2 }));
+    let r = t.run(&lines);
+    let left_out: Vec<_> = r
+        .violations
+        .iter()
+        .filter(|v| {
+            v.message
+                .contains("more dependencies in this group of 3 folders")
+        })
+        .collect();
+    // one violation, on the first module of the group, as for the cycles between modules
+    assert_eq!(left_out.len(), 1, "{:#?}", r.violations);
+    assert!(
+        left_out[0].message.contains("4 more dependencies"),
+        "{}",
+        left_out[0].message
+    );
+    assert_eq!(left_out[0].to, None);
+    assert!(
+        r.warnings.is_empty(),
+        "the limit is not a loose warning: {:?}",
+        r.warnings
+    );
+    // the default limit leaves a small group alone
+    let r = folder_cycles(json!({})).run(&lines);
+    assert!(
+        r.violations
+            .iter()
+            .all(|v| !v.message.contains("more dependencies"))
+    );
+}
+
 fn folder_cycles(extra: Value) -> Tester {
     let mut options = json!({ "folders": [{ "path": "src/features/{f}" }] });
     for (k, v) in extra.as_object().into_iter().flatten() {

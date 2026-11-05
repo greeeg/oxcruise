@@ -41,3 +41,7 @@ required-features = ["ruledocs"]
 [[bench]]
 name = "circular_dependencies"
 harness = false
+
+[[bench]]
+name = "folder_rules"
+harness = false

@@ -46,7 +46,7 @@ fn parts(n: usize) -> (Vec<Module>, Vec<Edge>) {
 fn bench(c: &mut Criterion) {
     let (modules, edges) = parts(50_000);
     let g = Graph::build(modules, edges);
-    let mut group = c.benchmark_group("no-circular-50k");
+    let mut group = c.benchmark_group("circular-dependencies-50k");
     group.sample_size(10);
     // nearly every module sits in one giant component: the worst case for the rule
     for (name, options) in [

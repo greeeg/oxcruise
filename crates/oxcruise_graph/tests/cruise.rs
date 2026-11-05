@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use oxcruise_core::{DepKinds, Graph, ModuleKind};
+use oxcruise_core::{DepKinds, FolderId, Graph, ModuleKind};
 use oxcruise_graph::{CruiseOptions, PathMatcher, cruise};
 
 fn fixture() -> PathBuf {
@@ -231,14 +231,56 @@ fn the_file_tree_has_every_file_below_the_entry_folders_and_only_when_asked() {
     assert!(tree.has_file("packages/app/package.json"));
     assert!(tree.has_file("packages/app/src/index.ts"));
     assert!(!tree.files().iter().any(|f| f.contains("node_modules")));
-    // the entry folder is `packages`: the files beside it are not in the tree
-    assert!(!tree.files().iter().any(|f| !f.starts_with("packages/")));
+    // the entry folder is `packages`: the root above it is listed, so its own files are there
+    assert!(tree.has_file("package.json"));
+    assert!(tree.is_listed(FolderId::ROOT));
     let app = tree.folder_id("packages/app/src").unwrap();
     assert!(
         tree.child_files(app)
             .iter()
             .any(|&i| tree.file(i) == "packages/app/src/index.ts")
     );
+}
+
+#[test]
+fn the_folders_above_the_entries_are_listed_one_level_deep() {
+    let d = tempfile::tempdir().unwrap();
+    for (p, text) in [
+        ("package.json", "{}"),
+        ("README.md", ""),
+        ("src/a/index.ts", ""),
+        ("scripts/run.ts", ""),
+        ("scripts/deep/x.ts", ""),
+        ("lib/x.ts", ""),
+        ("docs/guide/a.md", ""),
+    ] {
+        let path = d.path().join(p);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    let mut o = CruiseOptions::new(d.path().canonicalize().unwrap(), vec!["src".into()]);
+    o.file_tree = true;
+    let tree = cruise(&o).unwrap().file_tree.unwrap();
+    // the root is listed: its files are there, and its folders are known but not listed
+    assert!(tree.has_file("package.json") && tree.has_file("README.md"));
+    assert!(tree.is_listed(FolderId::ROOT));
+    for unlisted in ["lib", "docs", "scripts"] {
+        let id = tree
+            .folder_id(unlisted)
+            .unwrap_or_else(|| panic!("{unlisted}"));
+        assert!(!tree.is_listed(id), "{unlisted}");
+        assert!(tree.child_files(id).is_empty() && tree.child_folders(id).is_empty());
+    }
+    assert!(tree.folder_id("docs/guide").is_none());
+    assert!(tree.is_listed(tree.folder_id("src/a").unwrap()));
+
+    // an entry file lists its folder, and the folders in it are unlisted
+    o.entries = vec!["src".into(), "scripts/run.ts".into()];
+    let tree = cruise(&o).unwrap().file_tree.unwrap();
+    let scripts = tree.folder_id("scripts").unwrap();
+    assert!(tree.is_listed(scripts) && tree.has_file("scripts/run.ts"));
+    assert!(!tree.is_listed(tree.folder_id("scripts/deep").unwrap()));
+    assert!(!tree.has_file("scripts/deep/x.ts"));
 }
 
 #[test]

@@ -27,7 +27,7 @@ The rule checks dependencies on local modules.
     `private` wins over `public`.
   * `message`: Oxcruise shows this text instead of the generic message.
 
-`public` and `private` can use the captures of `path`.
+`public` and `private` can use the captures of `path`, and `path` must capture each one that they use.
 A folder is relevant to a dependency only when it contains the target and not the importing module.
 If several folders hide the target, the rule reports the outermost one.
 

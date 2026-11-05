@@ -38,10 +38,11 @@ That violation gives the number of dependencies that the rule did not search.
 ## Cycles between folders
 
 * `folders`: a list of entries, each with a `path`. `{name}` in the `path` captures a path segment.
+  A glob that starts with `!` removes folders from the match.
   The rule groups the modules below each matching folder.
   A dependency between modules in two folders of one entry is a dependency between the folders.
   A cycle between two or more folders of one entry is a violation.
-  The rule honours `includeTypeOnly` and `ignore`. It also reports the cycles between modules, as before.
+  The rule honours `includeTypeOnly`, `ignore` and `maxCyclesPerComponent`. It also reports the cycles between modules, as before.
   To silence a folder cycle, put an `oxcruise-ignore-next-line circular-dependencies` comment above one dependency of the cycle.
 
 ```json

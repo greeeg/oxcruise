@@ -54,7 +54,7 @@ declare_rule! {
     ///     `private` wins over `public`.
     ///   * `message`: Oxcruise shows this text instead of the generic message.
     ///
-    /// `public` and `private` can use the captures of `path`.
+    /// `public` and `private` can use the captures of `path`, and `path` must capture each one that they use.
     /// A folder is relevant to a dependency only when it contains the target and not the importing module.
     /// If several folders hide the target, the rule reports the outermost one.
     ///
@@ -75,42 +75,61 @@ declare_rule! {
     Visibility, category = restriction, version = "0.1.0", config = VisibilityConfig
 }
 
+/// The patterns of `public` or `private`, with their text for the messages.
+type Compiled = Option<(PathPatterns, Vec<String>)>;
+
 #[derive(Debug)]
 struct Entry {
     path: FolderPath,
-    public: Option<(PathPatterns, Vec<String>)>,
-    private: Option<(PathPatterns, Vec<String>)>,
+    public: Compiled,
+    private: Compiled,
     message: Option<String>,
 }
 
 impl Entry {
-    fn from_config(c: VisibilityFolder, where_: &str) -> Result<Entry, String> {
+    /// Every error of the entry, not the first.
+    fn from_config(c: VisibilityFolder, where_: &str) -> Result<Entry, Vec<String>> {
+        let mut errors = vec![];
         if c.public.is_none() && c.private.is_none() {
-            return Err(format!(
+            errors.push(format!(
                 "{where_}: needs at least one of `public` and `private`"
             ));
         }
-        let path = FolderPath::new(&c.path, where_)?;
-        type Compiled = Option<(PathPatterns, Vec<String>)>;
-        let compile = |key: &str, paths: Option<Paths>| -> Result<Compiled, String> {
-            paths
-                .map(|p| {
-                    let globs = p.to_vec();
-                    if globs.is_empty() {
-                        return Err(format!("{where_}: `{key}` needs a glob"));
-                    }
-                    let patterns = PathPatterns::new(&globs, Role::Referencing)
-                        .map_err(|e| format!("{where_}: `{key}`: {e}"))?;
-                    Ok((patterns, globs))
-                })
-                .transpose()
+        let path = match FolderPath::new(&c.path, where_) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                errors.push(e);
+                None
+            }
         };
-        Ok(Entry {
-            path,
-            public: compile("public", c.public)?,
-            private: compile("private", c.private)?,
-            message: c.message,
-        })
+        let mut compile = |key: &str, paths: Option<Paths>| -> Compiled {
+            let globs = paths?.to_vec();
+            if globs.is_empty() {
+                errors.push(format!("{where_}: `{key}` needs a glob"));
+                return None;
+            }
+            if let Some(path) = &path {
+                errors.extend(path.check_references(&globs, key, where_));
+            }
+            match PathPatterns::new(&globs, Role::Referencing) {
+                Ok(patterns) => Some((patterns, globs)),
+                Err(e) => {
+                    errors.push(format!("{where_}: `{key}`: {e}"));
+                    None
+                }
+            }
+        };
+        let public = compile("public", c.public);
+        let private = compile("private", c.private);
+        match (path, errors.is_empty()) {
+            (Some(path), true) => Ok(Entry {
+                path,
+                public,
+                private,
+                message: c.message,
+            }),
+            _ => Err(errors),
+        }
     }
 
     /// Why `to` (`rel` in `folder`) is hidden from outside, or `None` if it is visible.
@@ -193,7 +212,7 @@ impl Rule for Visibility {
         for (i, folder) in c.folders.into_iter().enumerate() {
             match Entry::from_config(folder, &format!("folders[{i}]")) {
                 Ok(e) => entries.push(e),
-                Err(e) => errors.push(e),
+                Err(e) => errors.extend(e),
             }
         }
         if errors.is_empty() {
@@ -220,28 +239,23 @@ impl Rule for Visibility {
             return;
         }
         let matches = self.matches(cx.graph());
-        // The folders that hold `to` but not `from`, outermost first: those below the folder
-        // that the two modules share.
-        let mut dirs: Vec<&str> = vec![];
-        let mut dir = parent_path(&to.path);
-        while !dir.is_empty() {
-            let holds_from = from
-                .path
-                .strip_prefix(dir)
-                .is_some_and(|rest| rest.starts_with('/'));
-            if holds_from {
-                break;
+        // The folders that hold `to` but not `from`, outermost first: those below the folder that
+        // the two modules share. Each is the text of `to` up to a `/`, so no list is built.
+        let (from, to) = (from.path.as_str(), to.path.as_str());
+        let mut shared = true;
+        for (end, _) in to.match_indices('/') {
+            // `to` ends with its file name, so every `/` closes a folder
+            shared = shared && from.get(..=end) == to.get(..=end);
+            if shared {
+                continue;
             }
-            dirs.push(dir);
-            dir = parent_path(dir);
-        }
-        for dir in dirs.into_iter().rev() {
+            let dir = &to[..end];
             let Some(hits) = matches.get(dir) else {
                 continue;
             };
-            let rel = &to.path[dir.len() + 1..];
+            let rel = &to[end + 1..];
             for (i, caps) in hits {
-                if let Some(message) = self.entries[*i].hides(&to.path, rel, caps, dir) {
+                if let Some(message) = self.entries[*i].hides(to, rel, caps, dir) {
                     cx.report_edge(e, message);
                     return;
                 }

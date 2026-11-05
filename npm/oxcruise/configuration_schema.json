@@ -135,6 +135,7 @@
       "type": "object"
     },
     "ForbidRule": {
+      "additionalProperties": false,
       "description": "A dependency that the project does not allow.\nAn import from a module that matches `from` to a target that matches `to` is a violation.",
       "properties": {
         "from": {
@@ -383,7 +384,7 @@
               "additionalProperties": false,
               "properties": {
                 "folders": {
-                  "description": "Entries for cycles between folders. Each entry has a `path`. A dependency from a module in\none folder to a module in another folder of the same entry is a dependency between the\nfolders. A cycle between two or more of them is a violation.",
+                  "description": "Entries for cycles between folders. Each entry has a `path`. A dependency from a module in\none folder to a module in another folder of the same entry is a dependency between the\nfolders. A cycle between two or more of them is a violation. The limit\n`maxCyclesPerComponent` applies to the dependencies between folders as well.",
                   "items": {
                     "$ref": "#/$defs/CircularFolder"
                   },
@@ -544,7 +545,7 @@
               "type": "object"
             }
           ],
-          "description": "Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules."
+          "description": "Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules. For the folders above the entry folders, such as the root folder, it knows their own files and folders, but not what is inside the other folders. It does not check those other folders."
         },
         "layers": {
           "anyOf": [

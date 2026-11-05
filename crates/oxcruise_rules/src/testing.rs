@@ -27,6 +27,8 @@ pub struct Tester {
     manifests: Vec<DeclaredManifest>,
     /// Files that are not modules, for rules that look at the file tree.
     files: Vec<String>,
+    /// Folders that exist, with nothing known about what is in them.
+    unlisted: Vec<String>,
 }
 
 /// `name[:type][{A+B}][~rule][^][@duplicate]`
@@ -100,6 +102,7 @@ impl Tester {
             packages: vec![],
             manifests: vec![],
             files: vec![],
+            unlisted: vec![],
         }
     }
 
@@ -177,6 +180,12 @@ impl Tester {
     /// run has these and the local modules of the graph.
     pub fn with_files(mut self, files: &[&str]) -> Self {
         self.files.extend(files.iter().map(|f| f.to_string()));
+        self
+    }
+
+    /// Folders of the project whose content is not in the file tree (paths relative to the root).
+    pub fn with_unlisted_folders(mut self, folders: &[&str]) -> Self {
+        self.unlisted.extend(folders.iter().map(|f| f.to_string()));
         self
     }
 
@@ -370,13 +379,14 @@ impl Tester {
         let engine =
             Engine::new(&self.config, None).unwrap_or_else(|e| panic!("bad test config: {e:?}"));
         let tree = engine.wants_file_tree().then(|| {
-            FileTree::new(
+            FileTree::with_unlisted(
                 g.modules()
                     .iter()
                     .filter(|m| m.kind == ModuleKind::Local)
                     .map(|m| m.path.clone())
                     .chain(self.files.iter().cloned())
                     .collect(),
+                self.unlisted.clone(),
             )
         });
         engine.run(

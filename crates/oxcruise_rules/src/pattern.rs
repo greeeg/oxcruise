@@ -35,6 +35,12 @@ pub struct PathPatterns {
 enum Item {
     Static(Regex),
     Template(Template),
+    /// Text and references only, so it names one path once the captures are known: compared as
+    /// text, with no regex to compile per capture.
+    Literal {
+        literal: Literal,
+        exact: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -48,6 +54,9 @@ impl Item {
     fn compile(glob: &str, capturing: bool, exact: bool) -> Result<Item, String> {
         let src = glob.strip_prefix("./").unwrap_or(glob);
         if !capturing && placeholder_spans(src).next().is_some() {
+            if let Some(literal) = Literal::parse(src) {
+                return Ok(Item::Literal { literal, exact });
+            }
             return Ok(Item::Template(Template {
                 source: src.to_string(),
                 exact,
@@ -63,6 +72,7 @@ impl Item {
         match self {
             Item::Static(re) => re.is_match(path),
             Item::Template(t) => t.regex(caps).is_some_and(|re| re.is_match(path)),
+            Item::Literal { literal, exact } => literal.names(path, caps, *exact),
         }
     }
 }
@@ -126,7 +136,7 @@ impl PathPatterns {
         self.positive
             .iter()
             .chain(&self.negative)
-            .any(|i| matches!(i, Item::Template(_)))
+            .any(|i| matches!(i, Item::Template(_) | Item::Literal { .. }))
     }
 
     /// Does the list match `path`? Patterns that refer to captures that `caps` lacks never
@@ -162,7 +172,7 @@ impl PathPatterns {
                     }
                     caps
                 }),
-                Item::Template(_) => None,
+                Item::Template(_) | Item::Literal { .. } => None,
             })?;
         }
         (!self.negative.iter().any(|i| i.is_match(path, &caps))).then_some(caps)
@@ -218,6 +228,11 @@ fn placeholder_spans(src: &str) -> impl Iterator<Item = (usize, usize, &str)> {
         }
         None
     })
+}
+
+/// The names of the `{name}` references in `glob`.
+pub fn placeholder_names(glob: &str) -> impl Iterator<Item = &str> {
+    placeholder_spans(glob).map(|(_, _, name)| name)
 }
 
 fn is_ident(s: &str) -> bool {
@@ -315,6 +330,26 @@ impl Literal {
             LiteralPart::Capture(_) => true,
         });
         plain.then_some(Literal { parts })
+    }
+
+    /// Does `path` equal this glob under `caps`? Unless `exact`, a path below it matches too, as
+    /// for any glob. `false` if `caps` lacks a reference. Allocates nothing.
+    fn names(&self, path: &str, caps: &Captures, exact: bool) -> bool {
+        let mut rest = path;
+        for p in &self.parts {
+            let text = match p {
+                LiteralPart::Text(t) => t.as_str(),
+                LiteralPart::Capture(name) => match caps.get(name) {
+                    Some(v) => v.as_str(),
+                    None => return false,
+                },
+            };
+            match rest.strip_prefix(text) {
+                Some(r) => rest = r,
+                None => return false,
+            }
+        }
+        rest.is_empty() || (!exact && rest.starts_with('/'))
     }
 
     /// The path, with each reference replaced by its capture. `None` if `caps` lacks one.
@@ -615,6 +650,41 @@ mod tests {
         assert_eq!(prefix(&["!src/a"]), "");
         assert_eq!(prefix(&["src/a", "!src/b"]), "src/a");
         assert_eq!(prefix(&["ü/{x}", "ü/y"]), "ü/");
+    }
+
+    #[test]
+    fn a_template_of_text_and_references_is_compared_as_text_and_matches_like_its_regex() {
+        let caps: Captures = [("f".to_string(), "a.b".to_string())].into_iter().collect();
+        for exact in [false, true] {
+            let globs = ["{f}.test.ts".to_string(), "src/{f}".to_string()];
+            let p = if exact {
+                PathPatterns::exact(&globs, Role::Referencing)
+            } else {
+                PathPatterns::new(&globs, Role::Referencing)
+            }
+            .unwrap();
+            assert!(p.refers_to_captures());
+            for (glob, path) in [
+                ("a\\.b.test.ts", "a.b.test.ts"),
+                ("a\\.b.test.ts", "aXb.test.ts"),
+                ("a\\.b.test.ts", "a.b.test.ts/x"),
+                ("a\\.b.test.ts", "a.b.test.tsx"),
+                ("src/a\\.b", "src/a.b"),
+                ("src/a\\.b", "src/a.b/deep/x.ts"),
+                ("src/a\\.b", "src/a.bc"),
+                ("src/a\\.b", "src"),
+            ] {
+                // the regex of the glob with the capture put in, as a template would compile it
+                let re = regex::Regex::new(&glob_regex(glob, false, exact)).unwrap();
+                assert_eq!(
+                    p.is_match(path, &caps),
+                    re.is_match(path),
+                    "{glob} {path} {exact}"
+                );
+            }
+            // no capture, no match
+            assert!(!p.is_match("a.b.test.ts", &Captures::default()));
+        }
     }
 
     #[test]

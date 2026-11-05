@@ -7,11 +7,13 @@
 
 use oxcruise_config::Paths;
 
-use crate::pattern::{Captures, PathPatterns, Role};
+use crate::pattern::{Captures, PathPatterns, Role, placeholder_names};
 
 #[derive(Debug)]
 pub struct FolderPath {
     patterns: PathPatterns,
+    /// The names that the positive globs capture.
+    names: Vec<String>,
 }
 
 impl FolderPath {
@@ -23,7 +25,30 @@ impl FolderPath {
         }
         let patterns = PathPatterns::exact(&globs, Role::Capturing)
             .map_err(|e| format!("{where_}: `path`: {e}"))?;
-        Ok(FolderPath { patterns })
+        let names = globs
+            .iter()
+            .filter(|g| !g.starts_with('!'))
+            .flat_map(|g| placeholder_names(g.strip_prefix("./").unwrap_or(g)))
+            .map(str::to_string)
+            .collect();
+        Ok(FolderPath { patterns, names })
+    }
+
+    /// Does every `{name}` in `globs` (the value of option `key`) name a capture of `path`? A
+    /// reference to a capture that does not exist can never match, so it is a mistake in the
+    /// config. All the errors, not the first.
+    pub fn check_references(&self, globs: &[String], key: &str, where_: &str) -> Vec<String> {
+        let mut errors = vec![];
+        for glob in globs {
+            for name in placeholder_names(glob.strip_prefix('!').unwrap_or(glob)) {
+                if !self.names.iter().any(|n| n == name) {
+                    errors.push(format!(
+                        "{where_}: `{key}`: `{{{name}}}` in `{glob}` is not captured by `path`"
+                    ));
+                }
+            }
+        }
+        errors
     }
 
     /// The text that every matching path starts with. A filter for the paths to try.
@@ -89,8 +114,33 @@ mod tests {
     fn an_empty_path_is_an_error() {
         let err = FolderPath::new(&OneOrMany::Many(vec![]), "folders[1]").unwrap_err();
         assert_eq!(err, "folders[1]: `path` needs a glob");
-        let err = FolderPath::new(&OneOrMany::One("src/[".into()), "folders[1]");
-        assert!(err.is_ok() || err.unwrap_err().starts_with("folders[1]: `path`"));
+        let err = FolderPath::new(&OneOrMany::One(String::new()), "folders[2]").unwrap_err();
+        assert_eq!(err, "folders[2]: `path` needs a glob");
+    }
+
+    #[test]
+    fn references_must_be_captured_by_the_path() {
+        let p = path(&["src/pages/{page}", "!src/pages/{legacy}"]);
+        let globs = |g: &[&str]| g.iter().map(|g| g.to_string()).collect::<Vec<_>>();
+        assert!(
+            p.check_references(
+                &globs(&["{page}.ts", "index.{ts,tsx}", "!{page}.old"]),
+                "require",
+                "folders[0]"
+            )
+            .is_empty()
+        );
+        // `legacy` is only in a negation, so it captures nothing
+        let errors = p.check_references(
+            &globs(&["{legacy}.ts", "{typo}/x"]),
+            "require",
+            "folders[0]",
+        );
+        assert_eq!(errors.len(), 2);
+        assert_eq!(
+            errors[1],
+            "folders[0]: `require`: `{typo}` in `{typo}/x` is not captured by `path`"
+        );
     }
 
     #[test]

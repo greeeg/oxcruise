@@ -34,8 +34,8 @@ about 1 import in 200 pointing "up" and closing a cycle.
 | Tarjan SCC, same graph | 3.8 ms |
 | BFS reachability from one module | 2.0 ms |
 | shortest cycle for **every** cyclic edge, same graph (parallel, `oxcruise_graph` primitive) | 8.3 s |
-| `no-circular` rule on the same graph, default `maxCyclesPerComponent` (100) | 33 ms |
-| `no-circular` rule on the same graph, `maxCyclesPerComponent: 0` (no limit) | ~20 s (15-27 s between runs) |
+| `circular-dependencies` rule on the same graph, default `maxCyclesPerComponent` (100) | 33 ms |
+| `circular-dependencies` rule on the same graph, `maxCyclesPerComponent: 0` (no limit) | ~20 s (15-27 s between runs) |
 
 The last three rows use a deliberately pathological graph: random edges make nearly every module part of one giant
 strongly connected component, so ~300k breadth-first searches run without a limit. Real dependency graphs have small

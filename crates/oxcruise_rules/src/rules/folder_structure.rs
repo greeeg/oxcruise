@@ -37,25 +37,34 @@ impl Case {
     }
 
     /// Does `word` have this case? A word has letters and digits, and for the kebab and snake
-    /// case a separator between them.
+    /// case a separator between them. Letters can be of any script.
     fn accepts(self, word: &str) -> bool {
+        let lower = |c: char| c.is_alphabetic() && !c.is_uppercase();
         let separated = |sep: char| {
-            !word.starts_with(sep)
-                && !word.ends_with(sep)
-                && !word.contains(&format!("{sep}{sep}"))
-                && word
-                    .chars()
-                    .all(|c| c == sep || c.is_ascii_lowercase() || c.is_ascii_digit())
+            // a separator needs a letter or digit before it, and the word cannot end with one
+            let mut after_sep = true;
+            for c in word.chars() {
+                if c == sep {
+                    if after_sep {
+                        return false;
+                    }
+                    after_sep = true;
+                } else if lower(c) || c.is_ascii_digit() {
+                    after_sep = false;
+                } else {
+                    return false;
+                }
+            }
+            !after_sep
         };
-        let alphanumeric = |first: fn(&char) -> bool| {
-            word.chars().next().is_some_and(|c| first(&c))
-                && word.chars().all(|c| c.is_ascii_alphanumeric())
+        let alphanumeric = |first: fn(char) -> bool| {
+            word.chars().next().is_some_and(first) && word.chars().all(char::is_alphanumeric)
         };
         match self {
             Case::Kebab => separated('-'),
             Case::Snake => separated('_'),
-            Case::Camel => alphanumeric(char::is_ascii_lowercase),
-            Case::Pascal => alphanumeric(char::is_ascii_uppercase),
+            Case::Camel => alphanumeric(lower),
+            Case::Pascal => alphanumeric(char::is_uppercase),
         }
     }
 }
@@ -93,6 +102,8 @@ declare_rule! {
     ///
     /// Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
     /// The rule looks at all files in the entry folders, not only at modules.
+    /// For the folders above the entry folders, such as the root folder, it knows their own files and folders, but not what is inside the other folders.
+    /// It does not check those other folders.
     ///
     /// ### Why is this bad?
     ///
@@ -107,7 +118,7 @@ declare_rule! {
     ///     A glob can also match a file, such as `src/components/**/{c}.tsx`. Then the checks apply to the folder of the file.
     ///     A glob that starts with `!` removes folders from the match.
     ///   * `require`: globs of the files and folders that the folder must have. A glob is relative to the folder and can contain `/`.
-    ///     `{name}` stands for the capture of `path`. `{a,b}` means one of `a` and `b`.
+    ///     `{name}` stands for the capture of `path`, and `path` must capture it. `{a,b}` means one of `a` and `b`.
     ///   * `allow`: globs of the names that the files and folders directly in the folder can have.
     ///     Deeper levels need their own entry. A glob that starts with `!` forbids a name.
     ///     A list of only such globs allows every other name.
@@ -169,51 +180,77 @@ pub struct FolderStructure {
 }
 
 impl Entry {
-    fn from_config(c: FolderStructureFolder, where_: &str) -> Result<Entry, String> {
+    /// Every error of the entry, not the first.
+    fn from_config(c: FolderStructureFolder, where_: &str) -> Result<Entry, Vec<String>> {
+        let mut errors = vec![];
         if c.require.is_none() && c.allow.is_none() && c.case.is_none() {
-            return Err(format!(
+            errors.push(format!(
                 "{where_}: needs at least one of `require`, `allow` and `case`"
             ));
         }
-        let path = FolderPath::new(&c.path, where_)?;
+        let path = match FolderPath::new(&c.path, where_) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                errors.push(e);
+                None
+            }
+        };
+        let mut check_refs = |key: &str, globs: &[String]| {
+            if let Some(path) = &path {
+                errors.extend(path.check_references(globs, key, where_));
+            }
+        };
+
+        let require_globs: Vec<String> = c.require.iter().flat_map(Paths::to_vec).collect();
+        check_refs("require", &require_globs);
+        let allow_globs: Vec<String> = c.allow.iter().flat_map(Paths::to_vec).collect();
+        check_refs("allow", &allow_globs);
+
         let mut require = vec![];
-        for glob in c.require.iter().flat_map(Paths::to_vec) {
+        for glob in &require_globs {
             if glob.starts_with('!') || glob.is_empty() {
-                return Err(format!(
+                errors.push(format!(
                     "{where_}: `require` takes globs that name something: `{glob}`"
                 ));
+                continue;
             }
-            let text = glob.strip_prefix("./").unwrap_or(&glob).to_string();
-            require.push(match Literal::parse(&text) {
-                Some(literal) => Required::Literal(literal),
-                None => Required::Glob {
-                    pattern: PathPatterns::exact(std::slice::from_ref(&text), Role::Referencing)
-                        .map_err(|e| format!("{where_}: `require`: {e}"))?,
-                    deep: text.contains('/') || text.contains("**"),
-                    text,
+            let text = glob.strip_prefix("./").unwrap_or(glob).to_string();
+            match Literal::parse(&text) {
+                Some(literal) => require.push(Required::Literal(literal)),
+                None => match PathPatterns::exact(std::slice::from_ref(&text), Role::Referencing) {
+                    Ok(pattern) => require.push(Required::Glob {
+                        pattern,
+                        deep: text.contains('/') || text.contains("**"),
+                        text,
+                    }),
+                    Err(e) => errors.push(format!("{where_}: `require`: {e}")),
                 },
-            });
+            }
         }
         let allow = match &c.allow {
-            Some(a) => {
-                let globs = a.to_vec();
-                if globs.is_empty() {
-                    return Err(format!("{where_}: `allow` needs a glob"));
-                }
-                Some(
-                    PathPatterns::exact(&globs, Role::Referencing)
-                        .map_err(|e| format!("{where_}: `allow`: {e}"))?,
-                )
+            Some(_) if allow_globs.is_empty() => {
+                errors.push(format!("{where_}: `allow` needs a glob"));
+                None
             }
+            Some(_) => match PathPatterns::exact(&allow_globs, Role::Referencing) {
+                Ok(p) => Some(p),
+                Err(e) => {
+                    errors.push(format!("{where_}: `allow`: {e}"));
+                    None
+                }
+            },
             None => None,
         };
-        Ok(Entry {
-            path,
-            require,
-            allow,
-            case: c.case,
-            message: c.message,
-        })
+        match (path, errors.is_empty()) {
+            (Some(path), true) => Ok(Entry {
+                path,
+                require,
+                allow,
+                case: c.case,
+                message: c.message,
+            }),
+            _ => Err(errors),
+        }
     }
 
     /// The violations for the folder `folder` (the checks of this entry only), as
@@ -328,7 +365,7 @@ impl Rule for FolderStructure {
         for (i, folder) in c.folders.into_iter().enumerate() {
             match Entry::from_config(folder, &format!("folders[{i}]")) {
                 Ok(e) => entries.push(e),
-                Err(e) => errors.push(e),
+                Err(e) => errors.extend(e),
             }
         }
         if errors.is_empty() {
@@ -380,6 +417,12 @@ impl Rule for FolderStructure {
                     .collect::<Vec<_>>(),
             );
         }
+
+        // A folder is its own target once per file that `path` matches in it, and the same check
+        // would run for each; only a different capture makes a different check.
+        targets.retain(|(_, folder, _)| tree.is_listed(*folder));
+        targets.sort_by_key(|(i, folder, _)| (*i, *folder));
+        targets.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1 && a.2 == b.2);
 
         let mut found: Vec<(String, String)> = targets
             .par_iter()

@@ -99,7 +99,7 @@ const conventions = JSON.parse(
 const code = (list) => list.map((g) => `\`${g}\``).join("<br />") || "–";
 index += `## Conventions
 
-A convention tells the \`no-unused-*\` rules what a tool loads by itself.
+A convention tells the \`unused-*\` rules what a tool loads by itself.
 A convention is active in a \`package.json\` that declares one of its packages.
 When a convention lists no packages, it is always active.
 

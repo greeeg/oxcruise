@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use oxcruise_config::Paths;
@@ -35,7 +35,8 @@ pub struct CircularDependenciesConfig {
     pub max_cycles_per_component: Option<u32>,
     /// Entries for cycles between folders. Each entry has a `path`. A dependency from a module in
     /// one folder to a module in another folder of the same entry is a dependency between the
-    /// folders. A cycle between two or more of them is a violation.
+    /// folders. A cycle between two or more of them is a violation. The limit
+    /// `maxCyclesPerComponent` applies to the dependencies between folders as well.
     pub folders: Vec<CircularFolder>,
 }
 
@@ -71,10 +72,11 @@ declare_rule! {
     /// ### Cycles between folders
     ///
     /// * `folders`: a list of entries, each with a `path`. `{name}` in the `path` captures a path segment.
+    ///   A glob that starts with `!` removes folders from the match.
     ///   The rule groups the modules below each matching folder.
     ///   A dependency between modules in two folders of one entry is a dependency between the folders.
     ///   A cycle between two or more folders of one entry is a violation.
-    ///   The rule honours `includeTypeOnly` and `ignore`. It also reports the cycles between modules, as before.
+    ///   The rule honours `includeTypeOnly`, `ignore` and `maxCyclesPerComponent`. It also reports the cycles between modules, as before.
     ///   To silence a folder cycle, put an `oxcruise-ignore-next-line circular-dependencies` comment above one dependency of the cycle.
     ///
     /// ```json
@@ -93,7 +95,7 @@ struct Plan {
     /// Edges whose shortest cycle is searched (self-edges are always in).
     searched: BitSet,
     /// First module of each cut-short component -> (component size, dependencies left out).
-    omitted: HashMap<ModuleId, (u32, u32)>,
+    omitted: FxHashMap<ModuleId, (u32, u32)>,
 }
 
 #[derive(Debug, Default)]
@@ -132,8 +134,8 @@ impl CircularDependencies {
                 None => (cx.analyses().scc(!self.include_type_only), None),
             };
             let mut searched = BitSet::new(g.edge_count());
-            let mut taken: HashMap<u32, u32> = HashMap::new();
-            let mut left_out: HashMap<u32, u32> = HashMap::new();
+            let mut taken: FxHashMap<u32, u32> = FxHashMap::default();
+            let mut left_out: FxHashMap<u32, u32> = FxHashMap::default();
             for id in (0..g.edge_count() as u32).map(EdgeId) {
                 let e = g.edge(id);
                 if !self.keeps(e, removed) || !scc.is_cyclic_edge(g, id) {
@@ -147,7 +149,7 @@ impl CircularDependencies {
                     *left_out.entry(scc.component(e.from)).or_default() += 1;
                 }
             }
-            let mut omitted = HashMap::new();
+            let mut omitted = FxHashMap::default();
             if !left_out.is_empty() {
                 // module ids follow path order, so the first one met is the first by path
                 for m in g.module_ids() {
@@ -365,8 +367,9 @@ impl CircularDependencies {
         // One search per dependency inside a component, for its shortest cycle. The cycles are
         // kept as the folders in order, starting at the smallest, so one cycle is found once.
         let mut cycles: BTreeSet<Vec<u32>> = BTreeSet::new();
-        let mut searched: HashMap<u32, u32> = HashMap::new();
-        let mut left_out = 0u32;
+        let mut searched: FxHashMap<u32, u32> = FxHashMap::default();
+        let mut left_out: FxHashMap<u32, u32> = FxHashMap::default();
+        let mut prev = vec![NONE; n];
         for from in 0..n as u32 {
             let c = components.comp[from as usize];
             if components.sizes[c as usize] < 2 {
@@ -379,11 +382,13 @@ impl CircularDependencies {
                 }
                 let done = searched.entry(c).or_default();
                 if self.max_per_component != 0 && *done >= self.max_per_component {
-                    left_out += 1;
+                    *left_out.entry(c).or_default() += 1;
                     continue;
                 }
                 *done += 1;
-                if let Some(mut cycle) = shortest_folder_path(&graph, &components.comp, to, from) {
+                if let Some(mut cycle) =
+                    shortest_folder_path(&graph, &components.comp, to, from, &mut prev)
+                {
                     // `to .. from` closes with the dependency `from -> to`
                     let last = cycle.len() - 1;
                     cycle.rotate_left(last);
@@ -393,11 +398,26 @@ impl CircularDependencies {
                 }
             }
         }
-        if left_out > 0 {
-            cx.warn(format!(
-                "circular dependencies: {left_out} more dependencies between folders were not searched                  for their cycle (maxCyclesPerComponent: {}); fix the cycles reported first, or raise the limit",
-                self.max_per_component
-            ));
+        // Reported as for modules: on the first module of each cut-short group, which module ids
+        // (in path order) find first.
+        if !left_out.is_empty() {
+            for m in g.module_ids() {
+                let Some(f) = folder_of[m.idx()] else {
+                    continue;
+                };
+                let c = components.comp[f as usize];
+                if let Some(n) = left_out.remove(&c) {
+                    cx.report_module(
+                        m,
+                        format!(
+                            "circular dependencies: {n} more dependencies in this group of {} \
+                             folders were not searched for their cycle \
+                             (maxCyclesPerComponent: {}); fix the cycles reported first, or raise the limit",
+                            components.sizes[c as usize], self.max_per_component
+                        ),
+                    );
+                }
+            }
         }
 
         for cycle in cycles {
@@ -435,34 +455,50 @@ impl CircularDependencies {
     }
 }
 
+const NONE: u32 = u32::MAX;
+
 /// The shortest path of folders from `start` to `goal` inside one component, both included.
+/// `prev` is scratch space, all `NONE` on entry and on return, so it is allocated once for all the
+/// searches.
 fn shortest_folder_path(
     graph: &FolderGraph,
     comp: &[u32],
     start: u32,
     goal: u32,
+    prev: &mut [u32],
 ) -> Option<Vec<u32>> {
-    let mut prev: HashMap<u32, u32> = HashMap::new();
-    let mut queue = VecDeque::from([start]);
-    prev.insert(start, start);
-    while let Some(v) = queue.pop_front() {
+    // the queue keeps what it has visited, so `prev` can be cleared from it
+    let mut queue = vec![start];
+    prev[start as usize] = start;
+    let mut head = 0;
+    let mut found = false;
+    while head < queue.len() {
+        let v = queue[head];
+        head += 1;
         if v == goal {
-            let mut path = vec![goal];
-            let mut at = goal;
-            while at != start {
-                at = prev[&at];
-                path.push(at);
-            }
-            path.reverse();
-            return Some(path);
+            found = true;
+            break;
         }
         for i in graph.edges_of(v) {
             let w = graph.targets[i];
-            if comp[w as usize] == comp[start as usize] && !prev.contains_key(&w) {
-                prev.insert(w, v);
-                queue.push_back(w);
+            if comp[w as usize] == comp[start as usize] && prev[w as usize] == NONE {
+                prev[w as usize] = v;
+                queue.push(w);
             }
         }
     }
-    None
+    let path = found.then(|| {
+        let mut path = vec![goal];
+        let mut at = goal;
+        while at != start {
+            at = prev[at as usize];
+            path.push(at);
+        }
+        path.reverse();
+        path
+    });
+    for v in queue {
+        prev[v as usize] = NONE;
+    }
+    path
 }
