@@ -4,12 +4,12 @@ use crate::{EdgeId, Loc, ModuleId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Severity {
+pub enum ViolationLevel {
     Error,
     Warn,
 }
 
-impl Severity {
+impl ViolationLevel {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Error => "error",
@@ -37,7 +37,7 @@ pub struct Fix {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Violation {
     pub rule: String,
-    pub severity: Severity,
+    pub level: ViolationLevel,
     pub from: ModuleId,
     pub to: Option<ModuleId>,
     /// Edge the violation is attached to, if any (used for line/col and
@@ -66,18 +66,22 @@ pub enum Subject {
     /// A file that is not a module (a `package.json`), relative to the root. No comment can
     /// suppress a violation in it.
     File(String),
+    /// A file or folder of the file tree that a rule checks, relative to the root. It can be one
+    /// that does not exist (a required file). Like [`Subject::File`], no comment can suppress it.
+    /// `from` only orders it, and overrides scope it by this path, not by `from`.
+    Path(String),
 }
 
 impl Violation {
     pub fn module(
         rule: impl Into<String>,
-        severity: Severity,
+        level: ViolationLevel,
         from: ModuleId,
         message: String,
     ) -> Self {
         Self {
             rule: rule.into(),
-            severity,
+            level,
             from,
             to: None,
             edge: None,

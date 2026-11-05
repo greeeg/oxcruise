@@ -53,7 +53,7 @@ The context has these members:
 | `ctx.options` | The options of the rule, with the defaults of `meta.schema` applied. |
 | `ctx.graph` | The graph. |
 | `ctx.ruleName` | The full name of the rule, such as `acme/max-fan-out`. |
-| `ctx.severity` | The level of the rule: `error` or `warn`. |
+| `ctx.level` | The level of the rule: `error` or `warn`. |
 | `ctx.report({ … })` | Reports a violation on a `module`, a `dependency` or an `export`, with a `message`. |
 
 ## The graph
@@ -93,7 +93,7 @@ export default definePlugin({
 });
 ```
 
-`Export.used`, `no-unused-exports` and `no-unused-files` treat these modules as entry points.
+`Export.used`, `unused-exports` and `unused-modules` treat these modules as entry points.
 
 ## The plugin name
 
@@ -101,9 +101,12 @@ A plugin must have a `meta.name`. It must start with a lowercase letter or a dig
 The name is the prefix of the rules and reporters of the plugin, for example `acme/max-fan-out`.
 When two plugins have the same name, Oxcruise stops with an error. Give one plugin an alias in `jsPlugins` to solve this.
 
+Name a rule after what it reports, as the built-in rules do, for example `max-fan-out` and `unused-exports`. Do not start the name with `no-`.
+
 ## Options schema
 
 `meta.schema` lists the options of a rule with their `type` and `default`. The `type` is the result of `typeof`, or `array` for a list.
+A schema cannot list `level`. The config reserves this name for the level of the rule, and `ctx.options` does not contain it.
 
 ## Reporters
 

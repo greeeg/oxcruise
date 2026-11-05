@@ -1,0 +1,15 @@
+{
+  "entries": ["src"],
+  "categories": { "correctness": "off", "suspicious": "off" },
+  "rules": {
+    "folder-structure": {
+      "level": "error",
+      "folders": [
+        { "path": "src/pages/{page}", "require": ["codeowners.ts", "index.{ts,tsx}"] },
+        { "path": "src/modules/{m}", "allow": "!{utils,helpers}", "message": "Put shared helpers in src/lib." },
+        { "path": "src/components", "case": "pascal-case" },
+        { "path": ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"], "require": ["{c}.test.tsx", "{c}.stories.tsx"] }
+      ]
+    }
+  }
+}

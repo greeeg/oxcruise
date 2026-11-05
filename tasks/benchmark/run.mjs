@@ -94,7 +94,7 @@ function bench(name, cwd, entries, modules) {
     JSON.stringify({
       categories: { correctness: "off", suspicious: "off" },
       // runtime cycles only, like the depcruise rule above
-      rules: { "no-circular": "error" },
+      rules: { "circular-dependencies": "error" },
     }),
   );
   const ox = measure(oxcruise, ["--config", oxCfg, "-f", "json", ...entries], cwd);

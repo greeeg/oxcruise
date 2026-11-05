@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"src/a.ts -> react-dom [npm]\", \"src/a.ts -> lodash [npm]\",\n\"src/a.ts -> fs [core]\", \"src/a.ts -> @scope/pkg [npm]\",])"
+---
+error unused-packages package.json:7:5: `@types/unrelated` is in `devDependencies` but no module imports it

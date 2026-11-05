@@ -22,8 +22,11 @@ pub struct CruiseOptions {
     /// Read the `package.json` of every module (`CruiseOutput::manifests`).
     pub manifests: bool,
     /// Also read the peer dependencies of each declared package from `node_modules`
-    /// (`DeclaredDep::peers`); only `no-unused-deps` uses them. Needs `manifests`.
+    /// (`DeclaredDep::peers`); only `unused-packages` uses them. Needs `manifests`.
     pub manifest_peers: bool,
+    /// Also record every file below the entry folders, source or not, and the folders above them
+    /// one level deep (`CruiseOutput::file_tree`).
+    pub file_tree: bool,
     pub resolve: ResolveConfig,
     /// Worker threads; `None` uses all cores.
     pub threads: Option<usize>,
@@ -42,6 +45,7 @@ impl CruiseOptions {
             extract: ExtractOptions::default(),
             manifests: false,
             manifest_peers: false,
+            file_tree: false,
             threads: None,
         }
     }

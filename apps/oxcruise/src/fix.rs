@@ -67,12 +67,12 @@ pub fn apply(root: &Path, violations: Vec<Violation>) -> Result<Applied, String>
 
 #[cfg(test)]
 mod tests {
-    use oxcruise_core::{Fix, ModuleId, Severity};
+    use oxcruise_core::{Fix, ModuleId, ViolationLevel};
 
     use super::*;
 
     fn violation(file: &str, edits: &[(u32, u32)]) -> Violation {
-        let mut v = Violation::module("r", Severity::Error, ModuleId(0), "m".into());
+        let mut v = Violation::module("r", ViolationLevel::Error, ModuleId(0), "m".into());
         v.fix = Some(Fix {
             file: file.into(),
             edits: edits.iter().map(|&(s, e)| (s, e, String::new())).collect(),
@@ -86,7 +86,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("a.ts"), "0123456789").unwrap();
         std::fs::write(dir.join("b.ts"), "abcdef").unwrap();
-        let mut plain = Violation::module("r", Severity::Warn, ModuleId(0), "no fix".into());
+        let mut plain = Violation::module("r", ViolationLevel::Warn, ModuleId(0), "no fix".into());
         plain.fix = None;
         let applied = apply(
             &dir,

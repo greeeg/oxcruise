@@ -3,7 +3,9 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use oxcruise_config::{Category, Level, OxcruiseConfig, RuleEntry};
-use oxcruise_core::{DeclaredManifest, Graph, Loc, ModuleId, Severity, Subject, Violation};
+use oxcruise_core::{
+    DeclaredManifest, FileTree, Graph, Loc, ModuleId, Subject, Violation, ViolationLevel,
+};
 use oxcruise_graph::PathMatcher;
 use oxcruise_graph::analyses::{BitSet, ExportUsage};
 use oxcruise_resolve::WorkspacePackage;
@@ -16,9 +18,18 @@ use crate::external::{ExternalRuleId, ExternalRuleSpec, ExternalRules, ExternalT
 use crate::meta::{Analyses, AnalysisCache, Hooks, RuleCtx, Shared};
 use crate::registry::{RuleEnum, builtin_rules};
 
+/// The setting of a rule in `rules`, in its category or in `forbid`.
 #[derive(Clone)]
 struct Entry {
     level: Level,
+    options: serde_json::Value,
+}
+
+/// The setting of a rule in `overrides[].rules`. Without a level, the override keeps the level
+/// that the rule has for the module.
+#[derive(Clone)]
+struct Override {
+    level: Option<Level>,
     options: serde_json::Value,
 }
 
@@ -33,7 +44,7 @@ struct Plan {
     source: Source,
     base: Option<Entry>,
     /// `(override index, entry)`; the override's `files` decide which modules it affects.
-    overrides: Vec<(usize, Entry)>,
+    overrides: Vec<(usize, Override)>,
 }
 
 pub struct Engine {
@@ -46,7 +57,7 @@ pub struct Engine {
 
 #[derive(Debug, Default)]
 pub struct RunResult {
-    /// Sorted: severity, then location.
+    /// Sorted: level, then location.
     pub violations: Vec<Violation>,
     /// Violations silenced by `oxcruise-ignore-*` comments.
     pub suppressed: usize,
@@ -59,21 +70,30 @@ pub struct RunResult {
 }
 
 impl RunResult {
-    pub fn count(&self, s: Severity) -> usize {
-        self.violations.iter().filter(|v| v.severity == s).count()
+    pub fn count(&self, s: ViolationLevel) -> usize {
+        self.violations.iter().filter(|v| v.level == s).count()
     }
 }
 
-fn rank(s: Severity) -> u8 {
+fn rank(s: ViolationLevel) -> u8 {
     match s {
-        Severity::Error => 0,
-        Severity::Warn => 1,
+        ViolationLevel::Error => 0,
+        ViolationLevel::Warn => 1,
     }
 }
 
-fn entry_of(name: &str, e: &RuleEntry) -> Result<Entry, String> {
-    let (level, options) = e.parts().map_err(|m| format!("rule `{name}`: {m}"))?;
-    Ok(Entry { level, options })
+/// An entry of `rules`: an object without a level means `error`.
+fn entry_of(e: &RuleEntry) -> Entry {
+    let (level, options) = e.parts();
+    Entry {
+        level: level.unwrap_or(Level::Error),
+        options,
+    }
+}
+
+fn override_of(e: &RuleEntry) -> Override {
+    let (level, options) = e.parts();
+    Override { level, options }
 }
 
 impl Engine {
@@ -109,13 +129,7 @@ impl Engine {
 
         // ... then `rules`, which win over the category.
         for (name, entry) in &config.rules {
-            let entry = match entry_of(name, entry) {
-                Ok(e) => e,
-                Err(e) => {
-                    errors.push(e);
-                    continue;
-                }
-            };
+            let entry = entry_of(entry);
             let source = match RuleEnum::builtin(name, entry.options.clone()) {
                 Some(Ok(_)) => Source::Builtin,
                 Some(Err(e)) => {
@@ -144,7 +158,7 @@ impl Engine {
             }
         }
 
-        // Forbidden dependencies. Their level comes only from their own `severity`.
+        // Forbidden dependencies. Their level comes only from their own `level`.
         let builtin_names: Vec<&str> = builtin_rules().into_iter().map(|r| r.name).collect();
         for r in &config.forbid {
             let taken = builtin_names.contains(&r.name.as_str())
@@ -163,7 +177,7 @@ impl Engine {
                     name: r.name.clone(),
                     source: Source::Declarative(Arc::new(c)),
                     base: Some(Entry {
-                        level: r.severity,
+                        level: r.level,
                         options: serde_json::Value::Null,
                     }),
                     overrides: vec![],
@@ -183,13 +197,7 @@ impl Engine {
                 }
             }
             for (name, entry) in &o.rules {
-                let entry = match entry_of(name, entry) {
-                    Ok(e) => e,
-                    Err(e) => {
-                        errors.push(format!("overrides[{i}]: {e}"));
-                        continue;
-                    }
-                };
+                let entry = override_of(entry);
                 match plans.iter_mut().find(|p| &p.name == name) {
                     Some(plan) => {
                         match &plan.source {
@@ -243,11 +251,11 @@ impl Engine {
     /// off stay off.
     pub fn set_option(&mut self, rule: &str, key: &str, value: serde_json::Value) {
         self.wanted = OnceLock::new();
-        let patch = |e: &mut Entry| {
-            if e.options.is_null() {
-                e.options = serde_json::json!({});
+        let patch = |options: &mut serde_json::Value| {
+            if options.is_null() {
+                *options = serde_json::json!({});
             }
-            if let Some(o) = e.options.as_object_mut() {
+            if let Some(o) = options.as_object_mut() {
                 o.insert(key.to_string(), value.clone());
             }
         };
@@ -256,8 +264,10 @@ impl Engine {
             .iter_mut()
             .filter(|p| p.name == rule && matches!(p.source, Source::Builtin))
         {
-            plan.base.iter_mut().for_each(patch);
-            plan.overrides.iter_mut().for_each(|(_, e)| patch(e));
+            plan.base.iter_mut().for_each(|e| patch(&mut e.options));
+            plan.overrides
+                .iter_mut()
+                .for_each(|(_, e)| patch(&mut e.options));
         }
     }
 
@@ -287,12 +297,23 @@ impl Engine {
             if !matches!(plan.source, Source::Builtin) {
                 continue;
             }
-            let entries = plan
+            // an override without a level is on when anything else switches the rule on
+            let on = |l: Option<Level>| l.is_some_and(|l| l != Level::Off);
+            let some_on = on(plan.base.as_ref().map(|b| b.level))
+                || plan.overrides.iter().any(|(_, o)| on(o.level));
+            let options = plan
                 .base
                 .iter()
-                .chain(plan.overrides.iter().map(|(_, e)| e));
-            for entry in entries.filter(|e| e.level != Level::Off) {
-                if let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, entry.options.clone()) {
+                .filter(|e| e.level != Level::Off)
+                .map(|e| &e.options)
+                .chain(
+                    plan.overrides
+                        .iter()
+                        .filter(|(_, o)| o.level.map_or(some_on, |l| l != Level::Off))
+                        .map(|(_, o)| &o.options),
+                );
+            for options in options {
+                if let Some(Ok(rule)) = RuleEnum::builtin(&plan.name, options.clone()) {
                     wanted |= rule.requirements();
                 }
             }
@@ -311,24 +332,31 @@ impl Engine {
             .intersects(Analyses::MANIFESTS | Analyses::ENTRIES | Analyses::DEP_PEERS)
     }
 
+    /// Whether `cruise` must record every file of the project, not only the source files.
+    pub fn wants_file_tree(&self) -> bool {
+        self.wanted().contains(Analyses::FILE_TREE)
+    }
+
     /// Whether `cruise` must also read the peer dependencies of the declared packages.
     pub fn wants_peers(&self) -> bool {
         self.wanted().contains(Analyses::DEP_PEERS)
     }
 
-    /// Check `graph`. `symbols` says whether it was built with exports and the names each import
-    /// uses (`cruise` extracted them).
+    /// Check `graph`. `file_tree` is every file of the project, for the rules that ask for it
+    /// (`wants_file_tree`). `symbols` says whether the graph was built with exports and the names
+    /// each import uses (`cruise` extracted them).
     pub fn run(
         &self,
         graph: &Graph,
         root: &Path,
         workspace: &[WorkspacePackage],
         manifests: &[DeclaredManifest],
+        file_tree: Option<&FileTree>,
         symbols: bool,
     ) -> RunResult {
         let mut warnings = vec![];
         let mut fatal = vec![];
-        let mut resolved: Vec<Resolved> = vec![];
+        let mut resolved: Vec<Resolved<'_>> = vec![];
         let mut externals: Vec<ExternalRuleSpec> = vec![];
 
         // which modules each `overrides[].files` matches, once for all plans
@@ -367,11 +395,11 @@ impl Engine {
                     .base
                     .as_ref()
                     .expect("external rules have a base entry");
-                if let Some(sev) = base.level.to_severity() {
+                if let Some(sev) = base.level.to_violation_level() {
                     externals.push(ExternalRuleSpec {
                         id: *id,
                         name: plan.name.clone(),
-                        severity: sev,
+                        level: sev,
                         options: base.options.clone(),
                     });
                 }
@@ -409,6 +437,7 @@ impl Engine {
             root,
             workspace,
             manifests,
+            file_tree,
             analyses: &analyses,
             warnings: Mutex::default(),
         };
@@ -434,11 +463,11 @@ impl Engine {
                             let spec = specs[&f.rule];
                             let mut v = match f.target {
                                 ExternalTarget::Module(m) => {
-                                    Violation::module(&spec.name, spec.severity, m, f.message)
+                                    Violation::module(&spec.name, spec.level, m, f.message)
                                 }
                                 ExternalTarget::Export(m, i) => {
                                     let mut v =
-                                        Violation::module(&spec.name, spec.severity, m, f.message);
+                                        Violation::module(&spec.name, spec.level, m, f.message);
                                     v.loc = Some(graph.module(m).exports[i as usize].loc);
                                     v.subject = Subject::Export(i);
                                     v
@@ -447,7 +476,7 @@ impl Engine {
                                     let edge = graph.edge(e);
                                     Violation {
                                         rule: spec.name.clone(),
-                                        severity: spec.severity,
+                                        level: spec.level,
                                         from: edge.from,
                                         to: Some(edge.to),
                                         edge: Some(e),
@@ -497,15 +526,15 @@ impl Engine {
         }
     }
 
-    /// Turn a plan into runnable rules: one per distinct effective (severity, options),
+    /// Turn a plan into runnable rules: one per distinct effective (level, options),
     /// each limited to the modules it applies to.
-    fn resolve_plan(
-        &self,
-        plan: &Plan,
+    fn resolve_plan<'e>(
+        &'e self,
+        plan: &'e Plan,
         run: Option<&Arc<CompiledRule>>,
         graph: &Graph,
         override_sets: &[BitSet],
-        out: &mut Vec<Resolved>,
+        out: &mut Vec<Resolved<'e>>,
     ) {
         let make = |opts: &serde_json::Value| -> Option<RuleEnum> {
             match &plan.source {
@@ -516,62 +545,143 @@ impl Engine {
         };
         if plan.overrides.is_empty() {
             let Some(base) = &plan.base else { return };
-            if let (Some(sev), Some(rule)) = (base.level.to_severity(), make(&base.options)) {
+            if let (Some(sev), Some(rule)) = (base.level.to_violation_level(), make(&base.options))
+            {
                 out.push(Resolved {
                     name: plan.name.clone(),
                     rule,
-                    severity: sev,
+                    level: sev,
                     modules: None,
+                    paths: None,
                 });
             }
             return;
         }
 
-        // Effective entry per module: base, then each matching override in order, so the last
-        // matching override decides. Modules are grouped by that index (0 = the base), and only
-        // the groups, not the modules, are keyed by their entry.
+        // Effective setting per module: base, then each matching override in order. The last
+        // matching override decides the options, and the last one with a level decides the level.
+        // Modules are grouped by (the setting that gave the options, level), not one by one.
         let n = graph.module_count();
-        let mut by_slot: Vec<(Option<&Entry>, BitSet)> = std::iter::once(plan.base.as_ref())
-            .chain(plan.overrides.iter().map(|(_, e)| Some(e)))
-            .map(|e| (e.filter(|e| e.level != Level::Off), BitSet::new(n)))
-            .collect();
+        let base_level = plan.base.as_ref().map_or(Level::Off, |b| b.level);
+        let mut by_slot: BTreeMap<(usize, ViolationLevel), BitSet> = BTreeMap::new();
         for i in 0..n {
-            let slot = plan
-                .overrides
-                .iter()
-                .rposition(|(oi, _)| override_sets[*oi].contains(i))
-                .map_or(0, |p| p + 1);
-            if by_slot[slot].0.is_some() {
-                by_slot[slot].1.insert(i);
+            let (slot, level) =
+                self.effective(plan, base_level, |oi| override_sets[oi].contains(i));
+            if let Some(level) = level.to_violation_level() {
+                by_slot
+                    .entry((slot, level))
+                    .or_insert_with(|| BitSet::new(n))
+                    .insert(i);
             }
         }
-        // Slots with the same effective entry become one rule.
-        let mut groups: BTreeMap<String, (&Entry, BitSet)> = BTreeMap::new();
-        for (entry, set) in by_slot {
-            let Some(entry) = entry else { continue };
-            if set.count() == 0 {
-                continue;
+        // A rule that checks paths needs a variant for every setting a path can have, also those
+        // that no module has: a folder can match an override that no module matches. Whether the
+        // rule checks paths is read from a rule built from one of the settings.
+        let path_rule = plan
+            .base
+            .iter()
+            .map(|b| &b.options)
+            .chain(plan.overrides.iter().map(|(_, o)| &o.options))
+            .find_map(make)
+            .is_some_and(|r| r.requirements().contains(Analyses::FILE_TREE));
+        if path_rule {
+            for slot in 0..=plan.overrides.len() {
+                let levels: Vec<ViolationLevel> = match slot {
+                    0 => base_level.to_violation_level().into_iter().collect(),
+                    k => match plan.overrides[k - 1].1.level {
+                        Some(l) => l.to_violation_level().into_iter().collect(),
+                        // the level so far, which depends on the overrides before it
+                        None => vec![ViolationLevel::Error, ViolationLevel::Warn],
+                    },
+                };
+                for level in levels {
+                    by_slot
+                        .entry((slot, level))
+                        .or_insert_with(|| BitSet::new(n));
+                }
             }
-            let key = format!("{:?}|{}", entry.level, entry.options);
+        }
+        // Slots with the same effective setting become one rule.
+        type Group<'p> = (
+            ViolationLevel,
+            &'p serde_json::Value,
+            BitSet,
+            Vec<(usize, ViolationLevel)>,
+        );
+        let mut groups: BTreeMap<String, Group<'_>> = BTreeMap::new();
+        for ((slot, level), set) in by_slot {
+            let options = match slot {
+                0 => match &plan.base {
+                    Some(b) => &b.options,
+                    None => continue,
+                },
+                k => &plan.overrides[k - 1].1.options,
+            };
+            let key = format!("{}|{options}", level.as_str());
             match groups.entry(key) {
                 std::collections::btree_map::Entry::Occupied(mut o) => {
-                    o.get_mut().1.union_with(&set)
+                    o.get_mut().2.union_with(&set);
+                    o.get_mut().3.push((slot, level));
                 }
                 std::collections::btree_map::Entry::Vacant(v) => {
-                    v.insert((entry, set));
+                    v.insert((level, options, set, vec![(slot, level)]));
                 }
             }
         }
-        for (_, (entry, set)) in groups {
-            if let (Some(sev), Some(rule)) = (entry.level.to_severity(), make(&entry.options)) {
+        for (_, (level, options, set, slots)) in groups {
+            if let Some(rule) = make(options) {
                 out.push(Resolved {
                     name: plan.name.clone(),
                     rule,
-                    severity: sev,
+                    level,
                     modules: Some(set),
+                    paths: path_rule.then_some(PathScope {
+                        engine: self,
+                        plan,
+                        slots,
+                    }),
                 });
             }
         }
+    }
+
+    /// The setting a module (or path) has: the index of the setting that gives the options
+    /// (0 is the base, `k + 1` is override `k`) and the level. `matches` says whether the
+    /// `files` of an override match.
+    fn effective(
+        &self,
+        plan: &Plan,
+        base_level: Level,
+        matches: impl Fn(usize) -> bool,
+    ) -> (usize, Level) {
+        let (mut slot, mut level) = (0, base_level);
+        for (k, (oi, o)) in plan.overrides.iter().enumerate() {
+            if matches(*oi) {
+                slot = k + 1;
+                level = o.level.unwrap_or(level);
+            }
+        }
+        (slot, level)
+    }
+}
+
+/// Which paths a rule that reports paths applies to: those whose effective setting is one of
+/// `slots`. The `files` of the overrides match the path itself, not a module.
+struct PathScope<'e> {
+    engine: &'e Engine,
+    plan: &'e Plan,
+    slots: Vec<(usize, ViolationLevel)>,
+}
+
+impl PathScope<'_> {
+    fn contains(&self, path: &str) -> bool {
+        let base_level = self.plan.base.as_ref().map_or(Level::Off, |b| b.level);
+        let (slot, level) = self.engine.effective(self.plan, base_level, |oi| {
+            self.engine.override_files[oi].is_match(path)
+        });
+        level
+            .to_violation_level()
+            .is_some_and(|level| self.slots.contains(&(slot, level)))
     }
 }
 
@@ -605,17 +715,19 @@ fn edit_distance(a: &str, b: &str) -> usize {
     prev[b.len()]
 }
 
-struct Resolved {
+struct Resolved<'e> {
     name: String,
     rule: RuleEnum,
-    severity: Severity,
+    level: ViolationLevel,
     modules: Option<BitSet>,
+    /// Set for a rule that reports paths, when `overrides` change its setting.
+    paths: Option<PathScope<'e>>,
 }
 
-fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
+fn run_rule(r: &Resolved<'_>, shared: &Shared<'_>) -> Vec<Violation> {
     let g = shared.graph;
     let in_scope = |m: ModuleId| r.modules.as_ref().is_none_or(|s| s.contains(m.idx()));
-    let new_cx = || RuleCtx::new(shared, &r.name, r.severity);
+    let new_cx = || RuleCtx::new(shared, &r.name, r.level);
     let join = |mut a: Vec<Violation>, mut b: Vec<Violation>| {
         a.append(&mut b);
         a
@@ -657,7 +769,11 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
         out.extend(
             cx.into_violations()
                 .into_iter()
-                .filter(|v| in_scope(v.from)),
+                .filter(|v| match &v.subject {
+                    // a path belongs to the setting its own path has
+                    Subject::Path(path) => r.paths.as_ref().is_none_or(|p| p.contains(path)),
+                    _ => in_scope(v.from),
+                }),
         );
     }
     out
@@ -666,7 +782,7 @@ fn run_rule(r: &Resolved, shared: &Shared<'_>) -> Vec<Violation> {
 #[allow(clippy::type_complexity)]
 fn sort_key(v: &Violation) -> (u8, ModuleId, Option<Loc>, Option<ModuleId>, &str, &str) {
     (
-        rank(v.severity),
+        rank(v.level),
         v.from,
         v.loc,
         v.to,
@@ -685,7 +801,8 @@ fn is_cycle_violation(v: &Violation) -> bool {
 /// is suppressed when *any* of its edges is: annotate one import to accept the whole cycle.
 /// Returns the kept violations and how many cycles were suppressed.
 fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usize) {
-    let mut groups: BTreeMap<(String, Vec<u32>), Vec<Violation>> = BTreeMap::new();
+    // a cycle between folders (no `to`) is not the cycle between modules that has the same steps
+    let mut groups: BTreeMap<(String, bool, Vec<u32>), Vec<Violation>> = BTreeMap::new();
     for v in violations {
         let mut ids: Vec<u32> = v.path.iter().map(|s| s.module.0).collect();
         // module ids follow path order, so the minimum id is the alphabetically first module
@@ -695,7 +812,10 @@ fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usiz
             .min_by_key(|(_, id)| **id)
             .map_or(0, |(i, _)| i);
         ids.rotate_left(start);
-        groups.entry((v.rule.clone(), ids)).or_default().push(v);
+        groups
+            .entry((v.rule.clone(), v.to.is_none(), ids))
+            .or_default()
+            .push(v);
     }
     let (mut kept, mut suppressed) = (vec![], 0);
     for (_, group) in groups {
@@ -710,8 +830,15 @@ fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usiz
 
 fn is_suppressed(g: &Graph, v: &Violation) -> bool {
     let covers = |list: &[String]| list.iter().any(|r| r == "*" || *r == v.rule);
-    if matches!(v.subject, Subject::File(_)) {
-        return false;
+    match &v.subject {
+        Subject::File(_) => return false,
+        // only a module has a comment: `oxcruise-ignore-file` in the module that the path names
+        Subject::Path(path) => {
+            return g
+                .find(path)
+                .is_some_and(|m| covers(&g.module(m).suppressed));
+        }
+        _ => {}
     }
     let module = g.module(v.from);
     v.edge.is_some_and(|e| covers(&g.edge(e).suppressed))

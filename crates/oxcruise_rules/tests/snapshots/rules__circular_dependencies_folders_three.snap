@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: out
+---
+error circular-dependencies src/features/a/w.ts:2:1: circular dependency between folders: src/features/a → src/features/b → src/features/c → src/features/a
+error circular-dependencies src/features/a/x.ts:1:1 -> src/features/b/y.ts: circular dependency: src/features/a/x.ts → src/features/b/y.ts → src/features/c/z.ts → src/features/a/x.ts

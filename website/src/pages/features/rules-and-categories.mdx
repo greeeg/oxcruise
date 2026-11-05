@@ -37,17 +37,21 @@ A level is `off`, `warn` or `error`.
 ## Configure one rule
 
 A rule in the `rules` key wins over its category. A rule that its category switches off can still be on here.
-Give a level, or give an array of a level and an options object.
+Give a level, or give an object with a `level` and the options of the rule.
+An object without `level` means `error`.
 
 ```ts
 export default defineConfig({
   rules: {
-    "no-orphans": "error",
-    "no-circular": ["error", { ignore: ["src/index.ts"] }],
-    "no-peer-deps": "warn",
+    "orphan-modules": "error",
+    "circular-dependencies": { level: "error", ignore: ["src/index.ts"] },
+    "peer-dependencies": "warn",
   },
 });
 ```
+
+In `overrides`, an object without `level` keeps the level that the rule has for those modules and replaces the options.
+Oxcruise reserves the name `level`. No rule has an option with this name.
 
 Oxcruise checks the options of every rule. It stops with the name of the rule and the option when an option is not valid.
 
@@ -59,7 +63,8 @@ The [rules reference](/reference/rules) has one page for each rule.
 ## Other kinds of rules
 
 * [Forbid rules](/features/forbid-rules) are your own rules for dependencies that the project does not allow.
-* [Layers and internal modules](/features/layers-and-internal-modules) are two built-in rules for architecture.
+* [Layers and visibility](/features/layers-and-visibility) are two built-in rules for architecture.
+* [Folder structure](/features/folder-structure) is a built-in rule for the shape of the file tree.
 * A [JS plugin](/features/js-plugins) can add rules that you write in TypeScript.
 
 ## Cycles and suppression

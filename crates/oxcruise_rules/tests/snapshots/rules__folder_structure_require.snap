@@ -1,0 +1,8 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/pages/a/index.ts\", \"src/pages/c/index.tsx\",\n\"src/pages/d/components/Item.tsx\",])"
+---
+error folder-structure src/pages/b/index.{ts,tsx}: `src/pages/b` must contain `index.{ts,tsx}`
+error folder-structure src/pages/c/codeowners.ts: `src/pages/c` must contain `codeowners.ts`
+error folder-structure src/pages/d/codeowners.ts: `src/pages/d` must contain `codeowners.ts`
+error folder-structure src/pages/d/index.{ts,tsx}: `src/pages/d` must contain `index.{ts,tsx}`

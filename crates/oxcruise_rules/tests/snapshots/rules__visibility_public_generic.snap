@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: generic
+---
+error visibility src/app.ts:1:1 -> src/features/cart/model.ts: `src/features/cart/model.ts` is not visible outside `src/features/cart`: only `index.ts`, `api/**` can be imported

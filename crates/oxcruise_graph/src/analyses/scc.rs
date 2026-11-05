@@ -30,12 +30,22 @@ impl Scc {
     }
 }
 
-/// Iterative Tarjan over the edges accepted by `keep`.
-///
-/// Rules such as `no-circular` (by default) pass a filter that drops
-/// type-only edges *before* the search, so the result is exact.
-pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> Scc {
-    let n = g.module_count();
+/// The strongly connected components of a directed graph: the component of each node, and the
+/// size of each component.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Components {
+    pub comp: Vec<u32>,
+    pub sizes: Vec<u32>,
+}
+
+/// Iterative Tarjan. `out(v)` lists the outgoing items of node `v`, and `to(item)` is the node an
+/// item leads to, or `None` to skip the item. Both the module graph and the graph of folders run
+/// through this one implementation.
+fn tarjan<'a, T: 'a>(
+    n: usize,
+    out: impl Fn(usize) -> &'a [T],
+    to: impl Fn(&T) -> Option<usize>,
+) -> Components {
     const UNVISITED: u32 = u32::MAX;
     let mut index = vec![UNVISITED; n];
     let mut low = vec![0u32; n];
@@ -44,7 +54,7 @@ pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> S
     let mut sizes: Vec<u32> = vec![];
     let mut stack: Vec<u32> = vec![];
     let mut next_index = 0u32;
-    // (module, position within its out-edge list)
+    // (node, position within its out list)
     let mut call: Vec<(u32, usize)> = vec![];
 
     for root in 0..n as u32 {
@@ -61,16 +71,15 @@ pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> S
                 stack.push(v);
                 on_stack[vi] = true;
             }
-            let out = g.out_edges(ModuleId(v));
+            let items = out(vi);
             let mut advanced = false;
             let mut p = pos;
-            while p < out.len() {
-                let e = &out[p];
+            while p < items.len() {
+                let item = &items[p];
                 p += 1;
-                if !keep(e) {
+                let Some(w) = to(item) else {
                     continue;
-                }
-                let w = e.to.idx();
+                };
                 if index[w] == UNVISITED {
                     call.last_mut().unwrap().1 = p;
                     call.push((w as u32, 0));
@@ -104,7 +113,30 @@ pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> S
             }
         }
     }
+    Components { comp, sizes }
+}
 
+/// The strongly connected components of a graph in CSR form: the targets of node `v` are
+/// `targets[offsets[v]..offsets[v + 1]]`.
+pub fn components_csr(offsets: &[u32], targets: &[u32]) -> Components {
+    let n = offsets.len().saturating_sub(1);
+    tarjan(
+        n,
+        |v| &targets[offsets[v] as usize..offsets[v + 1] as usize],
+        |&t| Some(t as usize),
+    )
+}
+
+/// Tarjan over the edges accepted by `keep`.
+///
+/// Rules such as `circular-dependencies` (by default) pass a filter that drops
+/// type-only edges *before* the search, so the result is exact.
+pub fn strongly_connected(g: &Graph, keep: &(dyn Fn(&Edge) -> bool + Sync)) -> Scc {
+    let Components { comp, sizes } = tarjan(
+        g.module_count(),
+        |v| g.out_edges(ModuleId(v as u32)),
+        |e: &Edge| keep(e).then(|| e.to.idx()),
+    );
     let mut self_loops = vec![false; sizes.len()];
     for e in g.edges() {
         if e.from == e.to && keep(e) {

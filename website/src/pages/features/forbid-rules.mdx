@@ -25,7 +25,7 @@ export default defineConfig({
 | `from` | One glob or a list of globs. They match the importing module. |
 | `to` | One glob or a list of globs, or an object with conditions. It matches the target of the dependency. |
 | `message` | Why the dependency is forbidden. Oxcruise shows it instead of the generic message. |
-| `severity` | The level of the rule: `error` (the default), `warn` or `off`. |
+| `level` | The level of the rule: `error` (the default), `warn` or `off`. |
 
 A rule must have a `name`. All other fields are optional.
 The name must be different from the name of every other rule. A name that a built-in rule or a plugin rule uses is a config error.

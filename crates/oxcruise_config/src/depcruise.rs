@@ -15,18 +15,18 @@ use crate::{Category, ForbidRule, Kind, Level, OneOrMany, OxcruiseConfig, ToCond
 
 /// dependency-cruiser's recommended rule names and the oxcruise built-in that does the same job.
 const BUILTIN_EQUIVALENTS: &[(&str, &str)] = &[
-    ("no-circular", "no-circular"),
-    ("no-orphans", "no-orphans"),
-    ("no-deprecated-core", "no-deprecated"),
-    ("no-deprecated-npm", "no-deprecated"),
-    ("no-non-package-json", "no-undeclared-deps"),
-    ("not-to-unresolvable", "no-unresolvable"),
-    ("no-duplicate-dep-types", "no-duplicate-deps"),
-    ("not-to-test", "no-test-imports"),
-    ("not-to-spec", "no-test-imports"),
-    ("not-to-dev-dep", "no-dev-deps-in-prod"),
-    ("optional-deps-used", "no-optional-deps"),
-    ("peer-deps-used", "no-peer-deps"),
+    ("no-circular", "circular-dependencies"),
+    ("no-orphans", "orphan-modules"),
+    ("no-deprecated-core", "deprecated-dependencies"),
+    ("no-deprecated-npm", "deprecated-dependencies"),
+    ("no-non-package-json", "undeclared-packages"),
+    ("not-to-unresolvable", "unresolved-dependencies"),
+    ("no-duplicate-dep-types", "duplicate-packages"),
+    ("not-to-test", "dependencies-on-tests"),
+    ("not-to-spec", "dependencies-on-tests"),
+    ("not-to-dev-dep", "dev-dependencies-in-production"),
+    ("optional-deps-used", "optional-dependencies"),
+    ("peer-deps-used", "peer-dependencies"),
 ];
 
 /// Convert a depcruise config object. Returns the config and one warning per
@@ -60,8 +60,9 @@ pub fn import(v: &Value) -> (OxcruiseConfig, Vec<String>) {
             "required" => {
                 if val.as_array().is_some_and(|a| !a.is_empty()) {
                     cx.warn(
-                        "`required` rules were dropped: oxcruise has no `require` rules. \
-                         Write a JS plugin rule if you need this check",
+                        "`required` rules were dropped: oxcruise does not convert them. \
+                         For a file that a folder must have, use the `require` option of `folder-structure`; \
+                         for anything else, write a JS plugin rule",
                     );
                 }
             }
@@ -149,7 +150,9 @@ impl Importer {
             .to_string();
         if r.get("scope").and_then(Value::as_str) == Some("folder") {
             self.warn(format!(
-                "rule `{name}` was dropped: folder-scope rules are not supported"
+                "rule `{name}` was dropped: folder-scope rules are not converted \
+                 (for cycles between folders, use `circular-dependencies` with `folders`; \
+                 for the visibility of a folder, use `visibility`)"
             ));
             return None;
         }
@@ -240,7 +243,7 @@ impl Importer {
             }
         };
         Some(ForbidRule {
-            severity: self.severity(r, &name),
+            level: self.severity(r, &name),
             name,
             message: r.get("comment").and_then(Value::as_str).map(str::to_string),
             from: paths(from),

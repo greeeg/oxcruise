@@ -1,28 +1,32 @@
 //! Built-in rules.
 
+mod circular_dependencies;
+mod cross_package_relative_dependencies;
+mod dependencies_on_tests;
 mod dependency_types;
-mod internal_modules;
+mod dev_dependencies_in_production;
+mod folder_structure;
 mod layers;
-mod no_circular;
-mod no_cross_package_relative;
-mod no_dev_deps_in_prod;
-mod no_orphans;
-mod no_test_imports;
-mod no_unused_deps;
-mod no_unused_exports;
-mod no_unused_files;
+mod orphan_modules;
+mod unused_exports;
+mod unused_modules;
+mod unused_packages;
+mod visibility;
 
+pub use circular_dependencies::{CircularDependencies, CircularDependenciesConfig};
+pub use cross_package_relative_dependencies::CrossPackageRelativeDependencies;
+pub use dependencies_on_tests::DependenciesOnTests;
 pub use dependency_types::*;
-pub use internal_modules::{InternalModules, InternalModulesConfig};
+pub use dev_dependencies_in_production::{
+    DevDependenciesInProduction, DevDependenciesInProductionConfig,
+};
+pub use folder_structure::{FolderStructure, FolderStructureConfig};
 pub use layers::{Layers, LayersConfig};
-pub use no_circular::{NoCircular, NoCircularConfig};
-pub use no_cross_package_relative::NoCrossPackageRelative;
-pub use no_dev_deps_in_prod::{NoDevDepsInProd, NoDevDepsInProdConfig};
-pub use no_orphans::{NoOrphans, NoOrphansConfig};
-pub use no_test_imports::NoTestImports;
-pub use no_unused_deps::{NoUnusedDeps, NoUnusedDepsConfig};
-pub use no_unused_exports::{NoUnusedExports, NoUnusedExportsConfig};
-pub use no_unused_files::{NoUnusedFiles, NoUnusedFilesConfig};
+pub use orphan_modules::{OrphanModules, OrphanModulesConfig};
+pub use unused_exports::{UnusedExports, UnusedExportsConfig};
+pub use unused_modules::{UnusedModules, UnusedModulesConfig};
+pub use unused_packages::{UnusedPackages, UnusedPackagesConfig};
+pub use visibility::{Visibility, VisibilityConfig};
 
 /// `foo.test.ts`, `foo.spec.tsx`, ... (any JS/TS extension)
 pub(crate) fn file_has_marker(path: &str, marker: &str) -> bool {

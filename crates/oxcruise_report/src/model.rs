@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use oxcruise_core::{
-    DepKinds, ExportKind, Graph, ModuleId, ModuleKind, ModuleSystem, Severity, Subject, UsedNames,
-    Violation,
+    DepKinds, ExportKind, Graph, ModuleId, ModuleKind, ModuleSystem, Subject, UsedNames, Violation,
+    ViolationLevel,
 };
 use oxcruise_graph::analyses::strongly_connected;
 use oxcruise_resolve::WorkspacePackage;
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// 2: field names are camelCase; violations on exports and files have their own `kind`;
 /// `summary.totalModules` counts the entries of `modules`.
-pub const RESULT_VERSION: u32 = 2;
+pub const RESULT_VERSION: u32 = 3;
 
 /// Whether the export `name` of a module is used.
 pub type ExportUsed<'a> = dyn Fn(ModuleId, &str) -> bool + 'a;
@@ -121,9 +121,9 @@ pub struct DepOut {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub col: Option<u32>,
     /// On an import cycle of the whole graph, type-only imports included, whether or not a rule
-    /// reports it. `no-circular` ignores type-only imports by default (`includeTypeOnly`).
+    /// reports it. `circular-dependencies` ignores type-only imports by default (`includeTypeOnly`).
     pub circular: bool,
-    /// The cycle a `no-circular` violation reports through this dependency, starting here.
+    /// The cycle a `circular-dependencies` violation reports through this dependency, starting here.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub cycle: Vec<CycleHop>,
     /// The rules that reported this dependency.
@@ -145,7 +145,7 @@ pub struct CycleHop {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuleRef {
     pub name: String,
-    pub severity: Severity,
+    pub level: ViolationLevel,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,7 +165,7 @@ pub enum ViolationKind {
 #[serde(rename_all = "camelCase")]
 pub struct ViolationOut {
     pub rule: String,
-    pub severity: Severity,
+    pub level: ViolationLevel,
     pub kind: ViolationKind,
     pub from: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -202,10 +202,10 @@ pub struct Totals {
 
 impl Totals {
     pub fn of(violations: &[Violation], suppressed: usize) -> Totals {
-        let count = |s| violations.iter().filter(|v| v.severity == s).count();
+        let count = |s| violations.iter().filter(|v| v.level == s).count();
         Totals {
-            error: count(Severity::Error),
-            warn: count(Severity::Warn),
+            error: count(ViolationLevel::Error),
+            warn: count(ViolationLevel::Warn),
             suppressed,
         }
     }
@@ -233,7 +233,7 @@ impl CruiseResult {
         for v in violations {
             let r = RuleRef {
                 name: v.rule.clone(),
-                severity: v.severity,
+                level: v.level,
             };
             match v.edge {
                 Some(_) if !v.path.is_empty() => {
@@ -349,7 +349,7 @@ pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationO
         .map(|v| {
             let kind = match (&v.subject, v.edge, v.path.len()) {
                 (Subject::Export(_), ..) => ViolationKind::Export,
-                (Subject::File(_), ..) => ViolationKind::File,
+                (Subject::File(_) | Subject::Path(_), ..) => ViolationKind::File,
                 (_, Some(_), n) if n > 0 => ViolationKind::Cycle,
                 (_, Some(_), _) => ViolationKind::Dependency,
                 (_, None, n) if n > 0 => ViolationKind::Reachability,
@@ -357,10 +357,10 @@ pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationO
             };
             ViolationOut {
                 rule: v.rule.clone(),
-                severity: v.severity,
+                level: v.level,
                 kind,
                 from: match &v.subject {
-                    Subject::File(f) => f.clone(),
+                    Subject::File(f) | Subject::Path(f) => f.clone(),
                     _ => name(v.from),
                 },
                 to: v.to.map(name),
@@ -478,11 +478,11 @@ mod build_tests {
 
     #[test]
     fn exports_and_files_have_their_own_kind() {
-        let mut export = Violation::module("r", Severity::Warn, ModuleId(0), "x".into());
+        let mut export = Violation::module("r", ViolationLevel::Warn, ModuleId(0), "x".into());
         export.subject = Subject::Export(0);
-        let mut file = Violation::module("r", Severity::Warn, ModuleId(0), "y".into());
+        let mut file = Violation::module("r", ViolationLevel::Warn, ModuleId(0), "y".into());
         file.subject = Subject::File("package.json".into());
-        let module = Violation::module("r", Severity::Warn, ModuleId(1), "z".into());
+        let module = Violation::module("r", ViolationLevel::Warn, ModuleId(1), "z".into());
         let r = built(&[export, file, module]);
         let kinds: Vec<_> = r
             .violations

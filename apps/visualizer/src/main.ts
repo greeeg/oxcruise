@@ -25,8 +25,8 @@ function boot(): void {
     app.textContent = "data.js is missing or could not be read. Run `oxcruise --visualize` again.";
     return;
   }
-  if (data.version !== 1) {
-    app.textContent = `This site has data version ${data.version}, and the viewer reads version 1.`;
+  if (data.version !== 2) {
+    app.textContent = `This site has data version ${data.version}, and the viewer reads version 2.`;
     return;
   }
   const model = new Model(data);

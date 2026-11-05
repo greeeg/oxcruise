@@ -104,12 +104,12 @@ pub struct Cli {
     #[arg(long, help_heading = "Input Options")]
     pub symbols: bool,
 
-    /// Apply the automatic fixes of `no-unused-exports` and `no-unused-deps`: remove an `export`
+    /// Apply the automatic fixes of `unused-exports` and `unused-packages`: remove an `export`
     /// keyword, a list entry or a `package.json` entry. Run again for the fixes that these changes unlock
     #[arg(long, help_heading = "Output Options")]
     pub fix: bool,
 
-    /// Production mode for `no-unused-exports`, `no-unused-deps` and `no-unused-files`.
+    /// Production mode for `unused-exports`, `unused-packages` and `unused-modules`.
     /// The rules ignore tests, and they do not check `devDependencies`
     #[arg(long, help_heading = "Input Options")]
     pub production: bool,

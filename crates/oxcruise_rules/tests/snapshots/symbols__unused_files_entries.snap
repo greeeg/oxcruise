@@ -1,5 +1,0 @@
----
-source: crates/oxcruise_rules/tests/symbols.rs
-expression: "t.fail(&[\"src/index.ts -> src/a.ts\", \"scripts/build.ts -> scripts/lib.ts\",\n\"src/orphan.ts\",])"
----
-error no-unused-files src/orphan.ts: this module cannot be reached from any entry point

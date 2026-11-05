@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use oxcruise_core::{DepKinds, Graph, ModuleKind};
+use oxcruise_core::{DepKinds, FolderId, Graph, ModuleKind};
 use oxcruise_graph::{CruiseOptions, PathMatcher, cruise};
 
 fn fixture() -> PathBuf {
@@ -77,7 +77,7 @@ fn discovers_the_fixture_monorepo() {
 
     // file-level and edge-level suppression carry through
     let sup = edge_to(g, "packages/app/src/suppressed.ts", "./nope");
-    assert_eq!(sup.suppressed, vec!["no-unresolvable"]);
+    assert_eq!(sup.suppressed, vec!["unresolved-dependencies"]);
     assert!(
         edge_to(g, "packages/app/src/suppressed.ts", "./also-nope")
             .suppressed
@@ -218,4 +218,97 @@ fn a_reexport_reads_from_the_es_resolution_of_its_specifier() {
     let index = g.module(g.find("src/index.ts").unwrap());
     let from = index.exports[0].from.expect("a re-export has a source");
     assert_eq!(g.module(from).path, "node_modules/dual/esm.js");
+}
+
+#[test]
+fn the_file_tree_has_every_file_below_the_entry_folders_and_only_when_asked() {
+    assert!(cruise(&opts()).unwrap().file_tree.is_none());
+
+    let mut o = opts();
+    o.file_tree = true;
+    let tree = cruise(&o).unwrap().file_tree.expect("asked for the tree");
+    // files that are not modules are there too, and node_modules never is
+    assert!(tree.has_file("packages/app/package.json"));
+    assert!(tree.has_file("packages/app/src/index.ts"));
+    assert!(!tree.files().iter().any(|f| f.contains("node_modules")));
+    // the entry folder is `packages`: the root above it is listed, so its own files are there
+    assert!(tree.has_file("package.json"));
+    assert!(tree.is_listed(FolderId::ROOT));
+    let app = tree.folder_id("packages/app/src").unwrap();
+    assert!(
+        tree.child_files(app)
+            .iter()
+            .any(|&i| tree.file(i) == "packages/app/src/index.ts")
+    );
+}
+
+#[test]
+fn the_folders_above_the_entries_are_listed_one_level_deep() {
+    let d = tempfile::tempdir().unwrap();
+    for (p, text) in [
+        ("package.json", "{}"),
+        ("README.md", ""),
+        ("src/a/index.ts", ""),
+        ("scripts/run.ts", ""),
+        ("scripts/deep/x.ts", ""),
+        ("lib/x.ts", ""),
+        ("docs/guide/a.md", ""),
+    ] {
+        let path = d.path().join(p);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    let mut o = CruiseOptions::new(d.path().canonicalize().unwrap(), vec!["src".into()]);
+    o.file_tree = true;
+    let tree = cruise(&o).unwrap().file_tree.unwrap();
+    // the root is listed: its files are there, and its folders are known but not listed
+    assert!(tree.has_file("package.json") && tree.has_file("README.md"));
+    assert!(tree.is_listed(FolderId::ROOT));
+    for unlisted in ["lib", "docs", "scripts"] {
+        let id = tree
+            .folder_id(unlisted)
+            .unwrap_or_else(|| panic!("{unlisted}"));
+        assert!(!tree.is_listed(id), "{unlisted}");
+        assert!(tree.child_files(id).is_empty() && tree.child_folders(id).is_empty());
+    }
+    assert!(tree.folder_id("docs/guide").is_none());
+    assert!(tree.is_listed(tree.folder_id("src/a").unwrap()));
+
+    // an entry file lists its folder, and the folders in it are unlisted
+    o.entries = vec!["src".into(), "scripts/run.ts".into()];
+    let tree = cruise(&o).unwrap().file_tree.unwrap();
+    let scripts = tree.folder_id("scripts").unwrap();
+    assert!(tree.is_listed(scripts) && tree.has_file("scripts/run.ts"));
+    assert!(!tree.is_listed(tree.folder_id("scripts/deep").unwrap()));
+    assert!(!tree.has_file("scripts/deep/x.ts"));
+}
+
+#[test]
+fn the_file_tree_walks_the_root_when_no_entry_is_a_folder() {
+    let mut o = CruiseOptions::new(fixture(), vec!["packages/app/src/index.ts".into()]);
+    o.file_tree = true;
+    let out = cruise(&o).unwrap();
+    let tree = out.file_tree.unwrap();
+    assert!(
+        tree.has_file("packages/lib/package.json"),
+        "the whole root is walked"
+    );
+    // the graph still starts from the entry only
+    assert!(out.graph.find("packages/app/src/orphan.ts").is_none());
+}
+
+#[test]
+fn the_file_tree_respects_ignore_and_is_the_same_at_any_thread_count() {
+    let run = |threads| {
+        let mut o = opts();
+        o.file_tree = true;
+        o.threads = Some(threads);
+        o.ignore = PathMatcher::new(&["**/internal/**"]).unwrap();
+        cruise(&o).unwrap().file_tree.unwrap()
+    };
+    let one = run(1);
+    assert!(!one.files().iter().any(|f| f.contains("/internal/")));
+    for n in [2, 8] {
+        assert_eq!(one, run(n), "{n} threads");
+    }
 }

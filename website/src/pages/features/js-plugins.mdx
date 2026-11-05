@@ -37,7 +37,7 @@ The name of a plugin rule is `plugin/rule`. Configure it as you configure a buil
 ```ts
 export default defineConfig({
   rules: {
-    "acme/max-fan-out": ["warn", { max: 20 }],
+    "acme/max-fan-out": { level: "warn", max: 20 },
   },
 });
 ```

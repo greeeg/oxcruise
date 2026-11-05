@@ -27,30 +27,43 @@ pub enum Role {
 pub struct PathPatterns {
     positive: Vec<Item>,
     negative: Vec<Item>,
+    /// The text that every path matching a positive glob starts with.
+    prefix: String,
 }
 
 #[derive(Debug)]
 enum Item {
     Static(Regex),
     Template(Template),
+    /// Text and references only, so it names one path once the captures are known: compared as
+    /// text, with no regex to compile per capture.
+    Literal {
+        literal: Literal,
+        exact: bool,
+    },
 }
 
 #[derive(Debug)]
 struct Template {
     source: String,
+    exact: bool,
     cache: RwLock<FxHashMap<String, Option<Arc<Regex>>>>,
 }
 
 impl Item {
-    fn compile(glob: &str, capturing: bool) -> Result<Item, String> {
+    fn compile(glob: &str, capturing: bool, exact: bool) -> Result<Item, String> {
         let src = glob.strip_prefix("./").unwrap_or(glob);
         if !capturing && placeholder_spans(src).next().is_some() {
+            if let Some(literal) = Literal::parse(src) {
+                return Ok(Item::Literal { literal, exact });
+            }
             return Ok(Item::Template(Template {
                 source: src.to_string(),
+                exact,
                 cache: RwLock::default(),
             }));
         }
-        Regex::new(&glob_to_regex(src, capturing))
+        Regex::new(&glob_regex(src, capturing, exact))
             .map(Item::Static)
             .map_err(|e| format!("invalid pattern `{glob}`: {e}"))
     }
@@ -59,27 +72,59 @@ impl Item {
         match self {
             Item::Static(re) => re.is_match(path),
             Item::Template(t) => t.regex(caps).is_some_and(|re| re.is_match(path)),
+            Item::Literal { literal, exact } => literal.names(path, caps, *exact),
         }
     }
 }
 
 impl PathPatterns {
     pub fn new(globs: &[String], role: Role) -> Result<Self, String> {
+        Self::build(globs, role, false)
+    }
+
+    /// Like [`PathPatterns::new`], but a glob matches only the paths it names. `src/pages` then
+    /// does not match `src/pages/a`, as it does elsewhere. For rules that match one folder or file
+    /// at a time.
+    pub fn exact(globs: &[String], role: Role) -> Result<Self, String> {
+        Self::build(globs, role, true)
+    }
+
+    fn build(globs: &[String], role: Role, exact: bool) -> Result<Self, String> {
         let (mut positive, mut negative) = (vec![], vec![]);
+        let mut prefix: Option<&str> = None;
         for g in globs {
             match g.strip_prefix('!') {
-                Some(neg) => negative.push(Item::compile(neg, false)?),
-                None => positive.push(Item::compile(g, role == Role::Capturing)?),
+                Some(neg) => negative.push(Item::compile(neg, false, exact)?),
+                None => {
+                    positive.push(Item::compile(g, role == Role::Capturing, exact)?);
+                    let literal = literal_prefix(g.strip_prefix("./").unwrap_or(g));
+                    prefix = Some(match prefix {
+                        Some(p) => common_prefix(p, literal),
+                        None => literal,
+                    });
+                }
             }
         }
-        Ok(Self { positive, negative })
+        Ok(Self {
+            positive,
+            negative,
+            prefix: prefix.unwrap_or_default().to_string(),
+        })
     }
 
     pub fn empty() -> Self {
         Self {
             positive: vec![],
             negative: vec![],
+            prefix: String::new(),
         }
+    }
+
+    /// The text that every path this list matches starts with: the part of its globs before the
+    /// first wildcard or capture. Empty if there is none, or if the list only negates. A cheap
+    /// filter for the paths to try.
+    pub fn literal_prefix(&self) -> &str {
+        &self.prefix
     }
 
     pub fn is_empty(&self) -> bool {
@@ -91,7 +136,7 @@ impl PathPatterns {
         self.positive
             .iter()
             .chain(&self.negative)
-            .any(|i| matches!(i, Item::Template(_)))
+            .any(|i| matches!(i, Item::Template(_) | Item::Literal { .. }))
     }
 
     /// Does the list match `path`? Patterns that refer to captures that `caps` lacks never
@@ -127,7 +172,7 @@ impl PathPatterns {
                     }
                     caps
                 }),
-                Item::Template(_) => None,
+                Item::Template(_) | Item::Literal { .. } => None,
             })?;
         }
         (!self.negative.iter().any(|i| i.is_match(path, &caps))).then_some(caps)
@@ -152,7 +197,7 @@ impl Template {
                 return hit.clone();
             }
             let (substituted, _) = substitute(&self.source, caps)?;
-            let compiled = Regex::new(&glob_to_regex(&substituted, false))
+            let compiled = Regex::new(&glob_regex(&substituted, false, self.exact))
                 .ok()
                 .map(Arc::new);
             self.cache
@@ -183,6 +228,11 @@ fn placeholder_spans(src: &str) -> impl Iterator<Item = (usize, usize, &str)> {
         }
         None
     })
+}
+
+/// The names of the `{name}` references in `glob`.
+pub fn placeholder_names(glob: &str) -> impl Iterator<Item = &str> {
+    placeholder_spans(glob).map(|(_, _, name)| name)
 }
 
 fn is_ident(s: &str) -> bool {
@@ -235,9 +285,110 @@ fn escape_glob(s: &str) -> String {
         .collect()
 }
 
+/// The text of `glob` before its first wildcard, `{` or escape.
+fn literal_prefix(glob: &str) -> &str {
+    &glob[..glob.find(['*', '?', '[', '{', '\\']).unwrap_or(glob.len())]
+}
+
+fn common_prefix<'a>(a: &'a str, b: &str) -> &'a str {
+    let len = a
+        .char_indices()
+        .zip(b.chars())
+        .take_while(|((_, x), y)| x == y)
+        .last()
+        .map_or(0, |((i, c), _)| i + c.len_utf8());
+    &a[..len]
+}
+
+/// A glob that is text and `{name}` references only, such as `{c}.test.tsx`. Once the captures
+/// are known it names one path, so it needs no regex.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Literal {
+    parts: Vec<LiteralPart>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum LiteralPart {
+    Text(String),
+    Capture(String),
+}
+
+impl Literal {
+    /// `None` if `glob` has a wildcard, an alternation or an escape.
+    pub fn parse(glob: &str) -> Option<Literal> {
+        let src = glob.strip_prefix("./").unwrap_or(glob);
+        let mut parts = vec![];
+        let mut last = 0;
+        for (start, end, name) in placeholder_spans(src) {
+            parts.push(LiteralPart::Text(src[last..start].to_string()));
+            parts.push(LiteralPart::Capture(name.to_string()));
+            last = end;
+        }
+        parts.push(LiteralPart::Text(src[last..].to_string()));
+        let plain = parts.iter().all(|p| match p {
+            LiteralPart::Text(t) => !t.contains(['*', '?', '[', ']', '{', '}', '\\']),
+            LiteralPart::Capture(_) => true,
+        });
+        plain.then_some(Literal { parts })
+    }
+
+    /// Does `path` equal this glob under `caps`? Unless `exact`, a path below it matches too, as
+    /// for any glob. `false` if `caps` lacks a reference. Allocates nothing.
+    fn names(&self, path: &str, caps: &Captures, exact: bool) -> bool {
+        let mut rest = path;
+        for p in &self.parts {
+            let text = match p {
+                LiteralPart::Text(t) => t.as_str(),
+                LiteralPart::Capture(name) => match caps.get(name) {
+                    Some(v) => v.as_str(),
+                    None => return false,
+                },
+            };
+            match rest.strip_prefix(text) {
+                Some(r) => rest = r,
+                None => return false,
+            }
+        }
+        rest.is_empty() || (!exact && rest.starts_with('/'))
+    }
+
+    /// The path, with each reference replaced by its capture. `None` if `caps` lacks one.
+    pub fn resolve(&self, caps: &Captures) -> Option<String> {
+        let mut out = String::new();
+        for p in &self.parts {
+            match p {
+                LiteralPart::Text(t) => out.push_str(t),
+                LiteralPart::Capture(name) => out.push_str(caps.get(name)?),
+            }
+        }
+        Some(out)
+    }
+}
+
+/// `src`, with each `{name}` that `caps` has replaced by its value. For messages.
+pub fn fill_captures(src: &str, caps: &Captures) -> String {
+    let mut out = String::new();
+    let mut last = 0;
+    for (start, end, name) in placeholder_spans(src) {
+        out.push_str(&src[last..start]);
+        match caps.get(name) {
+            Some(v) => out.push_str(v),
+            None => out.push_str(&src[start..end]),
+        }
+        last = end;
+    }
+    out.push_str(&src[last..]);
+    out
+}
+
 /// Translate a glob to an anchored regex. A glob also matches everything beneath a
 /// directory it matches. With `capturing`, `{ident}` becomes a named group.
 pub fn glob_to_regex(glob: &str, capturing: bool) -> String {
+    glob_regex(glob, capturing, false)
+}
+
+/// [`glob_to_regex`], where `exact` makes a glob match only the paths it names.
+fn glob_regex(glob: &str, capturing: bool, exact: bool) -> String {
     let chars: Vec<char> = glob.chars().collect();
     let mut out = String::from("^");
     let mut i = 0;
@@ -311,7 +462,7 @@ pub fn glob_to_regex(glob: &str, capturing: bool) -> String {
         }
         i += 1;
     }
-    if !ends_with_globstar_dir {
+    if !ends_with_globstar_dir && !exact {
         out.push_str("(?:/.*)?");
     }
     out.push('$');
@@ -463,5 +614,98 @@ mod tests {
     fn empty_matches_everything_for_capture() {
         assert!(PathPatterns::empty().capture("anything").is_some());
         assert!(!PathPatterns::empty().is_match("anything", &none()));
+    }
+
+    fn exact(globs: &[&str], role: Role) -> PathPatterns {
+        let globs: Vec<String> = globs.iter().map(|g| g.to_string()).collect();
+        PathPatterns::exact(&globs, role).unwrap()
+    }
+
+    #[test]
+    fn exact_globs_match_only_what_they_name() {
+        let p = exact(&["src/pages"], Role::Referencing);
+        assert!(p.is_match("src/pages", &none()));
+        assert!(!p.is_match("src/pages/a", &none()));
+        // the ordinary form also matches below the folder
+        assert!(pats(&["src/pages"], Role::Referencing).is_match("src/pages/a", &none()));
+        // `**` still reaches below, because the glob says so
+        let deep = exact(&["src/**"], Role::Referencing);
+        assert!(deep.is_match("src", &none()) && deep.is_match("src/a/b.ts", &none()));
+        // captures and templates are exact too
+        let c = exact(&["src/{f}"], Role::Capturing);
+        assert_eq!(c.capture("src/a").unwrap()["f"], "a");
+        assert!(c.capture("src/a/b").is_none());
+        let t = exact(&["{f}.test.ts"], Role::Referencing);
+        let caps: Captures = [("f".to_string(), "a".to_string())].into_iter().collect();
+        assert!(t.is_match("a.test.ts", &caps) && !t.is_match("a.test.ts/x", &caps));
+    }
+
+    #[test]
+    fn the_literal_prefix_is_the_text_before_the_first_wildcard() {
+        let prefix = |globs: &[&str]| exact(globs, Role::Capturing).literal_prefix().to_string();
+        assert_eq!(prefix(&["src/pages/{p}"]), "src/pages/");
+        assert_eq!(prefix(&["src/**/x.ts"]), "src/");
+        assert_eq!(prefix(&["src/a/*.ts", "src/b/*.ts"]), "src/");
+        assert_eq!(prefix(&["src/a", "lib/b"]), "");
+        assert_eq!(prefix(&["!src/a"]), "");
+        assert_eq!(prefix(&["src/a", "!src/b"]), "src/a");
+        assert_eq!(prefix(&["ü/{x}", "ü/y"]), "ü/");
+    }
+
+    #[test]
+    fn a_template_of_text_and_references_is_compared_as_text_and_matches_like_its_regex() {
+        let caps: Captures = [("f".to_string(), "a.b".to_string())].into_iter().collect();
+        for exact in [false, true] {
+            let globs = ["{f}.test.ts".to_string(), "src/{f}".to_string()];
+            let p = if exact {
+                PathPatterns::exact(&globs, Role::Referencing)
+            } else {
+                PathPatterns::new(&globs, Role::Referencing)
+            }
+            .unwrap();
+            assert!(p.refers_to_captures());
+            for (glob, path) in [
+                ("a\\.b.test.ts", "a.b.test.ts"),
+                ("a\\.b.test.ts", "aXb.test.ts"),
+                ("a\\.b.test.ts", "a.b.test.ts/x"),
+                ("a\\.b.test.ts", "a.b.test.tsx"),
+                ("src/a\\.b", "src/a.b"),
+                ("src/a\\.b", "src/a.b/deep/x.ts"),
+                ("src/a\\.b", "src/a.bc"),
+                ("src/a\\.b", "src"),
+            ] {
+                // the regex of the glob with the capture put in, as a template would compile it
+                let re = regex::Regex::new(&glob_regex(glob, false, exact)).unwrap();
+                assert_eq!(
+                    p.is_match(path, &caps),
+                    re.is_match(path),
+                    "{glob} {path} {exact}"
+                );
+            }
+            // no capture, no match
+            assert!(!p.is_match("a.b.test.ts", &Captures::default()));
+        }
+    }
+
+    #[test]
+    fn literals_name_one_path_once_the_captures_are_known() {
+        let caps: Captures = [("c".to_string(), "Button".to_string())]
+            .into_iter()
+            .collect();
+        let lit = Literal::parse("{c}.test.tsx").unwrap();
+        assert_eq!(lit.resolve(&caps).unwrap(), "Button.test.tsx");
+        assert_eq!(lit.resolve(&Captures::default()), None);
+        assert_eq!(
+            Literal::parse("api/index.ts")
+                .unwrap()
+                .resolve(&caps)
+                .unwrap(),
+            "api/index.ts"
+        );
+        for glob in ["*.ts", "index.{ts,tsx}", "a?.ts", "[ab].ts", "a\\*.ts"] {
+            assert!(Literal::parse(glob).is_none(), "{glob}");
+        }
+        assert_eq!(fill_captures("{c}.{ts,tsx}", &caps), "Button.{ts,tsx}");
+        assert_eq!(fill_captures("{d}.ts", &caps), "{d}.ts");
     }
 }

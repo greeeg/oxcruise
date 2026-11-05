@@ -32,8 +32,16 @@ serde_json = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 insta = { workspace = true }
-oxcruise_rules = { path = ".", features = ["testing"] }
+oxcruise_rules = { path = ".", features = ["testing", "ruledocs"] }
+
+[[example]]
+name = "schema"
+required-features = ["ruledocs"]
 
 [[bench]]
-name = "no_circular"
+name = "circular_dependencies"
+harness = false
+
+[[bench]]
+name = "folder_rules"
 harness = false

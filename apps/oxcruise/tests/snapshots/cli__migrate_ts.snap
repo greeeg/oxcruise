@@ -3,7 +3,7 @@ source: apps/oxcruise/tests/cli.rs
 expression: written
 ---
 // Migrated from .dependency-cruiser.json by `oxcruise --migrate`.
-// TODO: rule `no-circular` was dropped: `to.circular` is not supported (the built-in rule `no-circular` covers this)
+// TODO: rule `no-circular` was dropped: `to.circular` is not supported (the built-in rule `circular-dependencies` covers this)
 // TODO: rule `needs-license` was dropped: `to.license` is not supported (write a JS plugin rule for it)
 // TODO: rule `not-in-prod`: severity `info` does not exist in oxcruise and was mapped to `warn`
 // TODO: `options.webpackConfig` is not supported; use `resolve.alias` for webpack aliases
@@ -17,7 +17,7 @@ export default defineConfig({
     {
       "name": "feature-isolation",
       "message": "features stay apart",
-      "severity": "error",
+      "level": "error",
       "from": "src/features/{c1}/**",
       "to": [
         "src/features/**",
@@ -26,7 +26,7 @@ export default defineConfig({
     },
     {
       "name": "not-in-prod",
-      "severity": "warn",
+      "level": "warn",
       "from": "src*",
       "to": "**/*.spec.ts"
     }

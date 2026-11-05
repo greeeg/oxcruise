@@ -9,7 +9,7 @@ const model = new Model(smallData());
 const mod = (m: number) => model.nodeOfMod(m);
 
 describe("aggregate", () => {
-  it("counts merged edges and keeps severity", () => {
+  it("counts merged edges and keeps level", () => {
     // a, b -> 3; c, react -> 1: b->c and a->react merge, c->a goes back, a->b vanishes
     const links = aggregate(model, [0, 1, 2, 3], (m) => (m < 2 ? 3 : 1));
     const forward = links.find((l) => l.s === 3 && l.t === 1)!;

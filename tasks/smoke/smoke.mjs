@@ -108,7 +108,7 @@ try {
   write("src/c.ts", "export {};\n");
   write(
     "oxcruise.config.ts",
-    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "no-circular": "warn", "smoke/where": "warn" },\n});\n`,
+    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "circular-dependencies": "warn", "smoke/where": "warn" },\n});\n`,
   );
   write(
     "plugin.ts",
@@ -136,7 +136,11 @@ try {
     plain.stdout,
   );
   check("TS plugin rule ran with the whole graph", plain.stdout.includes("deps=3"), plain.stdout);
-  check("native rule still works alongside", plain.stdout.includes("no-circular"), plain.stdout);
+  check(
+    "native rule still works alongside",
+    plain.stdout.includes("circular-dependencies"),
+    plain.stdout,
+  );
 
   // no config at all: the default categories must fire correctness errors
   const bare = join(work, "bare");
@@ -157,10 +161,12 @@ try {
     cwd: proj,
   });
   check(
-    "no config: no-unresolvable and no-circular (errors) and no-orphans (warning) fire",
-    ["error[no-unresolvable]", "error[no-circular]", "warn[no-orphans]"].every((r) =>
-      rulesHit.stdout.includes(r),
-    ),
+    "no config: unresolved-dependencies and circular-dependencies (errors) and orphan-modules (warning) fire",
+    [
+      "error[unresolved-dependencies]",
+      "error[circular-dependencies]",
+      "warn[orphan-modules]",
+    ].every((r) => rulesHit.stdout.includes(r)),
     rulesHit.stdout,
   );
 
@@ -175,7 +181,7 @@ try {
     .sort();
   check(
     "plugin reporter output",
-    rules.join() === "no-circular,smoke/where",
+    rules.join() === "circular-dependencies,smoke/where",
     `${lines.code}\n${lines.stdout}\n${lines.stderr}`,
   );
 

@@ -144,7 +144,7 @@ fn exit_codes() {
         ("src/lonely.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-orphans": "warn" } }"#,
+            r#"{ "entries": ["src"], "rules": { "orphan-modules": "warn" } }"#,
         ),
     ]);
     let p = warn_only.path();
@@ -173,7 +173,7 @@ fn exit_codes() {
         ("src/a.ts", "import './a';\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "error" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "error" } }"#,
         ),
     ]);
     let plain = run_in(errors.path(), &[]);
@@ -209,7 +209,7 @@ fn config_discovery() {
         ("src/a.ts", "import './a';\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "off" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "off" } }"#,
         ),
     ]);
     assert_eq!(run_in(d.path(), &[]).result, CliRunResult::Success);
@@ -230,7 +230,7 @@ fn config_errors_are_reported_together() {
         ("src/a.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circluar": "error", "layers": ["error", { "allow": { "x": [] } }] } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependancies": "error", "layers": { "level": "error", "allow": { "x": [] } } } }"#,
         ),
     ]);
     let o = run_in(d.path(), &[]);
@@ -295,7 +295,7 @@ fn typescript_config_is_evaluated_by_node() {
         ("src/a.ts", "import './a';\n"),
         (
             "oxcruise.config.ts",
-            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'no-circular': 'warn' as const } };\n",
+            "const entries: string[] = ['src'];\nexport default { entries, rules: { 'circular-dependencies': 'warn' as const } };\n",
         ),
     ]);
     let o = run_in(d.path(), &[]);
@@ -306,7 +306,11 @@ fn typescript_config_is_evaluated_by_node() {
         o.stdout,
         o.stderr
     );
-    assert!(o.stdout.contains("warn[no-circular]"), "{}", o.stdout);
+    assert!(
+        o.stdout.contains("warn[circular-dependencies]"),
+        "{}",
+        o.stdout
+    );
 }
 
 #[test]
@@ -423,7 +427,7 @@ fn rules_table_and_json() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|r| r["name"] == "no-circular" && r["category"] == "correctness")
+            .any(|r| r["name"] == "circular-dependencies" && r["category"] == "correctness")
     );
 
     let bad = run(&["--rules", "-f", "dot"]);
@@ -457,15 +461,15 @@ fn quiet_hides_warnings_but_keeps_limits() {
         ("src/lonely.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-orphans": "warn" } }"#,
+            r#"{ "entries": ["src"], "rules": { "orphan-modules": "warn" } }"#,
         ),
     ]);
     let p = d.path();
     let loud = run_in(p, &[]);
-    assert!(loud.stdout.contains("no-orphans"), "{}", loud.stdout);
+    assert!(loud.stdout.contains("orphan-modules"), "{}", loud.stdout);
     let quiet = run_in(p, &["--quiet"]);
     assert_eq!(quiet.result, CliRunResult::Success);
-    assert!(!quiet.stdout.contains("no-orphans"), "{}", quiet.stdout);
+    assert!(!quiet.stdout.contains("orphan-modules"), "{}", quiet.stdout);
     // the warning is still counted
     assert!(matches!(
         run_in(p, &["--quiet", "--deny-warnings"]).result,
@@ -493,7 +497,7 @@ fn json_circular_does_not_depend_on_the_rule() {
         ("src/c.ts", "export {};\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "no-circular": "off" } }"#,
+            r#"{ "entries": ["src"], "rules": { "circular-dependencies": "off" } }"#,
         ),
     ]);
     let json: serde_json::Value =
@@ -703,7 +707,7 @@ fn fix_removes_neighbouring_unused_dependencies_in_one_run() {
         ),
         (
             ".oxcruiserc.json",
-            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-deps": "error" } }"#,
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "unused-packages": "error" } }"#,
         ),
     ]);
     let first = run_in(d.path(), &["-f", "github", "--fix", "src"]);
@@ -719,25 +723,25 @@ fn fix_removes_neighbouring_unused_dependencies_in_one_run() {
     let second = run_in(d.path(), &["-f", "github", "src"]);
     assert_eq!(second.result.code(), 0, "{}", second.stdout);
     assert!(
-        !second.stdout.contains("no-unused-deps"),
+        !second.stdout.contains("unused-packages"),
         "{}",
         second.stdout
     );
 }
 
 #[test]
-fn unused_files_warns_when_it_finds_no_entry_point() {
+fn unused_modules_warns_when_it_finds_no_entry_point() {
     let d = project(&[
         ("package.json", r#"{ "name": "p" }"#),
         ("src/a.ts", "import \"./b\";\n"),
         ("src/b.ts", "export const b = 1;\n"),
         (
             ".oxcruiserc.json",
-            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "no-unused-files": "error" } }"#,
+            r#"{ "categories": { "correctness": "off", "suspicious": "off" }, "rules": { "unused-modules": "error" } }"#,
         ),
     ]);
     let o = run_in(d.path(), &["-f", "github", "src"]);
-    insta::assert_snapshot!("unused_files_without_entry", report(&o));
+    insta::assert_snapshot!("unused_modules_without_entry", report(&o));
     // an entry point makes the warning go away
     std::fs::write(
         d.path().join("package.json"),
@@ -767,7 +771,7 @@ fn visualize_writes_the_site_and_does_not_gate() {
         .and_then(|d| d.trim_end().strip_suffix("');"))
         .expect("data.js shape");
     let v: serde_json::Value = serde_json::from_str(&json.replace("\\\\", "\\")).unwrap();
-    assert_eq!(v["version"], 1);
+    assert_eq!(v["version"], 2);
     assert!(v["modules"]["name"].as_array().unwrap().len() > 5);
 }
 
@@ -798,4 +802,152 @@ fn visualize_refuses_check_only_flags() {
             "{f}"
         );
     }
+}
+
+fn folder_structure_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/folder-structure")
+}
+
+#[test]
+fn folder_structure_reports_the_seeded_violations() {
+    let cwd = folder_structure_fixture();
+    let text = run_in(&cwd, &[]);
+    assert_eq!(text.result.code(), 1, "{}", report(&text));
+    insta::assert_snapshot!("folder_structure_text", report(&text));
+    let json = run_in(&cwd, &["-f", "json"]);
+    assert_eq!(json.result.code(), 1);
+    insta::assert_snapshot!("folder_structure_json", json.stdout);
+}
+
+#[test]
+fn folder_structure_is_the_same_at_any_thread_count() {
+    let cwd = folder_structure_fixture();
+    let one = run_in(&cwd, &["-f", "json", "--threads", "1"]);
+    for n in ["2", "8"] {
+        let many = run_in(&cwd, &["-f", "json", "--threads", n]);
+        assert_eq!(one.stdout, many.stdout, "{n} threads");
+    }
+}
+
+#[test]
+fn folder_structure_follows_overrides_by_path() {
+    let d = tempfile::tempdir().unwrap();
+    copy_dir(&folder_structure_fixture(), d.path());
+    let mut config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(d.path().join(".oxcruiserc.json")).unwrap())
+            .unwrap();
+    config["overrides"] = serde_json::json!([
+        // a missing file is scoped by its own path
+        { "files": "src/pages/about/**", "rules": { "folder-structure": "off" } },
+        // an override without a level changes the options and keeps the level
+        { "files": "src/modules/**", "rules": { "folder-structure": { "folders": [
+            { "path": "src/modules/{m}", "allow": "!helpers" }
+        ] } } }
+    ]);
+    std::fs::write(
+        d.path().join(".oxcruiserc.json"),
+        serde_json::to_string(&config).unwrap(),
+    )
+    .unwrap();
+    let o = run_in(d.path(), &["-f", "json"]);
+    let v: serde_json::Value = serde_json::from_str(&o.stdout).unwrap();
+    let froms: Vec<&str> = v["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["from"].as_str().unwrap())
+        .collect();
+    assert!(
+        !froms.iter().any(|f| f.starts_with("src/pages/about")),
+        "{froms:?}"
+    );
+    // `utils` is allowed by the override's options, and the components are in no override
+    assert!(!froms.contains(&"src/modules/cart/utils"), "{froms:?}");
+    assert!(
+        froms.contains(&"src/components/Card/Card.test.tsx"),
+        "{froms:?}"
+    );
+}
+
+fn folder_dependencies_project() -> tempfile::TempDir {
+    project(&[
+        (
+            ".oxcruiserc.json",
+            r#"{
+              "entries": ["src"],
+              "categories": { "correctness": "off", "suspicious": "off" },
+              "rules": {
+                "visibility": { "level": "error", "folders": [
+                  { "path": "src/features/{f}", "public": "index.ts", "message": "Import a feature through its index.ts." },
+                  { "path": "**", "private": "internal" }
+                ] },
+                "circular-dependencies": { "level": "error", "folders": [{ "path": "src/features/{f}" }] }
+              }
+            }"#,
+        ),
+        // a deep dependency into a feature
+        (
+            "src/app.ts",
+            "import './features/cart/model';\nimport './features/cart';\nimport './lib/internal/secret';\n",
+        ),
+        ("src/features/cart/index.ts", "export {};\n"),
+        (
+            "src/features/cart/model.ts",
+            "import '../pay';\nexport {};\n",
+        ),
+        // an `internal/` folder of another folder, and a cycle between two features
+        ("src/lib/internal/secret.ts", "export {};\n"),
+        (
+            "src/features/pay/index.ts",
+            "import '../cart';\nexport {};\n",
+        ),
+    ])
+}
+
+#[test]
+fn visibility_and_folder_cycles_report_the_seeded_violations() {
+    let d = folder_dependencies_project();
+    let o = run_in(d.path(), &[]);
+    assert_eq!(o.result.code(), 1, "{}", report(&o));
+    insta::assert_snapshot!("folder_dependencies_text", report(&o));
+}
+
+#[test]
+fn folder_cycles_are_the_same_at_any_thread_count() {
+    let d = folder_dependencies_project();
+    let one = run_in(d.path(), &["-f", "json", "--threads", "1"]);
+    for n in ["2", "8"] {
+        let many = run_in(d.path(), &["-f", "json", "--threads", n]);
+        assert_eq!(one.stdout, many.stdout, "{n} threads");
+    }
+}
+
+#[test]
+fn an_override_that_switches_visibility_off_keeps_folder_structure() {
+    let d = folder_dependencies_project();
+    let mut config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(d.path().join(".oxcruiserc.json")).unwrap())
+            .unwrap();
+    config["rules"]["folder-structure"] = serde_json::json!({
+        "folders": [{ "path": "src/features/{f}", "require": "README.md" }]
+    });
+    config["overrides"] = serde_json::json!([
+        { "files": "src/**", "rules": { "visibility": "off" } }
+    ]);
+    std::fs::write(
+        d.path().join(".oxcruiserc.json"),
+        serde_json::to_string(&config).unwrap(),
+    )
+    .unwrap();
+    let o = run_in(d.path(), &["-f", "json"]);
+    let v: serde_json::Value = serde_json::from_str(&o.stdout).unwrap();
+    let rules: Vec<&str> = v["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["rule"].as_str().unwrap())
+        .collect();
+    assert!(!rules.contains(&"visibility"), "{rules:?}");
+    assert!(rules.contains(&"folder-structure"), "{rules:?}");
+    assert!(rules.contains(&"circular-dependencies"), "{rules:?}");
 }

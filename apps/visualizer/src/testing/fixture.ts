@@ -6,7 +6,7 @@ import type { VizData } from "../data/types";
  */
 export function smallData(): VizData {
   return {
-    version: 1,
+    version: 2,
     root: "/p",
     generatedAt: 0,
     summary: { error: 1, warn: 1, suppressed: 0, totalModules: 5, totalDependencies: 5 },
@@ -25,7 +25,7 @@ export function smallData(): VizData {
       package: [-1, -1, -1, -1, 0],
     },
     packages: ["react"],
-    rules: ["no-circular", "no-orphans"],
+    rules: ["circular-dependencies", "orphan-modules"],
     edges: {
       from: [0, 1, 2, 0, 3],
       to: [1, 2, 0, 4, 2],
@@ -35,14 +35,14 @@ export function smallData(): VizData {
     violations: [
       {
         rule: 0,
-        severity: "error",
+        level: "error",
         kind: "cycle",
         from: 0,
         to: 1,
         message: "cycle",
         cycle: [0, 1, 2],
       },
-      { rule: 1, severity: "warn", kind: "module", from: 3, message: "orphan" },
+      { rule: 1, level: "warn", kind: "module", from: 3, message: "orphan" },
     ],
   };
 }
@@ -120,7 +120,7 @@ export function bigData(opts: {
     }
   }
   return {
-    version: 1,
+    version: 2,
     root: "/p",
     generatedAt: 0,
     summary: {

@@ -2,4 +2,4 @@
 source: crates/oxcruise_rules/tests/symbols.rs
 expression: "t.fail(&[\"app.ts -> index.ts [names=ns.a]\",\n\"index.ts -> impl.ts [ns=ns names=]\", \"impl.ts [exports=a,b]\",\n\"app.ts [exports=main]\",])"
 ---
-error no-unused-exports impl.ts:3:1: unused export `b`
+error unused-exports impl.ts:3:1: unused export `b`

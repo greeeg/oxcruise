@@ -36,7 +36,7 @@ export class ViolationsView {
 
     const groups = new Map<number, number[]>();
     data.violations.forEach((v, i) => {
-      if (s.sev && v.severity !== s.sev) return;
+      if (s.sev && v.level !== s.sev) return;
       if (s.rule && data.rules[v.rule] !== s.rule) return;
       const g = groups.get(v.rule);
       if (g) g.push(i);
@@ -76,7 +76,7 @@ export class ViolationsView {
     const from = v.from !== undefined ? model.modPaths[v.from] : (v.file ?? "");
     const to = v.to !== undefined ? ` → ${model.modPaths[v.to]}` : "";
     const li = el("li", { class: v.from !== undefined ? "clickable" : "" }, [
-      el("span", { class: `dot sev-${v.severity}`, title: v.severity }),
+      el("span", { class: `dot sev-${v.level}`, title: v.level }),
       el("div", {}, [
         el("div", { text: v.message }),
         el("div", {

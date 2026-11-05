@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/app.ts -> src/features/cart/deep/b.ts\",\n\"src/features/pay/a.ts -> src/features/cart/model.ts\",\n\"src/app.ts -> src/features/cart/index.ts\",])"
+---
+error visibility src/app.ts:1:1 -> src/features/cart/deep/b.ts: Import a feature through its index.ts.
+error visibility src/features/pay/a.ts:2:1 -> src/features/cart/model.ts: Import a feature through its index.ts.

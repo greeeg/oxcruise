@@ -22,6 +22,7 @@ fn result() -> CruiseResult {
         &root,
         &out.workspace,
         &out.manifests,
+        None,
         false,
     );
     CruiseResult::build(
@@ -99,7 +100,7 @@ fn data_js_is_a_parseable_string() {
         .replace("\\\\", "\\");
     let back: serde_json::Value = serde_json::from_str(&unescaped).unwrap();
     assert_eq!(back["root"], data.root.as_str());
-    assert_eq!(back["version"], 1);
+    assert_eq!(back["version"], 2);
 }
 
 #[test]

@@ -23,6 +23,7 @@ fn result() -> CruiseResult {
         &root,
         &out.workspace,
         &out.manifests,
+        None,
         false,
     );
     CruiseResult::build(
@@ -64,7 +65,7 @@ fn long_adds_rule_docs() {
             ..Default::default()
         },
     );
-    assert!(out.contains("About `no-circular`"), "{out}");
+    assert!(out.contains("About `circular-dependencies`"), "{out}");
     assert!(
         out.contains("Reports dependencies that are part of a circular chain"),
         "{out}"

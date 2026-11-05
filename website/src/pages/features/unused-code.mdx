@@ -10,18 +10,18 @@ The rules are in the `nursery` category, so they are off by default.
 
 | Rule | What it reports |
 |---|---|
-| [`no-unused-exports`](/reference/rules/no-unused-exports) | Exports that no module imports, members of enums and namespaces that no code reads, and bindings that a module exports under two names. |
-| [`no-unused-deps`](/reference/rules/no-unused-deps) | Packages that a `package.json` declares and that none of its modules imports. |
-| [`no-unused-files`](/reference/rules/no-unused-files) | Source modules that no path from an entry point reaches. |
+| [`unused-exports`](/reference/rules/unused-exports) | Exports that no module imports, members of enums and namespaces that no code reads, and bindings that a module exports under two names. |
+| [`unused-packages`](/reference/rules/unused-packages) | Packages that a `package.json` declares and that none of its modules imports. |
+| [`unused-modules`](/reference/rules/unused-modules) | Source modules that no path from an entry point reaches. |
 
 ## Enable the rules
 
 ```json
 {
   "rules": {
-    "no-unused-exports": "warn",
-    "no-unused-deps": "error",
-    "no-unused-files": "error"
+    "unused-exports": "warn",
+    "unused-packages": "error",
+    "unused-modules": "error"
   }
 }
 ```
@@ -29,22 +29,22 @@ The rules are in the `nursery` category, so they are off by default.
 This is the output for a small project:
 
 ```text
-error[no-unused-deps]: `unused-dep` is in `dependencies` but no module imports it
+error[unused-packages]: `unused-dep` is in `dependencies` but no module imports it
   --> package.json:6:5
    |
  6 |     "unused-dep": "1.0.0",
    |     ^
 
-error[no-unused-files]: this module cannot be reached from any entry point
+error[unused-modules]: this module cannot be reached from any entry point
   --> src/orphan.ts
 
-warn[no-unused-exports]: unused export `renamed`
+warn[unused-exports]: unused export `renamed`
   --> src/api.ts:5:20
    |
  5 | export { helper as renamed };
    |                    ^
 
-warn[no-unused-exports]: unused member `Color.Green`
+warn[unused-exports]: unused member `Color.Green`
   --> src/util.ts:8:3
    |
  8 |   Green,
@@ -53,8 +53,8 @@ warn[no-unused-exports]: unused member `Color.Green`
 
 ## Entry points
 
-An entry point is a module whose exports are public. The `no-unused-exports` rule does not report the exports of an entry point.
-The `no-unused-files` rule starts at the entry points and reports the modules that no path from them reaches.
+An entry point is a module whose exports are public. The `unused-exports` rule does not report the exports of an entry point.
+The `unused-modules` rule starts at the entry points and reports the modules that no path from them reaches.
 Oxcruise finds entry points from these sources:
 
 * The files that each `package.json` publishes: `main`, `module`, `types`, `bin` and `exports`.
@@ -64,8 +64,8 @@ Oxcruise finds entry points from these sources:
 * The `entries` option of the rules and the `entries` of [plugins](/features/writing-js-plugins).
 * Modules that have the `// oxcruise-ignore-file` comment.
 
-The `no-unused-exports` rule has one more source of entry points: the modules that no other module imports.
-The `no-unused-files` rule does not use this source, because then it would report no module that nothing imports.
+The `unused-exports` rule has one more source of entry points: the modules that no other module imports.
+The `unused-modules` rule does not use this source, because then it would report no module that nothing imports.
 
 ### Conventions
 
@@ -78,15 +78,15 @@ Use the `conventions` option of a rule to switch conventions off or to select so
 
 Run `npx oxcruise --production` or set `production: true` in the options of the rules.
 In production mode, tests are not entry points and do not count as users of an export.
-The `no-unused-deps` rule also skips `devDependencies`.
+The `unused-packages` rule also skips `devDependencies`.
 An export that only a test uses is then a violation.
 
 ## Exports and symbols
 
-`no-unused-exports` needs the exports of each module and the names that each import uses.
+`unused-exports` needs the exports of each module and the names that each import uses.
 Oxcruise calls these *symbols*. It extracts them in the same pass as the dependencies, but only when something needs them:
 
-* a rule that needs them is on, such as `no-unused-exports`
+* a rule that needs them is on, such as `unused-exports`
 * a plugin declares `needs: ["symbols"]`
 * you use `--symbols`, the `symbols` config key or `cruise({ symbols: true })`
 
@@ -98,7 +98,7 @@ With symbols, the `json` format lists the exports of each module and the names o
 * A module that you import in a way that Oxcruise cannot follow counts as a user of all its exports. Examples are `require`, a dynamic `import()` and a namespace that code passes as a value.
 * Single-file components (Vue, Svelte and Astro) are never narrowed. Their templates use bindings that the script block does not mention.
 * Oxcruise does not check class members, catalogs, binaries or JSDoc visibility tags.
-* A violation of `no-unused-deps` is in a `package.json`. A comment cannot suppress it. Use the `ignore` option.
+* A violation of `unused-packages` is in a `package.json`. A comment cannot suppress it. Use the `ignore` option.
 
-To suppress one export, put `// oxcruise-ignore-next-line no-unused-exports` above it.
+To suppress one export, put `// oxcruise-ignore-next-line unused-exports` above it.
 Use [`--fix`](/features/automatic-fixes) to repair some violations automatically.

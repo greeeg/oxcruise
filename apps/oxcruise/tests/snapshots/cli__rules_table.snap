@@ -3,29 +3,30 @@ source: apps/oxcruise/tests/cli.rs
 expression: table.stdout
 ---
 correctness (default: error)
-  no-circular                Reports dependencies that are part of a circular chain of imports.
-  no-cross-package-relative  Reports relative imports that reach into another workspace package, for example `../other-package/src/x`.
-  no-dev-deps-in-prod        Reports a production module that imports a package from `devDependencies` only.
-  no-test-imports            Reports a non-test module that imports a test file or a test directory.
-  no-undeclared-deps         Reports imports of installed npm packages that no `package.json` section declares.
-  no-unresolvable            Reports an import that oxcruise cannot resolve to a file or a package.
+  circular-dependencies                Reports dependencies that are part of a circular chain of imports.
+  cross-package-relative-dependencies  Reports relative imports that reach into another workspace package, for example `../other-package/src/x`.
+  dependencies-on-tests                Reports a non-test module that imports a test file or a test directory.
+  dev-dependencies-in-production       Reports a production module that imports a package from `devDependencies` only.
+  undeclared-packages                  Reports imports of installed npm packages that no `package.json` section declares.
+  unresolved-dependencies              Reports an import that oxcruise cannot resolve to a file or a package.
 
 suspicious (default: warn)
-  no-deprecated              Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
-  no-duplicate-deps          Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`.
-  no-orphans                 Reports modules that no other module imports and that import no module.
+  deprecated-dependencies              Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
+  duplicate-packages                   Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`.
+  orphan-modules                       Reports modules that no other module imports and that import no module.
 
 style (default: off)
 
 restriction (default: off)
-  internal-modules           Restricts access to `internal` directories, as the Go language does.
-  layers                     Enforces a layered architecture: a layer can import only the layers that `allow` lists for it.
-  no-optional-deps           Reports use of optional dependencies.
-  no-peer-deps               Reports use of peer dependencies.
+  layers                               Enforces a layered architecture: a layer can import only the layers that `allow` lists for it.
+  optional-dependencies                Reports use of optional dependencies.
+  peer-dependencies                    Reports use of peer dependencies.
+  visibility                           Restricts what a folder shows to the code outside it.
 
 nursery (default: off)
-  no-unused-deps             Reports a package that a `package.json` declares and that none of its modules imports.
-  no-unused-exports          Reports exports that no other module imports.
-  no-unused-files            Reports source modules that no path from an entry point reaches.
+  folder-structure                     Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
+  unused-exports                       Reports exports that no other module imports.
+  unused-modules                       Reports source modules that no path from an entry point reaches.
+  unused-packages                      Reports a package that a `package.json` declares and that none of its modules imports.
 
-16 rules
+17 rules

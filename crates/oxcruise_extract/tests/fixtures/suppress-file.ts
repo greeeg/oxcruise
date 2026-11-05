@@ -1,2 +1,2 @@
-// oxcruise-ignore-file no-unresolvable
+// oxcruise-ignore-file unresolved-dependencies
 import "./x";

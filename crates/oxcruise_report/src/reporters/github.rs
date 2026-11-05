@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use oxcruise_core::Severity;
+use oxcruise_core::ViolationLevel;
 
 use crate::CruiseResult;
 
@@ -17,9 +17,9 @@ fn property(s: &str) -> String {
 /// GitHub Actions workflow commands: `::error file=..,line=..,col=..,title=..::message`.
 pub fn render(result: &CruiseResult, out: &mut dyn Write) -> io::Result<()> {
     for v in &result.violations {
-        let level = match v.severity {
-            Severity::Error => "error",
-            Severity::Warn => "warning",
+        let level = match v.level {
+            ViolationLevel::Error => "error",
+            ViolationLevel::Warn => "warning",
         };
         let mut props = format!("file={}", property(&v.from));
         if let Some(l) = v.line {

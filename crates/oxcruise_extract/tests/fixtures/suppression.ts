@@ -1,4 +1,4 @@
-// oxcruise-ignore-next-line no-circular, no-orphans -- legacy
+// oxcruise-ignore-next-line circular-dependencies, orphan-modules -- legacy
 import { a } from "./one";
 import { b } from "./two";
 import { c } from "./three"; // oxcruise-ignore-line

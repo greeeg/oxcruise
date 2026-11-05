@@ -13,7 +13,7 @@
 use oxcruise_config::OxcruiseConfig;
 use oxcruise_core::{
     DeclaredDep, DeclaredManifest, DepKinds, DepSection, Edge, Export, ExportKind, ExportMember,
-    Graph, Loc, Module, ModuleId, ModuleKind, ModuleSystem, Subject, UsedNames,
+    FileTree, Graph, Loc, Module, ModuleId, ModuleKind, ModuleSystem, Subject, UsedNames,
 };
 use oxcruise_resolve::WorkspacePackage;
 use rustc_hash::FxHashMap;
@@ -25,6 +25,10 @@ pub struct Tester {
     /// `(path prefix, package index)`
     packages: Vec<(String, u32)>,
     manifests: Vec<DeclaredManifest>,
+    /// Files that are not modules, for rules that look at the file tree.
+    files: Vec<String>,
+    /// Folders that exist, with nothing known about what is in them.
+    unlisted: Vec<String>,
 }
 
 /// `name[:type][{A+B}][~rule][^][@duplicate]`
@@ -74,10 +78,13 @@ fn parse_export(token: &str, line: u32) -> Export {
 impl Tester {
     /// Enable one rule at `error` with the given options (`null` for none).
     pub fn rule(name: &str, options: serde_json::Value) -> Self {
-        let entry = if options.is_null() {
-            serde_json::json!("error")
-        } else {
-            serde_json::json!(["error", options])
+        let entry = match options {
+            serde_json::Value::Null => serde_json::json!("error"),
+            serde_json::Value::Object(mut o) => {
+                o.insert("level".into(), "error".into());
+                serde_json::Value::Object(o)
+            }
+            other => panic!("the options of a rule are an object, not {other}"),
         };
         Self::config(serde_json::json!({ "rules": { name: entry } }))
     }
@@ -94,6 +101,8 @@ impl Tester {
             config,
             packages: vec![],
             manifests: vec![],
+            files: vec![],
+            unlisted: vec![],
         }
     }
 
@@ -164,6 +173,19 @@ impl Tester {
         m.entry_files = entry_files.iter().map(|s| s.to_string()).collect();
         m.out_dir = dirs.0.map(str::to_string);
         m.root_dir = dirs.1.map(str::to_string);
+        self
+    }
+
+    /// Files of the project that are not modules (paths relative to the root). The file tree of a
+    /// run has these and the local modules of the graph.
+    pub fn with_files(mut self, files: &[&str]) -> Self {
+        self.files.extend(files.iter().map(|f| f.to_string()));
+        self
+    }
+
+    /// Folders of the project whose content is not in the file tree (paths relative to the root).
+    pub fn with_unlisted_folders(mut self, folders: &[&str]) -> Self {
+        self.unlisted.extend(folders.iter().map(|f| f.to_string()));
         self
     }
 
@@ -356,11 +378,23 @@ impl Tester {
     pub fn run_graph(&self, g: &Graph) -> RunResult {
         let engine =
             Engine::new(&self.config, None).unwrap_or_else(|e| panic!("bad test config: {e:?}"));
+        let tree = engine.wants_file_tree().then(|| {
+            FileTree::with_unlisted(
+                g.modules()
+                    .iter()
+                    .filter(|m| m.kind == ModuleKind::Local)
+                    .map(|m| m.path.clone())
+                    .chain(self.files.iter().cloned())
+                    .collect(),
+                self.unlisted.clone(),
+            )
+        });
         engine.run(
             g,
             std::path::Path::new("/"),
             &self.workspace(),
             &self.manifests,
+            tree.as_ref(),
             has_symbols(g),
         )
     }
@@ -390,7 +424,7 @@ impl Tester {
     }
 }
 
-/// One line per violation: `severity rule file:line:col from -> to: message`.
+/// One line per violation: `level rule file:line:col from -> to: message`.
 pub fn render(g: &Graph, r: &RunResult) -> String {
     r.violations
         .iter()
@@ -402,10 +436,10 @@ pub fn render(g: &Graph, r: &RunResult) -> String {
                 v.to.map_or(String::new(), |t| format!(" -> {}", g.module(t).path));
             format!(
                 "{} {} {}{}{}: {}",
-                v.severity.as_str(),
+                v.level.as_str(),
                 v.rule,
                 match &v.subject {
-                    Subject::File(f) => f,
+                    Subject::File(f) | Subject::Path(f) => f,
                     _ => &g.module(v.from).path,
                 },
                 loc,

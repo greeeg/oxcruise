@@ -43,7 +43,8 @@ export default defineConfig({
       items: [
         { text: "Rules and categories", link: "/features/rules-and-categories" },
         { text: "Forbid rules", link: "/features/forbid-rules" },
-        { text: "Layers and internal modules", link: "/features/layers-and-internal-modules" },
+        { text: "Layers and visibility", link: "/features/layers-and-visibility" },
+        { text: "Folder structure", link: "/features/folder-structure" },
         { text: "Unused code", link: "/features/unused-code" },
         { text: "Automatic fixes", link: "/features/automatic-fixes" },
         { text: "Ignore files", link: "/features/ignore-files" },

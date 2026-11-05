@@ -23,7 +23,7 @@ Oxcruise knows exactly which dependencies exist only at compile time. A dependen
 * the statement is `import type` or `export type`
 * every specifier of the statement is `type`, as in `import { type A, type B } from "x"`
 
-The [`no-circular`](/reference/rules/no-circular) rule ignores type-only dependencies by default.
+The [`circular-dependencies`](/reference/rules/circular-dependencies) rule ignores type-only dependencies by default.
 It removes them from the graph before it looks for cycles.
 Set `includeTypeOnly: true` to count them.
 

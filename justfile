@@ -27,7 +27,7 @@ install:
 
 # regenerate npm/oxcruise/configuration_schema.json from the Rust config types
 schema-json:
-    cargo run -q -p oxcruise_config --example schema > npm/oxcruise/configuration_schema.json
+    cargo run -q -p oxcruise_rules --features ruledocs --example schema > npm/oxcruise/configuration_schema.json
 
 # regenerate the TypeScript config types from the schema, and the DepKinds table
 config-ts: schema-json

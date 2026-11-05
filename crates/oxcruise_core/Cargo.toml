@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 bitflags = { workspace = true }
+rustc-hash = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 

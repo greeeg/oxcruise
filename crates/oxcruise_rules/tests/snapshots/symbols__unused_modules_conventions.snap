@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "files(Value::Null).with_manifest(\"\", &manifest).fail(&lines)"
+---
+error unused-modules app/helpers.ts: this module cannot be reached from any entry point
+error unused-modules src/unused.ts: this module cannot be reached from any entry point

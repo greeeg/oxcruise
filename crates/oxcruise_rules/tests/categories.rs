@@ -36,7 +36,7 @@ fn categories_set_the_level_of_their_rules() {
 fn an_explicit_rule_wins_over_its_category() {
     let out = run(json!({
         "categories": {},
-        "rules": { "no-circular": "off", "no-orphans": "error", "no-peer-deps": "warn" }
+        "rules": { "circular-dependencies": "off", "orphan-modules": "error", "peer-dependencies": "warn" }
     }));
     insta::assert_snapshot!("rule_beats_category", out);
 }
@@ -46,16 +46,16 @@ fn rule_options_apply_on_top_of_the_category() {
     // a rule listed with options is configured by them, whatever its category says
     let out = run(json!({
         "categories": { "suspicious": "off" },
-        "rules": { "no-orphans": ["warn", { "ignore": ["lonely.ts"] }] }
+        "rules": { "orphan-modules": { "level": "warn", "ignore": ["lonely.ts"] } }
     }));
-    assert!(!out.contains("no-orphans"), "{out}");
+    assert!(!out.contains("orphan-modules"), "{out}");
 }
 
 #[test]
 fn the_old_levels_are_gone() {
     for level in ["info", "ignore"] {
         let err = serde_json::from_value::<oxcruise_config::OxcruiseConfig>(
-            json!({ "rules": { "no-circular": level } }),
+            json!({ "rules": { "circular-dependencies": level } }),
         )
         .unwrap_err()
         .to_string();

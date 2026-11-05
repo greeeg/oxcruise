@@ -1,5 +1,0 @@
----
-source: crates/oxcruise_rules/tests/symbols.rs
-expression: "deps(json!({\n    \"production\": true\n})).with_manifest(\"\",\n&[(\"dependencies\",\n\"only-tests\")]).fail(&[\"src/a.test.ts -> only-tests [npm]\", \"src/a.ts\"])"
----
-error no-unused-deps package.json:2:5: `only-tests` is in `dependencies` but no module imports it

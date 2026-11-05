@@ -1,5 +1,5 @@
 ---
 source: crates/oxcruise_rules/tests/symbols.rs
-expression: "exports(Value::Null).fail(&[\"main.ts -> lib.ts [names=a]\",\n\"main.ts [exports=run]\",\n\"lib.ts [exports=a,quiet~no-unused-exports,loud~other-rule,all~*]\",])"
+expression: "exports(Value::Null).fail(&[\"main.ts -> lib.ts [names=a]\",\n\"main.ts [exports=run]\",\n\"lib.ts [exports=a,quiet~unused-exports,loud~other-rule,all~*]\",])"
 ---
-error no-unused-exports lib.ts:3:1: unused export `loud`
+error unused-exports lib.ts:3:1: unused export `loud`

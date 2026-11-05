@@ -1,0 +1,12 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/components/button.tsx\", \"src/components/User-Card/index.ts\",\n\"src/hooks/UseThing.ts\", \"src/hooks/use_thing.ts\", \"src/routes/userList.ts\",\n\"src/routes/user--list.ts\", \"src/jobs/nightly-sync.ts\", \"src/jobs/_sync.ts\",])"
+---
+error folder-structure src/components/User-Card: `User-Card` in `src/components` must be in pascal-case
+error folder-structure src/components/button.tsx: `button.tsx` in `src/components` must be in pascal-case
+error folder-structure src/hooks/UseThing.ts: `UseThing.ts` in `src/hooks` must be in camel-case
+error folder-structure src/hooks/use_thing.ts: `use_thing.ts` in `src/hooks` must be in camel-case
+error folder-structure src/jobs/_sync.ts: `_sync.ts` in `src/jobs` must be in snake-case
+error folder-structure src/jobs/nightly-sync.ts: `nightly-sync.ts` in `src/jobs` must be in snake-case
+error folder-structure src/routes/user--list.ts: `user--list.ts` in `src/routes` must be in kebab-case
+error folder-structure src/routes/userList.ts: `userList.ts` in `src/routes` must be in kebab-case

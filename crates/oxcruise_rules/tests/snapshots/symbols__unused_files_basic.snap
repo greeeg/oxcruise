@@ -1,6 +1,0 @@
----
-source: crates/oxcruise_rules/tests/symbols.rs
-expression: "t.fail(&[\"src/cli.ts -> src/used.ts\", \"src/used.ts -> src/deeper.ts\",\n\"src/dead.ts -> src/dead2.ts\", \"src/dead2.ts -> src/dead.ts\",\n\"src/types.d.ts\", \"vite.config.ts\",])"
----
-error no-unused-files src/dead.ts: this module cannot be reached from any entry point
-error no-unused-files src/dead2.ts: this module cannot be reached from any entry point

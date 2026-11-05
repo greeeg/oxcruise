@@ -63,7 +63,7 @@ The run found these problems. Each one now has a regression test.
 
 * AMD `require([…])` is `amd-define`, and not `amd-require`.
 * Oxcruise reported a cycle once for each dependency. It now reports a cycle once.
-* A dependency in `dependencies` whose `@types/*` package was in `devDependencies` was `npm` and `npm-dev`. This caused a false `no-duplicate-deps` violation.
+* A dependency in `dependencies` whose `@types/*` package was in `devDependencies` was `npm` and `npm-dev`. This caused a false `duplicate-packages` violation.
 * A package without `main` resolved to `index.d.ts` and not to `index.js`.
 * `new URL(".", import.meta.url)` was a dependency on a directory.
 

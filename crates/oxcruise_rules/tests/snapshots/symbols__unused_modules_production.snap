@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/symbols.rs
+expression: "t.fail(&[\"src/index.ts -> src/a.ts\", \"src/lib.test.ts -> src/helper.ts\",])"
+---
+error unused-modules src/helper.ts: this module cannot be reached from any entry point

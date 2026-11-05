@@ -102,6 +102,12 @@ export function validatePlugin(value: unknown, source: string): PluginDefinition
     if (typeof (rule as { create?: unknown } | null)?.create !== "function") {
       throw new Error(`${where}: rule \`${name}\` must have a \`create(context)\` function`);
     }
+    const schema = (rule as { meta?: { schema?: Record<string, unknown> } }).meta?.schema;
+    if (schema && "level" in schema) {
+      throw new Error(
+        `${where}: rule \`${name}\` declares the option \`level\` in \`meta.schema\`; \`level\` is the level of the rule`,
+      );
+    }
   }
   for (const [name, fn] of Object.entries((p.reporters ?? {}) as Record<string, unknown>)) {
     if (!NAME.test(name)) throw new Error(`${where}: invalid reporter name \`${name}\``);

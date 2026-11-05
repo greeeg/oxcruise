@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use oxcruise_core::Severity;
+use oxcruise_core::ViolationLevel;
 
 use super::ReporterOptions;
 use crate::{CruiseResult, ViolationKind, ViolationOut};
@@ -21,10 +21,10 @@ impl Paint {
     fn dim(&self, s: &str) -> String {
         self.wrap("2", s)
     }
-    fn severity(&self, s: Severity, text: &str) -> String {
+    fn level(&self, s: ViolationLevel, text: &str) -> String {
         match s {
-            Severity::Error => self.wrap("1;31", text),
-            Severity::Warn => self.wrap("1;33", text),
+            ViolationLevel::Error => self.wrap("1;31", text),
+            ViolationLevel::Warn => self.wrap("1;33", text),
         }
     }
 }
@@ -41,20 +41,20 @@ pub fn render(
         writeln!(
             out,
             "{} could not parse {}: {}",
-            p.severity(Severity::Warn, "warning:"),
+            p.level(ViolationLevel::Warn, "warning:"),
             m.path,
             m.parse_error.as_deref().unwrap_or("")
         )?;
     }
     for w in &result.warnings {
-        writeln!(out, "{} {w}", p.severity(Severity::Warn, "warning:"))?;
+        writeln!(out, "{} {w}", p.level(ViolationLevel::Warn, "warning:"))?;
     }
 
     for v in &result.violations {
         writeln!(
             out,
             "{}{}: {}",
-            p.severity(v.severity, v.severity.as_str()),
+            p.level(v.level, v.level.as_str()),
             p.dim(&format!("[{}]", v.rule)),
             p.bold(&v.message)
         )?;
@@ -144,7 +144,7 @@ fn snippet(
         " {pad} {} {}{}",
         p.dim("|"),
         " ".repeat(col as usize - 1),
-        p.severity(v.severity, &"^".repeat(len.max(1)))
+        p.level(v.level, &"^".repeat(len.max(1)))
     )
 }
 

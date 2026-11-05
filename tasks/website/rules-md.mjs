@@ -48,16 +48,17 @@ const optionsExample = (docs) => {
 const exampleLevel = (category) => (level(category) === "error" ? "warn" : "error");
 const configExample = (r) => {
   const options = optionsExample(r.docs);
+  const levelText = exampleLevel(r.category);
   const setting = options
-    ? `["${exampleLevel(r.category)}", ${JSON.stringify(options, null, 2).replace(/\n/g, "\n    ")}]`
-    : `"${exampleLevel(r.category)}"`;
+    ? JSON.stringify({ level: levelText, ...options }, null, 2).replace(/\n/g, "\n    ")
+    : `"${levelText}"`;
   return `{\n  "rules": {\n    "${r.name}": ${setting}\n  }\n}`;
 };
 const optionsText = (docs) =>
   optionsExample(docs)
-    ? "The array has the level first, then the options of the rule."
+    ? "The object has the `level` first, then the options of the rule."
     : /^### Options$/m.test(docs)
-      ? "To set options, use an array: the level first, then an object with the options."
+      ? "To set options, use an object: the `level`, then the options of the rule."
       : "";
 const isFixable = (docs) => /^### Fix$/m.test(docs);
 
@@ -84,7 +85,7 @@ for (const cat of categories) {
   index += "\n";
 }
 
-// The tool conventions behind `no-unused-exports`, `no-unused-files` and `no-unused-deps`, from the
+// The tool conventions behind `unused-exports`, `unused-modules` and `unused-packages`, from the
 // same JSON the rules embed, so the table and the code cannot drift apart.
 const conventions = JSON.parse(
   readFileSync(
@@ -98,12 +99,12 @@ const conventions = JSON.parse(
 const code = (list) => list.map((g) => `\`${g}\``).join("<br />") || "–";
 index += `## Conventions
 
-A convention tells the \`no-unused-*\` rules what a tool loads by itself.
+A convention tells the \`unused-*\` rules what a tool loads by itself.
 A convention is active in a \`package.json\` that declares one of its packages.
 When a convention lists no packages, it is always active.
 
 * The entry points are globs relative to that \`package.json\`. They are files that the tool loads.
-* The \`no-unused-deps\` rule counts the packages of a convention as used.
+* The \`unused-packages\` rule counts the packages of a convention as used.
 * Use the \`conventions\` option of the rules to switch conventions off or to select some of them.
 
 | Convention | Active when it declares | Entry points | Packages used |

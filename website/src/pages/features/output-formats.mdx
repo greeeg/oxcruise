@@ -29,7 +29,7 @@ When Oxcruise cannot parse a module, these formats write `warning: could not par
 The `long` format adds an `About` section for each rule that reported. The section contains the documentation of the rule.
 
 ```text
-warn[no-deprecated]: `sys` is a deprecated Node.js module
+warn[deprecated-dependencies]: `sys` is a deprecated Node.js module
   --> packages/app/src/index.ts:10:17
     |
  10 | import sys from "sys";
@@ -43,7 +43,7 @@ The `json` format is the complete result of a run. Its keys are in camelCase.
 
 | Key | Content |
 |---|---|
-| `version` | The version of the format. The current version is `2`. |
+| `version` | The version of the format. The current version is `3`. |
 | `modules` | Each module with its `path`, `kind`, `dependencies` and `dependents`. |
 | `violations` | Each violation. |
 | `summary` | `error`, `warn`, `suppressed`, `totalModules` and `totalDependencies`. |
@@ -51,7 +51,7 @@ The `json` format is the complete result of a run. Its keys are in camelCase.
 
 A module `kind` is `local`, `package` or `builtin`. A dependency on a module that Oxcruise cannot resolve has the `toKind` `unresolved`, and the list has no entry for that module.
 A violation `kind` is `dependency`, `module`, `cycle`, `reachability`, `export` or `file`.
-For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`.
+For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`, or the path of a file or folder that the `folder-structure` rule checks. That path can be one that does not exist, such as a required file.
 
 Each module in `modules` has these keys:
 
@@ -76,7 +76,7 @@ Each dependency has these keys:
 | `line`, `col` | The position of the import. |
 | `circular` | See below. |
 | `cycle` | The cycle that a rule reported, as a list of `module` and `kinds`. |
-| `rules` | The rules that reported the dependency, with `name` and `severity`. |
+| `rules` | The rules that reported the dependency, with `name` and `level`. |
 | `names` | The names that the import uses. |
 
 A dependency has `circular: true` when it is on an import cycle of the whole graph, including type-only imports. This is true whether or not a rule reports it.
@@ -84,18 +84,13 @@ Its `cycle` and `rules` keys show what the rules reported.
 
 Exports and the names that each import uses are in the output only when Oxcruise extracts [symbols](/features/unused-code#exports-and-symbols).
 
-:::warning
-Check `version` before you read a saved result. Version 2 renamed the snake_case keys to camelCase.
-It also renamed the module kinds `source`, `stub`, `core` and `unresolved` to `local`, `package`, `builtin` and `unresolved`.
-:::
-
 ## github
 
 The `github` format writes one workflow command for each violation:
 
 ```text
-::error file=packages/app/src/index.ts,line=8,col=21,title=no-undeclared-deps::`left-pad` is not declared in package.json
-::warning file=packages/app/src/orphan.ts,title=no-orphans::this module is not imported by any module and imports nothing
+::error file=packages/app/src/index.ts,line=8,col=21,title=undeclared-packages::`left-pad` is not declared in package.json
+::warning file=packages/app/src/orphan.ts,title=orphan-modules::this module is not imported by any module and imports nothing
 ```
 
 ## text

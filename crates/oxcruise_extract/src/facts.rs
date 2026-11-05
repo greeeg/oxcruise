@@ -10,7 +10,7 @@ pub struct ExtractOptions {
     /// Callee names whose first string argument is a dependency, e.g. `jest.mock`.
     pub calls: Vec<String>,
     /// Also collect what is exported and which names of each import are used (for the
-    /// `no-unused-*` rules). Costs an extra walk over identifier references, so it is opt-in.
+    /// `unused-*` rules). Costs an extra walk over identifier references, so it is opt-in.
     pub symbols: bool,
 }
 

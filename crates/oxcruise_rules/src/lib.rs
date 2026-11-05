@@ -5,10 +5,13 @@ pub mod declarative;
 pub mod engine;
 pub mod entries;
 pub mod external;
+pub mod folders;
 pub mod meta;
 pub mod pattern;
 pub mod registry;
 pub mod rules;
+#[cfg(feature = "ruledocs")]
+pub mod schema;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 

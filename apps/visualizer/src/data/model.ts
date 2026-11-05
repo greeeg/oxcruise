@@ -92,7 +92,7 @@ export class Model {
     data.violations.forEach((v, i) => {
       if (v.from === undefined) return;
       this.modViolations[v.from]++;
-      if (v.severity === "error") this.modErrors[v.from]++;
+      if (v.level === "error") this.modErrors[v.from]++;
       const list = this.violationsOf.get(v.from);
       if (list) list.push(i);
       else this.violationsOf.set(v.from, [i]);

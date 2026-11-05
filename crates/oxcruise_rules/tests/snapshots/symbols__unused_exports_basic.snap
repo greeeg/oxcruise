@@ -2,6 +2,6 @@
 source: crates/oxcruise_rules/tests/symbols.rs
 expression: "exports(Value::Null).fail(&[\"main.ts -> lib.ts [names=used,Used]\",\n\"main.ts [exports=run]\", \"lib.ts [exports=used,unused,T:type,default]\",])"
 ---
-error no-unused-exports lib.ts:3:1: unused default export
-error no-unused-exports lib.ts:3:1: unused export `unused`
-error no-unused-exports lib.ts:3:1: unused type export `T`
+error unused-exports lib.ts:3:1: unused default export
+error unused-exports lib.ts:3:1: unused export `unused`
+error unused-exports lib.ts:3:1: unused type export `T`

@@ -1,0 +1,149 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: json.stdout
+---
+{
+  "version": 3,
+  "modules": [
+    {
+      "path": "src/components/Button/Button.stories.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/components/Button/Button.test.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/components/Button/Button.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/components/Card/Card.stories.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/components/Card/Card.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/components/bad_name/bad_name.tsx",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/modules/cart/index.ts",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/modules/cart/utils/format.ts",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/pages/about/index.ts",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/pages/home/codeowners.ts",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    },
+    {
+      "path": "src/pages/home/index.ts",
+      "kind": "local",
+      "notFollowed": false,
+      "orphan": true,
+      "dependencies": [],
+      "dependents": []
+    }
+  ],
+  "violations": [
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/components/Card/Card.test.tsx",
+      "message": "`src/components/Card` must contain `Card.test.tsx`"
+    },
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/components/bad_name",
+      "message": "`bad_name` in `src/components` must be in pascal-case"
+    },
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/components/bad_name/bad_name.stories.tsx",
+      "message": "`src/components/bad_name` must contain `bad_name.stories.tsx`"
+    },
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/components/bad_name/bad_name.test.tsx",
+      "message": "`src/components/bad_name` must contain `bad_name.test.tsx`"
+    },
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/modules/cart/utils",
+      "message": "Put shared helpers in src/lib."
+    },
+    {
+      "rule": "folder-structure",
+      "level": "error",
+      "kind": "file",
+      "from": "src/pages/about/codeowners.ts",
+      "message": "`src/pages/about` must contain `codeowners.ts`"
+    }
+  ],
+  "summary": {
+    "error": 6,
+    "warn": 0,
+    "suppressed": 0,
+    "totalModules": 11,
+    "totalDependencies": 0
+  },
+  "warnings": []
+}

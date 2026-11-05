@@ -11,7 +11,9 @@ use oxcruise_core::{DeclaredManifest, Graph, ModuleId, ModuleKind};
 use oxcruise_graph::analyses::BitSet;
 
 use crate::conventions::{self, ConventionFilter};
+use crate::meta::RuleMeta;
 use crate::pattern::{Captures, PathPatterns, Role};
+use crate::rules::{UnusedExports, UnusedModules};
 
 #[derive(Debug, Clone)]
 pub struct EntrySet {
@@ -64,7 +66,7 @@ pub fn compute(graph: &Graph, inputs: &EntryInputs<'_>) -> EntrySet {
         let kept = module
             .suppressed
             .iter()
-            .any(|r| matches!(r.as_str(), "*" | "no-unused-files" | "no-unused-exports"));
+            .any(|r| matches!(r.as_str(), "*" | UnusedModules::NAME | UnusedExports::NAME));
         if kept
             || plugins
                 .as_ref()

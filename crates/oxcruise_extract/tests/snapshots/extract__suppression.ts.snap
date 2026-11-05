@@ -11,8 +11,8 @@ expression: "run(\"suppression.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 81,
-        "end": 88
+        "start": 95,
+        "end": 102
       },
       "loc": {
         "line": 2,
@@ -27,8 +27,8 @@ expression: "run(\"suppression.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 108,
-        "end": 115
+        "start": 122,
+        "end": 129
       },
       "loc": {
         "line": 3,
@@ -43,8 +43,8 @@ expression: "run(\"suppression.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 135,
-        "end": 144
+        "start": 149,
+        "end": 158
       },
       "loc": {
         "line": 4,
@@ -61,8 +61,8 @@ expression: "run(\"suppression.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 223,
-        "end": 231
+        "start": 237,
+        "end": 245
       },
       "loc": {
         "line": 8,
@@ -79,8 +79,8 @@ expression: "run(\"suppression.ts\")"
       ],
       "module_system": "es6",
       "span": {
-        "start": 295,
-        "end": 303
+        "start": 309,
+        "end": 317
       },
       "loc": {
         "line": 10,

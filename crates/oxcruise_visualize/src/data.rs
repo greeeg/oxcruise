@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use oxcruise_core::{DepKinds, ModuleKind, Severity};
+use oxcruise_core::{DepKinds, ModuleKind, ViolationLevel};
 use oxcruise_report::{CruiseResult, ExportOut, Summary, ViolationKind, ViolationOut};
 use serde::Serialize;
 
 /// Bumped when the viewer cannot read older data.
-pub const VIZ_VERSION: u32 = 1;
+pub const VIZ_VERSION: u32 = 2;
 
 /// Folder that holds npm packages and Node built-ins, so they do not mix with project folders.
 pub const EXTERNAL_DIR: &str = "(external)";
@@ -90,7 +90,7 @@ pub struct Edges {
 pub struct Violation {
     /// Index into `rules`.
     pub rule: u32,
-    pub severity: Severity,
+    pub level: ViolationLevel,
     pub kind: ViolationKind,
     /// The module, absent for a file that is not a module (`file` has its path).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,7 +207,7 @@ impl VizData {
                 {
                     flags |= EDGE_TYPE_ONLY;
                 }
-                if d.rules.iter().any(|r| r.severity == Severity::Error) {
+                if d.rules.iter().any(|r| r.level == ViolationLevel::Error) {
                     flags |= EDGE_ERROR;
                 } else if !d.rules.is_empty() {
                     flags |= EDGE_WARN;
@@ -298,7 +298,7 @@ fn violation(v: &ViolationOut, rule: u32, index_of: &HashMap<&str, u32>) -> Viol
     let from = module(&v.from);
     Violation {
         rule,
-        severity: v.severity,
+        level: v.level,
         kind: v.kind,
         from,
         file: from.is_none().then(|| v.from.clone()),

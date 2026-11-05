@@ -22,7 +22,7 @@ expression: cfg
     {
       "name": "feature-isolation",
       "message": "features must not import each other",
-      "severity": "error",
+      "level": "error",
       "from": "src/features/{c1}/**",
       "to": [
         "src/features/**",
@@ -32,7 +32,7 @@ expression: cfg
     {
       "name": "no-spec-in-src",
       "message": null,
-      "severity": "error",
+      "level": "error",
       "from": [
         "src*",
         "!**/*.spec.ts"
@@ -42,7 +42,7 @@ expression: cfg
     {
       "name": "no-lazy-node-in-web",
       "message": null,
-      "severity": "error",
+      "level": "error",
       "from": "**/web/**",
       "to": {
         "path": "{fs,path}",
@@ -56,7 +56,7 @@ expression: cfg
     {
       "name": "no-unresolvable",
       "message": null,
-      "severity": "error",
+      "level": "error",
       "from": null,
       "to": {
         "path": null,
@@ -70,7 +70,7 @@ expression: cfg
     {
       "name": "ui-never-reaches-db",
       "message": null,
-      "severity": "error",
+      "level": "error",
       "from": "src/ui/**",
       "to": {
         "path": "src/db/**",
