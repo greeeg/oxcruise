@@ -51,7 +51,7 @@ The `json` format is the complete result of a run. Its keys are in camelCase.
 
 A module `kind` is `local`, `package` or `builtin`. A dependency on a module that Oxcruise cannot resolve has the `toKind` `unresolved`, and the list has no entry for that module.
 A violation `kind` is `dependency`, `module`, `cycle`, `reachability`, `export` or `file`.
-For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`.
+For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`, or the path of a file or folder that the `folder-structure` rule checks. That path can be one that does not exist, such as a required file.
 
 Each module in `modules` has these keys:
 

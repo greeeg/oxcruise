@@ -46,7 +46,7 @@ The option `folders` is a list of entries. The rule does nothing without it.
 | `private` | Globs of the modules that code outside the folder cannot import. `private` wins over `public`. |
 | `message` | Text that replaces the generic message. |
 
-The globs of `public` and `private` are relative to the folder, and they can use the captures of `path`.
+The globs of `public` and `private` are relative to the folder, and they can use the captures of `path`. `path` must capture each name that they use.
 
 ### Show only an index module
 
@@ -92,6 +92,8 @@ A cycle between two or more folders of one entry is a violation.
 { "circular-dependencies": { level: "error", folders: [{ path: "src/features/{f}" }] } }
 ```
 
+A glob that starts with `!` removes folders from the match.
+The option `maxCyclesPerComponent` limits the search for folders as well as for modules.
 The rule also reports the cycles between modules, as before.
 
 ## When to use a forbid rule

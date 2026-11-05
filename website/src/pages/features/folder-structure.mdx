@@ -8,6 +8,7 @@ description: "Check the shape of the folder tree: required files, allowed names 
 The [`folder-structure`](/reference/rules/folder-structure) rule checks the shape of the file tree.
 Other rules check the dependencies between modules. This rule checks which files and folders exist and which names they have.
 It looks at all files in the entry folders, not only at modules.
+For the folders above the entry folders, such as the root folder, it knows their own files and folders, but not what is inside the other folders. It does not check those other folders.
 
 The rule is in the `nursery` category, so it is off by default. Enable it in `rules`.
 
@@ -23,6 +24,7 @@ The option `folders` is a list of entries. Each entry has a `path` and at least 
 | `case` | The case of the names: `kebab-case`, `camel-case`, `pascal-case` or `snake-case`. |
 | `message` | Text that replaces the generic message of the violations of the entry. |
 
+A glob that starts with `!` removes folders from the match.
 A `path` glob matches only the folder it names. The glob `src/pages/{page}` matches `src/pages/home`, but not `src/pages/home/components`.
 When several entries match one folder, all of them apply.
 
@@ -50,6 +52,7 @@ Each glob needs a match. The page `src/pages/about` has an error if it has no `c
 ## Use captures
 
 `{name}` in `path` is a capture. Use it in `require` to name a file after its folder.
+`path` must capture each name that `require` uses.
 
 ```ts
 { path: "src/components/{c}", require: "{c}.tsx" }
