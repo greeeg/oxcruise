@@ -16,28 +16,6 @@ pub struct RuleInfo {
     pub docs: &'static str,
 }
 
-/// Built-in rules that have a new name: `(old, new)`. The unknown-rule error uses it.
-pub const RENAMED: &[(&str, &str)] = &[
-    ("no-circular", "circular-dependencies"),
-    ("no-orphans", "orphan-modules"),
-    ("no-deprecated", "deprecated-dependencies"),
-    ("no-undeclared-deps", "undeclared-packages"),
-    ("no-unresolvable", "unresolved-dependencies"),
-    ("no-duplicate-deps", "duplicate-packages"),
-    ("no-optional-deps", "optional-dependencies"),
-    ("no-peer-deps", "peer-dependencies"),
-    ("no-test-imports", "dependencies-on-tests"),
-    ("no-dev-deps-in-prod", "dev-dependencies-in-production"),
-    (
-        "no-cross-package-relative",
-        "cross-package-relative-dependencies",
-    ),
-    ("no-unused-exports", "unused-exports"),
-    ("no-unused-deps", "unused-packages"),
-    ("no-unused-files", "unused-modules"),
-    ("internal-modules", "visibility"),
-];
-
 macro_rules! register_rules {
     ($($ty:ident),* $(,)?) => {
         /// Every rule the engine can run: built-ins plus compiled declarative rules.

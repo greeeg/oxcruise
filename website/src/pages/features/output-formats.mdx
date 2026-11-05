@@ -84,12 +84,6 @@ Its `cycle` and `rules` keys show what the rules reported.
 
 Exports and the names that each import uses are in the output only when Oxcruise extracts [symbols](/features/unused-code#exports-and-symbols).
 
-:::warning
-Check `version` before you read a saved result. Version 2 renamed the snake_case keys to camelCase.
-It also renamed the module kinds `source`, `stub`, `core` and `unresolved` to `local`, `package`, `builtin` and `unresolved`.
-Version 3 renamed the key `severity` to `level`.
-:::
-
 ## github
 
 The `github` format writes one workflow command for each violation:

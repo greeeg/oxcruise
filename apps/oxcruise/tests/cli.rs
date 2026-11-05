@@ -239,37 +239,6 @@ fn config_errors_are_reported_together() {
 }
 
 #[test]
-fn the_old_rule_entry_and_forbid_forms_exit_2_with_a_hint() {
-    let d = project(&[
-        ("src/a.ts", "export {};\n"),
-        (
-            ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "rules": { "layers": ["error", { "allow": {} }] } }"#,
-        ),
-    ]);
-    let o = run_in(d.path(), &[]);
-    assert_eq!(o.result, CliRunResult::InvalidOptions);
-    assert!(
-        o.stderr
-            .contains(r#"write {"level":"error","allow":{}} instead of ["error",{"allow":{}}]"#)
-            || o.stderr.contains(r#"write {"allow":{},"level":"error"}"#),
-        "{}",
-        o.stderr
-    );
-
-    let d = project(&[
-        ("src/a.ts", "export {};\n"),
-        (
-            ".oxcruiserc.json",
-            r#"{ "entries": ["src"], "forbid": [{ "name": "x", "severity": "warn", "to": "a.ts" }] }"#,
-        ),
-    ]);
-    let o = run_in(d.path(), &[]);
-    assert_eq!(o.result, CliRunResult::InvalidOptions);
-    assert!(o.stderr.contains("renamed to `level`"), "{}", o.stderr);
-}
-
-#[test]
 fn dependency_cruiser_config_is_not_discovered() {
     // only `oxcruise --migrate` reads these; a check runs with the defaults and says nothing
     let d = project(&[

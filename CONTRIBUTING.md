@@ -164,8 +164,8 @@ website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos]
   target; a `reachable` rule looks at `local` and `package` modules. The module kinds are the same in the config, the
   JSON result and the plugin API.
 * **Rule entries** are a level (`"error"`) or an object (`{ "level": "error", ...options }`). In `rules`, an object without
-  `level` means `error`. In an override, it keeps the level the rule has and replaces the options. The array form
-  (`["error", {...}]`) is an error. `level` is reserved: no rule has an option of that name.
+  `level` means `error`. In an override, it keeps the level the rule has and replaces the options. `level` is reserved:
+  no rule has an option of that name.
 * **Overrides** change a rule's level and options for importing modules matching `files`. The engine runs one variant of
   the rule per distinct effective setting, limited to the modules it applies to. A whole-graph finding (`unused-packages`)
   belongs to the module it is reported on: the first module of the package that declares the dependency.
@@ -221,10 +221,8 @@ The reporters are in `crates/oxcruise_report`; the formats are described in
 [CLI reference](website/src/pages/reference/cli.mdx).
 
 The `json` result (and what plugin reporters receive) is versioned (`version`) and uses camelCase names, like the config
-and the JS API. **Version 3 renamed `severity` to `level`**, everywhere. **Version 2 renamed these from snake_case**, and renamed the module kinds
-`source | stub | core | unresolved` to `local | package | builtin | unresolved`. A dependency's `circular` is true when it
-lies on an import cycle of the whole graph, type-only imports included, whether or not a rule reports it; its `cycle` and
-`rules` are what the rules reported. `--quiet` hides warnings but `summary.warn` still counts them.
+and the JS API. A dependency's `circular` is true when it lies on an import cycle of the whole graph, type-only imports
+included, whether or not a rule reports it; its `cycle` and `rules` are what the rules reported. `--quiet` hides warnings but `summary.warn` still counts them.
 `summary.totalModules` counts the entries of `modules`, which leave out unresolved specifiers, and `dependents` leave out
 the module itself.
 

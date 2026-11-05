@@ -466,29 +466,6 @@ fn unknown_rule_suggests_a_name() {
     );
 }
 
-#[test]
-fn old_rule_names_say_they_were_renamed() {
-    for (old, new) in oxcruise_rules::registry::RENAMED {
-        let cfg: oxcruise_config::OxcruiseConfig =
-            serde_json::from_value(json!({ "rules": { *old: "error" } })).unwrap();
-        let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
-        assert!(
-            err.iter()
-                .any(|e| e.contains(&format!("`{old}`; it was renamed to `{new}`"))),
-            "{old}: {err:?}"
-        );
-        let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
-            "overrides": [{ "files": "src/**", "rules": { *old: "off" } }]
-        }))
-        .unwrap();
-        let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
-        assert!(
-            err.iter().any(|e| e.contains("it was renamed to")),
-            "{old}: {err:?}"
-        );
-    }
-}
-
 #[cfg(feature = "ruledocs")]
 #[test]
 fn no_rule_has_an_option_named_level() {

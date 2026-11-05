@@ -66,7 +66,9 @@ impl<'de> Deserialize<'de> for RuleEntry {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         use serde::de::Error;
         match serde_json::Value::deserialize(d)? {
-            serde_json::Value::Array(items) => Err(D::Error::custom(array_form_message(&items))),
+            serde_json::Value::Array(_) => Err(D::Error::custom(
+                "a rule entry is a level, or an object with a `level` and the options of the rule",
+            )),
             serde_json::Value::Object(mut options) => {
                 let level = match options.remove("level") {
                     Some(l) => Some(
@@ -82,28 +84,6 @@ impl<'de> Deserialize<'de> for RuleEntry {
                 .map_err(D::Error::custom),
         }
     }
-}
-
-/// The error for `["error", { ... }]`: it shows the same entry as an object.
-fn array_form_message(items: &[serde_json::Value]) -> String {
-    let mut message = String::from(
-        "a rule entry is a level, or an object with a `level` and the options of the rule",
-    );
-    let object = match items {
-        [level] => Some(serde_json::json!({ "level": level })),
-        [level, serde_json::Value::Object(options)] => {
-            let mut object = serde_json::Map::new();
-            object.insert("level".into(), level.clone());
-            object.extend(options.clone());
-            Some(serde_json::Value::Object(object))
-        }
-        _ => None,
-    };
-    if let Some(object) = object {
-        let old = serde_json::Value::Array(items.to_vec());
-        message.push_str(&format!("; write {object} instead of {old}"));
-    }
-    message
 }
 
 impl Serialize for RuleEntry {
@@ -287,8 +267,8 @@ impl<'de> Deserialize<'de> for ToSpec {
 
 /// A dependency that the project does not allow.
 /// An import from a module that matches `from` to a target that matches `to` is a violation.
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ForbidRule {
     /// The name of the rule. Reports and `overrides` use it.
     pub name: String,
@@ -301,37 +281,6 @@ pub struct ForbidRule {
     pub from: Option<Paths>,
     /// The target of the dependency: globs, or an object with conditions.
     pub to: Option<ToSpec>,
-}
-
-// Not derived, to give `severity` a hint: the key was renamed to `level`.
-impl<'de> Deserialize<'de> for ForbidRule {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        use serde::de::Error;
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        struct Wire {
-            name: String,
-            message: Option<String>,
-            #[serde(default)]
-            level: Level,
-            from: Option<Paths>,
-            to: Option<ToSpec>,
-        }
-        let value = serde_json::Value::deserialize(d)?;
-        if value.get("severity").is_some() {
-            return Err(D::Error::custom(
-                "unknown field `severity`: it was renamed to `level`",
-            ));
-        }
-        let w: Wire = serde_json::from_value(value).map_err(D::Error::custom)?;
-        Ok(ForbidRule {
-            name: w.name,
-            message: w.message,
-            level: w.level,
-            from: w.from,
-            to: w.to,
-        })
-    }
 }
 
 /// Changes the settings of rules for some modules.
@@ -530,33 +479,20 @@ mod tests {
     }
 
     #[test]
-    fn the_array_form_is_an_error_that_shows_the_object_form() {
-        let e = entry(r#"["error", {"includeTypeOnly": true}]"#).unwrap_err();
+    fn the_array_form_is_an_error() {
         assert!(
-            e.contains(r#"write {"includeTypeOnly":true,"level":"error"} instead of ["error",{"includeTypeOnly":true}]"#)
-                || e.contains(r#"write {"level":"error","includeTypeOnly":true} instead of ["error",{"includeTypeOnly":true}]"#),
-            "{e}"
-        );
-        assert!(
-            entry(r#"["warn"]"#)
+            entry(r#"["error", {"includeTypeOnly": true}]"#)
                 .unwrap_err()
-                .contains(r#"write {"level":"warn"}"#)
+                .contains("a rule entry is a level")
         );
         assert!(entry("[]").unwrap_err().contains("a rule entry is a level"));
     }
 
     #[test]
-    fn forbid_takes_level_and_hints_at_the_old_severity() {
+    fn forbid_takes_level() {
         let ok: ForbidRule =
             serde_json::from_str(r#"{"name":"x","level":"warn","to":"a"}"#).unwrap();
         assert_eq!(ok.level, Level::Warn);
-        let old = serde_json::from_str::<ForbidRule>(r#"{"name":"x","severity":"warn","to":"a"}"#)
-            .unwrap_err()
-            .to_string();
-        assert!(
-            old.contains("`severity`") && old.contains("renamed to `level`"),
-            "{old}"
-        );
         let unknown = serde_json::from_str::<ForbidRule>(r#"{"name":"x","nope":1}"#)
             .unwrap_err()
             .to_string();
