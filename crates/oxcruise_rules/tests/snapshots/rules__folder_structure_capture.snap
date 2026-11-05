@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/components/Button/Button.tsx\",\n\"src/components/Card/index.tsx\",])"
+---
+error folder-structure src/components/Card/Card.tsx: `src/components/Card` must contain `Card.tsx`

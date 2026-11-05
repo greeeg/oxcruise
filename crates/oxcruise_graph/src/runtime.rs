@@ -14,8 +14,8 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use oxcruise_core::{
-    DeclaredManifest, DepKinds, Edge, Export, Graph, Module, ModuleId, ModuleKind, ModuleSystem,
-    UsedNames,
+    DeclaredManifest, DepKinds, Edge, Export, FileTree, Graph, Module, ModuleId, ModuleKind,
+    ModuleSystem, UsedNames,
 };
 use oxcruise_extract::{ExportFact, ImportFact, RawDependency, UsedRefs, extract};
 use oxcruise_resolve::{Manifest, ResolveMode, Resolved, Resolver, Target, WorkspacePackage};
@@ -33,11 +33,23 @@ pub struct CruiseOutput {
     /// The `package.json` files that own modules of the graph, sorted by path. Empty unless
     /// `CruiseOptions::manifests` is set; `Module::manifest` indexes into it.
     pub manifests: Vec<DeclaredManifest>,
+    /// Every file below the entry folders. `None` unless `CruiseOptions::file_tree` is set.
+    pub file_tree: Option<FileTree>,
 }
 
 /// Discover the graph described by `opts`.
 pub fn cruise(opts: &CruiseOptions) -> Result<CruiseOutput, String> {
-    let entries = expand_entries(opts)?;
+    let expanded = expand_entries(opts)?;
+    let file_tree = opts.file_tree.then(|| {
+        FileTree::new(
+            expanded
+                .files
+                .iter()
+                .map(|p| oxcruise_resolve::relative_to(&opts.root, p))
+                .collect(),
+        )
+    });
+    let entries = expanded.sources;
     let resolver = Resolver::new(opts.resolve.clone());
 
     let pool = rayon::ThreadPoolBuilder::new()
@@ -45,7 +57,9 @@ pub fn cruise(opts: &CruiseOptions) -> Result<CruiseOutput, String> {
         .build()
         .map_err(|e| e.to_string())?;
     let discovered = discover(opts, &resolver, &pool, entries);
-    Ok(freeze(opts, &resolver, discovered))
+    let mut output = freeze(opts, &resolver, discovered);
+    output.file_tree = file_tree;
+    Ok(output)
 }
 
 struct Processed {
@@ -493,6 +507,7 @@ fn freeze(opts: &CruiseOptions, resolver: &Resolver, mut d: Discovered) -> Cruis
         root: opts.root.clone(),
         workspace: ws.packages.clone(),
         manifests,
+        file_tree: None,
     }
 }
 

@@ -18,6 +18,31 @@
       ],
       "type": "object"
     },
+    "Case": {
+      "description": "The case of a name.",
+      "oneOf": [
+        {
+          "const": "kebab-case",
+          "description": "`my-file`",
+          "type": "string"
+        },
+        {
+          "const": "camel-case",
+          "description": "`myFile`",
+          "type": "string"
+        },
+        {
+          "const": "pascal-case",
+          "description": "`MyFile`",
+          "type": "string"
+        },
+        {
+          "const": "snake-case",
+          "description": "`my_file`",
+          "type": "string"
+        }
+      ]
+    },
     "ConventionFilter": {
       "anyOf": [
         {
@@ -40,6 +65,60 @@
         "optionalDependencies"
       ],
       "type": "string"
+    },
+    "FolderStructureFolder": {
+      "additionalProperties": false,
+      "description": "One entry of `folders`: the folders it matches and the checks for each of them.",
+      "properties": {
+        "allow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Globs of the names that the files and folders directly in the folder can have.\nA glob that starts with `!` forbids a name. A list of only such globs allows every other name."
+        },
+        "case": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Case"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The case that the names of the files and folders directly in the folder must have.\nThe rule checks the name before its first `.`, so `Button.test.tsx` is checked as `Button`."
+        },
+        "message": {
+          "description": "Oxcruise shows this text instead of the generic message of the violations of this entry.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/OneOrMany",
+          "description": "Globs of the folders to check. `{name}` captures a path segment, and `require` and `allow`\ncan use the capture. A glob matches only the folder it names.\nA glob can also match a file. Then the checks apply to the folder of the file."
+        },
+        "require": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Globs of the files and folders that must be in the folder. A glob is relative to the\nfolder and can contain `/`. Each glob needs a match."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
     },
     "ForbidRule": {
       "description": "A dependency that the project does not allow.\nAn import from a module that matches `from` to a target that matches `to` is a violation.",
@@ -421,6 +500,30 @@
             }
           ],
           "description": "Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`. The rule ignores type-only imports."
+        },
+        "folder-structure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "folders": {
+                  "description": "The folders to check. When several entries match one folder, all of them apply.",
+                  "items": {
+                    "$ref": "#/$defs/FolderStructureFolder"
+                  },
+                  "type": "array"
+                },
+                "level": {
+                  "$ref": "#/$defs/Level"
+                }
+              },
+              "type": "object"
+            }
+          ],
+          "description": "Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules."
         },
         "layers": {
           "anyOf": [

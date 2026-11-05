@@ -101,6 +101,17 @@ The keys above refer to these types.
 | `name` (required) | `string` |  | The prefix of the rules: `<name>/<rule>`. It replaces the `meta.name` of the plugin. |
 | `specifier` (required) | `string` |  | A path or a package name. |
 
+### Case
+
+The case of a name.
+
+| Value | Description |
+|---|---|
+| `"kebab-case"` | `my-file` |
+| `"camel-case"` | `myFile` |
+| `"pascal-case"` | `MyFile` |
+| `"snake-case"` | `my_file` |
+
 ### ConventionFilter
 
 Which conventions a rule takes into account: `true` (all, the default), `false` (none) or the names of the ones to use.
@@ -113,6 +124,18 @@ One of:
 ### DepSectionName
 
 Allowed values: `"dependencies"` or `"devDependencies"` or `"peerDependencies"` or `"optionalDependencies"`.
+
+### FolderStructureFolder
+
+One entry of `folders`: the folders it matches and the checks for each of them.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `allow` | `string` or a list |  | Globs of the names that the files and folders directly in the folder can have. A glob that starts with `!` forbids a name. A list of only such globs allows every other name. |
+| `case` | [`Case`](#case) |  | The case that the names of the files and folders directly in the folder must have. The rule checks the name before its first `.`, so `Button.test.tsx` is checked as `Button`. |
+| `message` | `string` |  | Oxcruise shows this text instead of the generic message of the violations of this entry. |
+| `path` (required) | `string` or a list |  | Globs of the folders to check. `{name}` captures a path segment, and `require` and `allow` can use the capture. A glob matches only the folder it names. A glob can also match a file. Then the checks apply to the folder of the file. |
+| `require` | `string` or a list |  | Globs of the files and folders that must be in the folder. A glob is relative to the folder and can contain `/`. Each glob needs a match. |
 
 ### ForbidRule
 
@@ -205,6 +228,7 @@ The built-in and plugin rules, by name. A rule listed here wins over its categor
 | `deprecated-dependencies` | [`Level`](#level) or `object` |  | Reports imports of deprecated Node.js built-in modules and deprecated npm packages. |
 | `dev-dependencies-in-production` | [`Level`](#level) or `object` |  | Reports a production module that imports a package from `devDependencies` only. |
 | `duplicate-packages` | [`Level`](#level) or `object` |  | Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`. The rule ignores type-only imports. |
+| `folder-structure` | [`Level`](#level) or `object` |  | Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules. |
 | `layers` | [`Level`](#level) or `object` |  | Enforces a layered architecture: a layer can import only the layers that `allow` lists for it. The rule checks dependencies on local modules. Packages and built-in modules have no layer. |
 | `optional-dependencies` | [`Level`](#level) or `object` |  | Reports use of optional dependencies. An install can skip an optional dependency, so the package may not exist at runtime. |
 | `orphan-modules` | [`Level`](#level) or `object` |  | Reports modules that no other module imports and that import no module. |

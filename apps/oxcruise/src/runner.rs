@@ -417,6 +417,7 @@ impl CliRunner {
         // what is used depends on the manifests (entry points), whichever rules are on
         opts.manifests = engine.wants_manifests() || opts.extract.symbols;
         opts.manifest_peers = engine.wants_peers();
+        opts.file_tree = engine.wants_file_tree();
         let symbols = opts.extract.symbols;
         let output = match cruise(&opts) {
             Ok(o) => o,
@@ -427,6 +428,7 @@ impl CliRunner {
             &cwd,
             &output.workspace,
             &output.manifests,
+            output.file_tree.as_ref(),
             symbols,
         );
         if !run.fatal.is_empty() {

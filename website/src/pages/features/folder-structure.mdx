@@ -1,0 +1,120 @@
+---
+title: "Folder structure"
+description: "Check the shape of the folder tree: required files, allowed names and the case of names."
+---
+
+# Folder structure
+
+The [`folder-structure`](/reference/rules/folder-structure) rule checks the shape of the file tree.
+Other rules check the dependencies between modules. This rule checks which files and folders exist and which names they have.
+It looks at all files in the entry folders, not only at modules.
+
+The rule is in the `nursery` category, so it is off by default. Enable it in `rules`.
+
+## The `folders` option
+
+The option `folders` is a list of entries. Each entry has a `path` and at least one check.
+
+| Key | What it does |
+|---|---|
+| `path` | Globs of the folders to check. `{name}` captures a path segment. |
+| `require` | Globs of the files and folders that the folder must have. |
+| `allow` | Globs of the names that the files and folders directly in the folder can have. |
+| `case` | The case of the names: `kebab-case`, `camel-case`, `pascal-case` or `snake-case`. |
+| `message` | Text that replaces the generic message of the violations of the entry. |
+
+A `path` glob matches only the folder it names. The glob `src/pages/{page}` matches `src/pages/home`, but not `src/pages/home/components`.
+When several entries match one folder, all of them apply.
+
+## Require files
+
+Use `require` to name the files that every matching folder must have.
+A glob in `require` is relative to the folder. It can contain `/`, and `{a,b}` means one of `a` and `b`.
+
+```ts
+export default defineConfig({
+  rules: {
+    "folder-structure": {
+      level: "error",
+      folders: [
+        { path: "src/pages/{page}", require: ["codeowners.ts", "index.{ts,tsx}"] },
+        { path: "packages/{p}", require: ["package.json", "README.md"] },
+      ],
+    },
+  },
+});
+```
+
+Each glob needs a match. The page `src/pages/about` has an error if it has no `codeowners.ts`.
+
+## Use captures
+
+`{name}` in `path` is a capture. Use it in `require` to name a file after its folder.
+
+```ts
+{ path: "src/components/{c}", require: "{c}.tsx" }
+```
+
+For the folder `src/components/Button`, the rule requires `Button.tsx`.
+
+## Companion files
+
+A `path` can match a file. Then the checks apply to the folder of the file, with the captures of the file name.
+Use this to require a test and a story next to each component.
+
+```ts
+{
+  path: ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"],
+  require: ["{c}.test.tsx", "{c}.stories.tsx"],
+}
+```
+
+The glob that starts with `!` keeps the test and story files out of the match.
+Without it, `Button.test.tsx` would also need a `Button.test.test.tsx`.
+
+## Allow names
+
+Use `allow` to list the names that a folder can have. It checks the files and folders directly in the folder.
+A glob that starts with `!` forbids a name. A list of only such globs allows every other name.
+
+```ts
+// a module has no utils or helpers folder
+{ path: "src/modules/{m}", allow: "!{utils,helpers}", message: "Put shared helpers in src/lib." }
+
+// a feature has only these names
+{ path: "src/features/{f}", allow: ["hooks", "components", "*.{ts,tsx}"] }
+```
+
+`allow` does not look at deeper levels. Add another entry for them.
+
+## Check the case of names
+
+Use `case` to set the case of the names. The rule checks the part of the name before its first `.`.
+The rule reads `Button.test.tsx` as `Button`. The rule skips a name that starts with `.`.
+
+```ts
+{ path: "src/components", case: "pascal-case" }
+```
+
+## Make an exception
+
+A violation about a missing file, or about a file that is not a module, has no place for a comment.
+An exception to the structure is a decision about a folder, so it belongs in the config file:
+
+* Narrow `path` with a glob that starts with `!`: `path: ["src/pages/{page}", "!src/pages/legacy"]`.
+* Use `overrides` to switch the rule off for an area, or to change its options.
+  Oxcruise scopes a violation by the path that it is about.
+
+```ts
+overrides: [
+  { files: "src/pages/legacy/**", rules: { "folder-structure": "off" } },
+]
+```
+
+When the violation is about a module, a `// oxcruise-ignore-file folder-structure` comment in that module also works.
+See [Inline ignore comments](/features/inline-ignore-comments).
+
+## Related
+
+* To keep sibling folders independent, use the `feature-isolation` recipe in [Forbid rules](/features/forbid-rules).
+* To limit what other code can import from a folder, use [`visibility`](/features/layers-and-visibility).

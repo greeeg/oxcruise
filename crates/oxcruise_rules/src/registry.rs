@@ -143,6 +143,7 @@ register_rules! {
     OptionalDependencies,
     PeerDependencies,
     Layers,
+    FolderStructure,
     Visibility,
     CrossPackageRelativeDependencies,
     UnusedExports,

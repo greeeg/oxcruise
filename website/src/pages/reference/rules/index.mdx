@@ -7,7 +7,7 @@ description: "All built-in oxcruise rules, by category."
 
 # Rules
 
-Oxcruise has 16 built-in rules. Each rule is in one category.
+Oxcruise has 17 built-in rules. Each rule is in one category.
 A category switches all its rules on or off together. See [Rules and categories](/features/rules-and-categories).
 
 | Rule | Category | Default |
@@ -18,6 +18,7 @@ A category switches all its rules on or off together. See [Rules and categories]
 | [`deprecated-dependencies`](/reference/rules/deprecated-dependencies) | suspicious | warn |
 | [`dev-dependencies-in-production`](/reference/rules/dev-dependencies-in-production) | correctness | error |
 | [`duplicate-packages`](/reference/rules/duplicate-packages) | suspicious | warn |
+| [`folder-structure`](/reference/rules/folder-structure) | nursery | off |
 | [`layers`](/reference/rules/layers) | restriction | off |
 | [`optional-dependencies`](/reference/rules/optional-dependencies) | restriction | off |
 | [`orphan-modules`](/reference/rules/orphan-modules) | suspicious | warn |
@@ -61,6 +62,7 @@ Default level: `off`.
 
 Default level: `off`.
 
+* [`folder-structure`](/reference/rules/folder-structure): Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
 * [`unused-exports`](/reference/rules/unused-exports): Reports exports that no other module imports.
 * [`unused-modules`](/reference/rules/unused-modules): Reports source modules that no path from an entry point reaches.
 * [`unused-packages`](/reference/rules/unused-packages): Reports a package that a `package.json` declares and that none of its modules imports.

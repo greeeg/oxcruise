@@ -66,6 +66,10 @@ pub enum Subject {
     /// A file that is not a module (a `package.json`), relative to the root. No comment can
     /// suppress a violation in it.
     File(String),
+    /// A file or folder of the file tree that a rule checks, relative to the root. It can be one
+    /// that does not exist (a required file). Like [`Subject::File`], no comment can suppress it.
+    /// `from` only orders it, and overrides scope it by this path, not by `from`.
+    Path(String),
 }
 
 impl Violation {

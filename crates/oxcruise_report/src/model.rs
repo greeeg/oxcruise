@@ -349,7 +349,7 @@ pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationO
         .map(|v| {
             let kind = match (&v.subject, v.edge, v.path.len()) {
                 (Subject::Export(_), ..) => ViolationKind::Export,
-                (Subject::File(_), ..) => ViolationKind::File,
+                (Subject::File(_) | Subject::Path(_), ..) => ViolationKind::File,
                 (_, Some(_), n) if n > 0 => ViolationKind::Cycle,
                 (_, Some(_), _) => ViolationKind::Dependency,
                 (_, None, n) if n > 0 => ViolationKind::Reachability,
@@ -360,7 +360,7 @@ pub fn violation_outs(graph: &Graph, violations: &[Violation]) -> Vec<ViolationO
                 level: v.level,
                 kind,
                 from: match &v.subject {
-                    Subject::File(f) => f.clone(),
+                    Subject::File(f) | Subject::Path(f) => f.clone(),
                     _ => name(v.from),
                 },
                 to: v.to.map(name),

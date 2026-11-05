@@ -8,6 +8,7 @@ dependencies-on-tests correctness 0.1.0
 deprecated-dependencies suspicious 0.1.0
 dev-dependencies-in-production correctness 0.1.0
 duplicate-packages suspicious 0.1.0
+folder-structure nursery 0.1.0
 layers restriction 0.1.0
 optional-dependencies restriction 0.1.0
 orphan-modules suspicious 0.1.0

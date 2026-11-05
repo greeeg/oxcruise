@@ -5,6 +5,7 @@ mod cross_package_relative_dependencies;
 mod dependencies_on_tests;
 mod dependency_types;
 mod dev_dependencies_in_production;
+mod folder_structure;
 mod layers;
 mod orphan_modules;
 mod unused_exports;
@@ -19,6 +20,7 @@ pub use dependency_types::*;
 pub use dev_dependencies_in_production::{
     DevDependenciesInProduction, DevDependenciesInProductionConfig,
 };
+pub use folder_structure::{FolderStructure, FolderStructureConfig};
 pub use layers::{Layers, LayersConfig};
 pub use orphan_modules::{OrphanModules, OrphanModulesConfig};
 pub use unused_exports::{UnusedExports, UnusedExportsConfig};

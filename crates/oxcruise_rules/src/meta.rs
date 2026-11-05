@@ -4,8 +4,8 @@ use std::sync::Mutex;
 
 use bitflags::bitflags;
 use oxcruise_core::{
-    CycleStep, DeclaredManifest, Edge, EdgeId, Fix, Graph, Loc, Module, ModuleId, Subject,
-    Violation, ViolationLevel,
+    CycleStep, DeclaredManifest, Edge, EdgeId, FileTree, Fix, Graph, Loc, Module, ModuleId,
+    Subject, Violation, ViolationLevel,
 };
 use oxcruise_graph::analyses::{
     ExportUsage, Scc, distinct_dependents, export_usage, strongly_connected,
@@ -36,7 +36,7 @@ pub trait RuleMeta {
 bitflags! {
     /// Whole-graph analyses a rule needs. Only requested ones are computed.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-    pub struct Analyses: u8 {
+    pub struct Analyses: u16 {
         /// Strongly connected components over every edge.
         const CYCLES = 1;
         /// Strongly connected components without type-only edges.
@@ -51,6 +51,8 @@ bitflags! {
         const MANIFESTS = 1 << 5;
         /// The peer dependencies of each declared package (`DeclaredDep::peers`). Implies `MANIFESTS`.
         const DEP_PEERS = 1 << 6;
+        /// Every file of the project and its folders (`RuleCtx::file_tree`).
+        const FILE_TREE = 1 << 7;
     }
 }
 
@@ -171,6 +173,8 @@ pub struct Shared<'a> {
     pub root: &'a Path,
     pub workspace: &'a [WorkspacePackage],
     pub manifests: &'a [DeclaredManifest],
+    /// Only with `Analyses::FILE_TREE`.
+    pub file_tree: Option<&'a FileTree>,
     pub analyses: &'a AnalysisCache,
     /// Notes rules leave for the user (`RuleCtx::warn`), in no particular order.
     pub warnings: Mutex<Vec<String>>,
@@ -203,6 +207,12 @@ impl<'a> RuleCtx<'a> {
     }
     pub fn manifests(&self) -> &'a [DeclaredManifest] {
         self.shared.manifests
+    }
+    /// Every file of the project. Only available to rules that require `Analyses::FILE_TREE`.
+    pub fn file_tree(&self) -> &'a FileTree {
+        self.shared
+            .file_tree
+            .expect("FILE_TREE analysis was not requested by any rule")
     }
     /// The shared entry points. Only available to rules that require `Analyses::ENTRIES`.
     pub fn entries(&self) -> &'a EntrySet {
@@ -298,6 +308,41 @@ impl<'a> RuleCtx<'a> {
         v.fix = fix;
         v.loc = Some(loc);
         v.subject = Subject::File(file.to_string());
+        self.out.borrow_mut().push(v);
+    }
+
+    /// Violation on a file or folder of the file tree, which can be one that is missing. `path`
+    /// is relative to the root. It is anchored to the first module at or after `path` in path
+    /// order, which only orders it, and `overrides[].files` scope it by `path`. Nothing is
+    /// reported when the graph has no module to anchor it to.
+    pub fn report_path(&self, path: &str, message: impl Into<String>) {
+        let g = self.graph();
+        let n = g.module_count();
+        if n == 0 {
+            self.warn(format!(
+                "`{}` found `{path}`, but the graph has no module to report it on",
+                self.rule
+            ));
+            return;
+        }
+        // module ids follow path order: the first module whose path is not before `path`
+        let (mut lo, mut hi) = (0, n);
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if g.module(ModuleId(mid as u32)).path.as_str() < path {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        let at = lo;
+        let mut v = Violation::module(
+            self.rule,
+            self.level,
+            ModuleId(at.min(n - 1) as u32),
+            message.into(),
+        );
+        v.subject = Subject::Path(path.to_string());
         self.out.borrow_mut().push(v);
     }
 

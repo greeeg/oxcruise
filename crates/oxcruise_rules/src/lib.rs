@@ -5,6 +5,7 @@ pub mod declarative;
 pub mod engine;
 pub mod entries;
 pub mod external;
+pub mod folders;
 pub mod meta;
 pub mod pattern;
 pub mod registry;

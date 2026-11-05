@@ -16,13 +16,11 @@ Name each layer and give its globs. Then list the layers that each layer can imp
 ```ts
 export default defineConfig({
   rules: {
-    layers: [
-      "error",
-      {
-        layers: { ui: "src/ui/**", domain: "src/domain/**", db: "src/db/**" },
-        allow: { ui: ["domain"], domain: ["db"], db: [] },
-      },
-    ],
+    layers: {
+      level: "error",
+      layers: { ui: "src/ui/**", domain: "src/domain/**", db: "src/db/**" },
+      allow: { ui: ["domain"], domain: ["db"], db: [] },
+    },
   },
 });
 ```

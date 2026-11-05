@@ -76,13 +76,11 @@ export default defineConfig({
   categories: { correctness: "error", suspicious: "warn" }, // this is the default
   rules: {
     "circular-dependencies": "error",
-    layers: [
-      "error",
-      {
-        layers: { ui: "src/ui/**", domain: "src/domain/**" },
-        allow: { ui: ["domain"], domain: [] },
-      },
-    ],
+    layers: {
+      level: "error",
+      layers: { ui: "src/ui/**", domain: "src/domain/**" },
+      allow: { ui: ["domain"], domain: [] },
+    },
   },
   forbid: [
     {
@@ -116,7 +114,7 @@ Run `npx oxcruise --rules` for the list on your version.
 | `correctness` | error   | `circular-dependencies`, `unresolved-dependencies`, `undeclared-packages`, `dev-dependencies-in-production`, `dependencies-on-tests`, `cross-package-relative-dependencies` |
 | `suspicious`  | warn    | `orphan-modules`, `duplicate-packages`, `deprecated-dependencies`                                                                            |
 | `restriction` | off     | `layers`, `visibility`, `optional-dependencies`, `peer-dependencies`                                                              |
-| `nursery`     | off     | `unused-exports`, `unused-packages`, `unused-modules`                                                                      |
+| `nursery`     | off     | `folder-structure`, `unused-exports`, `unused-packages`, `unused-modules`                                                  |
 
 The unused-code rules need exports, so they cost an extra walk. Enable them in `rules`, add `--production` to leave
 tests out, and `--fix` to apply the automatic repairs.

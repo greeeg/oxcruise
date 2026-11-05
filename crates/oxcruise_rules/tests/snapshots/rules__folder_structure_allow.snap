@@ -1,0 +1,8 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/modules/a/utils/x.ts\", \"src/modules/b/helpers/y.ts\",\n\"src/modules/b/ok.ts\", \"src/ui/x/store/s.ts\", \"src/ui/x/README.md\",\n\"src/ui/x/components/Button.tsx\",])"
+---
+error folder-structure src/modules/a/utils: Put shared helpers in src/lib.
+error folder-structure src/modules/b/helpers: Put shared helpers in src/lib.
+error folder-structure src/ui/x/README.md: `README.md` is not allowed in `src/ui/x`
+error folder-structure src/ui/x/store: `store` is not allowed in `src/ui/x`

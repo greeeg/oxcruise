@@ -1,0 +1,26 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: report(&text)
+---
+exit: 1
+--- stdout
+error[folder-structure]: `src/components/Card` must contain `Card.test.tsx`
+  --> src/components/Card/Card.test.tsx
+
+error[folder-structure]: `bad_name` in `src/components` must be in pascal-case
+  --> src/components/bad_name
+
+error[folder-structure]: `src/components/bad_name` must contain `bad_name.stories.tsx`
+  --> src/components/bad_name/bad_name.stories.tsx
+
+error[folder-structure]: `src/components/bad_name` must contain `bad_name.test.tsx`
+  --> src/components/bad_name/bad_name.test.tsx
+
+error[folder-structure]: Put shared helpers in src/lib.
+  --> src/modules/cart/utils
+
+error[folder-structure]: `src/pages/about` must contain `codeowners.ts`
+  --> src/pages/about/codeowners.ts
+
+✖ 6 problems (6 errors, 0 warnings) in 11 modules, 0 dependencies
+--- stderr

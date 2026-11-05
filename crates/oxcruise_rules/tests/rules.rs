@@ -408,7 +408,7 @@ fn the_config_schema_types_the_options_of_each_rule() {
 #[test]
 fn every_builtin_documents_itself() {
     let rules = oxcruise_rules::builtin_rules();
-    assert_eq!(rules.len(), 16);
+    assert_eq!(rules.len(), 17);
     for r in &rules {
         assert!(r.docs.len() > 20, "{} has no docs", r.name);
         assert!(
@@ -426,4 +426,247 @@ fn every_builtin_documents_itself() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+}
+
+fn folders(entries: Value) -> Tester {
+    Tester::rule("folder-structure", json!({ "folders": entries }))
+}
+
+#[test]
+fn folder_structure_require() {
+    let t = folders(json!([
+        { "path": "src/pages/{page}", "require": ["codeowners.ts", "index.{ts,tsx}"] }
+    ]))
+    .with_files(&["src/pages/a/codeowners.ts", "src/pages/b/codeowners.ts"]);
+    // `index.ts` or `index.tsx` is one of; a page is only a folder directly in `src/pages`
+    t.pass(&[
+        "src/pages/a/index.ts",
+        "src/pages/b/index.tsx",
+        "src/pages/b/components/Item.tsx",
+    ]);
+    insta::assert_snapshot!(
+        "folder_structure_require",
+        t.fail(&[
+            "src/pages/a/index.ts",
+            "src/pages/c/index.tsx",
+            "src/pages/d/components/Item.tsx",
+        ])
+    );
+}
+
+#[test]
+fn folder_structure_allow() {
+    let t = folders(json!([
+        { "path": "src/modules/{m}", "allow": "!{utils,helpers}", "message": "Put shared helpers in src/lib." },
+        { "path": "src/ui/{u}", "allow": ["hooks", "components", "*.{ts,tsx}"] }
+    ]));
+    t.pass(&[
+        "src/modules/a/index.ts",
+        "src/modules/a/hooks/use.ts",
+        "src/ui/x/hooks/use.ts",
+        "src/ui/x/components/Button.tsx",
+        "src/ui/x/index.ts",
+    ]);
+    insta::assert_snapshot!(
+        "folder_structure_allow",
+        t.fail(&[
+            "src/modules/a/utils/x.ts",
+            "src/modules/b/helpers/y.ts",
+            "src/modules/b/ok.ts",
+            "src/ui/x/store/s.ts",
+            "src/ui/x/README.md",
+            "src/ui/x/components/Button.tsx",
+        ])
+    );
+}
+
+#[test]
+fn folder_structure_allow_with_only_negations_allows_everything_else() {
+    let t = folders(json!([{ "path": "src", "allow": ["!tmp", "!*.bak"] }]));
+    t.pass(&["src/a.ts", "src/lib/b.ts"]);
+    let out = t.fail(&["src/a.ts", "src/tmp/b.ts"]);
+    assert_eq!(out.lines().count(), 1, "{out}");
+    assert!(out.contains("src/tmp"), "{out}");
+    let out = t.with_files(&["src/x.bak"]).fail(&["src/a.ts"]);
+    assert!(out.contains("src/x.bak"), "{out}");
+}
+
+#[test]
+fn folder_structure_case() {
+    let t = folders(json!([
+        { "path": "src/components", "case": "pascal-case" },
+        { "path": "src/hooks", "case": "camel-case" },
+        { "path": "src/routes", "case": "kebab-case" },
+        { "path": "src/jobs", "case": "snake-case" }
+    ]))
+    .with_files(&["src/components/.gitkeep"]);
+    t.pass(&[
+        "src/components/Button.tsx",
+        "src/components/Button.test.tsx",
+        "src/components/UserCard/index.ts",
+        "src/hooks/useThing.ts",
+        "src/routes/user-list.ts",
+        "src/routes/404.ts",
+        "src/jobs/nightly_sync.ts",
+    ]);
+    insta::assert_snapshot!(
+        "folder_structure_case",
+        t.fail(&[
+            "src/components/button.tsx",
+            "src/components/User-Card/index.ts",
+            "src/hooks/UseThing.ts",
+            "src/hooks/use_thing.ts",
+            "src/routes/userList.ts",
+            "src/routes/user--list.ts",
+            "src/jobs/nightly-sync.ts",
+            "src/jobs/_sync.ts",
+        ])
+    );
+}
+
+#[test]
+fn folder_structure_substitutes_captures() {
+    // the file has the name of its folder
+    let t = folders(json!([{ "path": "src/components/{c}", "require": "{c}.tsx" }]));
+    t.pass(&[
+        "src/components/Button/Button.tsx",
+        "src/components/Card/Card.tsx",
+    ]);
+    insta::assert_snapshot!(
+        "folder_structure_capture",
+        t.fail(&[
+            "src/components/Button/Button.tsx",
+            "src/components/Card/index.tsx",
+        ])
+    );
+}
+
+#[test]
+fn folder_structure_companion_files() {
+    // a file match: the options apply to the folder of the file, with its captures
+    let t = folders(json!([{
+        "path": ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"],
+        "require": ["{c}.test.tsx", "{c}.stories.tsx"]
+    }]));
+    t.pass(&[
+        "src/components/Button/Button.tsx",
+        "src/components/Button/Button.test.tsx",
+        "src/components/Button/Button.stories.tsx",
+    ]);
+    insta::assert_snapshot!(
+        "folder_structure_companions",
+        t.fail(&[
+            "src/components/Button/Button.tsx",
+            "src/components/Button/Button.test.tsx",
+            "src/components/Card/Card.tsx",
+            "src/components/Card/Card.stories.tsx",
+        ])
+    );
+}
+
+#[test]
+fn folder_structure_require_reaches_into_folders() {
+    let t =
+        folders(json!([{ "path": "packages/{p}", "require": ["package.json", "src/index.ts"] }]))
+            .with_files(&["packages/a/package.json", "packages/b/package.json"]);
+    t.pass(&["packages/a/src/index.ts", "packages/b/src/index.ts"]);
+    let out = t.fail(&["packages/a/src/index.ts", "packages/b/src/other.ts"]);
+    assert!(out.contains("packages/b/src/index.ts"), "{out}");
+    assert_eq!(out.lines().count(), 1, "{out}");
+}
+
+#[test]
+fn folder_structure_overlapping_entries_all_apply() {
+    let t = folders(json!([
+        { "path": "src/{a}", "require": "index.ts" },
+        { "path": "src/{a}", "allow": "!tmp" },
+        { "path": "src/**", "case": "kebab-case" }
+    ]));
+    let out = t.fail(&["src/one/Mixed.ts", "src/one/tmp/x.ts"]);
+    insta::assert_snapshot!("folder_structure_overlapping", out);
+}
+
+#[test]
+fn folder_structure_the_root_folder_is_a_dot() {
+    let t = folders(json!([{ "path": ".", "require": "README.md" }]));
+    let out = t.fail(&["src/a.ts"]);
+    assert!(out.contains("`.` must contain `README.md`"), "{out}");
+    let t = folders(json!([{ "path": ".", "require": "README.md" }])).with_files(&["README.md"]);
+    t.pass(&["src/a.ts"]);
+}
+
+#[test]
+fn folder_structure_negated_path_excludes_a_folder() {
+    let t = folders(json!([
+        { "path": ["src/pages/{page}", "!src/pages/legacy"], "require": "owner.ts" }
+    ]));
+    t.pass(&["src/pages/legacy/index.ts"]);
+    t.fail(&["src/pages/new/index.ts"]);
+}
+
+#[test]
+fn folder_structure_reports_every_bad_option_at_once() {
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+        "rules": { "folder-structure": { "folders": [
+            { "path": "a" },
+            { "path": "b", "require": "!c" },
+            { "path": [], "case": "kebab-case" },
+            { "path": "d", "case": "loud-case" },
+            { "path": "e", "casee": "kebab-case" },
+            { "path": "f", "allow": "x", "require": "y" }
+        ] } }
+    }))
+    .unwrap();
+    let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+    assert_eq!(err.len(), 1, "{err:?}");
+    // the deserialiser stops at the first bad value of the shape; the entry checks run together
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+        "rules": { "folder-structure": { "folders": [
+            { "path": "a" },
+            { "path": "b", "require": "!c" },
+            { "path": [], "case": "kebab-case" },
+            { "path": "f", "allow": "x", "require": "y" }
+        ] } }
+    }))
+    .unwrap();
+    let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+    let text = err.join("\n");
+    for needle in ["folders[0]", "folders[1]", "folders[2]"] {
+        assert!(text.contains(needle), "{needle}: {text}");
+    }
+    assert!(!text.contains("folders[3]"), "{text}");
+}
+
+#[test]
+fn folder_structure_does_not_need_a_tree_when_off() {
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({})).unwrap();
+    let engine = oxcruise_rules::Engine::new(&cfg, None).unwrap();
+    assert!(!engine.wants_file_tree());
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+        "rules": { "folder-structure": { "folders": [{ "path": "a", "case": "kebab-case" }] } }
+    }))
+    .unwrap();
+    assert!(
+        oxcruise_rules::Engine::new(&cfg, None)
+            .unwrap()
+            .wants_file_tree()
+    );
+}
+
+#[test]
+fn folder_structure_ignore_file_silences_a_module_but_not_a_missing_file() {
+    let t = folders(json!([
+        { "path": "src/ui/{u}", "allow": "*.ts", "require": "owner.ts" }
+    ]));
+    // `x.css` is not a module, so no comment can reach it; the module `y.tsx` carries one
+    let out = t
+        .with_files(&["src/ui/a/x.css"])
+        .fail(&["src/ui/a/y.tsx [ignore-file=folder-structure]"]);
+    assert!(out.contains("src/ui/a/x.css"), "{out}");
+    assert!(out.contains("src/ui/a/owner.ts"), "{out}");
+    assert!(!out.contains("y.tsx"), "{out}");
+    // the same comment with the rule name of another rule does not help
+    let out = folders(json!([{ "path": "src/ui/{u}", "allow": "*.ts" }]))
+        .fail(&["src/ui/a/y.tsx [ignore-file=layers]"]);
+    assert!(out.contains("y.tsx"), "{out}");
 }

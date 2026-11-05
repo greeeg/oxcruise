@@ -31,6 +31,13 @@ import legacy from "./legacy"; // oxcruise-ignore-line deprecated-dependencies
 Some violations belong to a module, not to a dependency. For example, `orphan-modules` reports a module that nothing imports.
 Only `// oxcruise-ignore-file` suppresses these violations. The `ignore-line` and `ignore-next-line` comments do not.
 
+## Violations of a folder or file
+
+The `folder-structure` rule reports violations about files and folders.
+A `// oxcruise-ignore-file` comment suppresses a violation about the module that has the comment.
+A violation about a missing file, a folder or a file that is not a module has no place for a comment.
+Change the config file for these. See [Folder structure](/features/folder-structure#make-an-exception).
+
 ## Cycles
 
 A cycle counts as suppressed when any one of its imports has the comment.

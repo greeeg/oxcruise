@@ -1,0 +1,7 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: out
+---
+error folder-structure src/one/Mixed.ts: `Mixed.ts` in `src/one` must be in kebab-case
+error folder-structure src/one/index.ts: `src/one` must contain `index.ts`
+error folder-structure src/one/tmp: `tmp` is not allowed in `src/one`

@@ -22,6 +22,7 @@ fn result() -> CruiseResult {
         &root,
         &out.workspace,
         &out.manifests,
+        None,
         false,
     );
     CruiseResult::build(

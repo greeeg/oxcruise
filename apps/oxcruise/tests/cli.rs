@@ -834,3 +834,68 @@ fn visualize_refuses_check_only_flags() {
         );
     }
 }
+
+fn folder_structure_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/folder-structure")
+}
+
+#[test]
+fn folder_structure_reports_the_seeded_violations() {
+    let cwd = folder_structure_fixture();
+    let text = run_in(&cwd, &[]);
+    assert_eq!(text.result.code(), 1, "{}", report(&text));
+    insta::assert_snapshot!("folder_structure_text", report(&text));
+    let json = run_in(&cwd, &["-f", "json"]);
+    assert_eq!(json.result.code(), 1);
+    insta::assert_snapshot!("folder_structure_json", json.stdout);
+}
+
+#[test]
+fn folder_structure_is_the_same_at_any_thread_count() {
+    let cwd = folder_structure_fixture();
+    let one = run_in(&cwd, &["-f", "json", "--threads", "1"]);
+    for n in ["2", "8"] {
+        let many = run_in(&cwd, &["-f", "json", "--threads", n]);
+        assert_eq!(one.stdout, many.stdout, "{n} threads");
+    }
+}
+
+#[test]
+fn folder_structure_follows_overrides_by_path() {
+    let d = tempfile::tempdir().unwrap();
+    copy_dir(&folder_structure_fixture(), d.path());
+    let mut config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(d.path().join(".oxcruiserc.json")).unwrap())
+            .unwrap();
+    config["overrides"] = serde_json::json!([
+        // a missing file is scoped by its own path
+        { "files": "src/pages/about/**", "rules": { "folder-structure": "off" } },
+        // an override without a level changes the options and keeps the level
+        { "files": "src/modules/**", "rules": { "folder-structure": { "folders": [
+            { "path": "src/modules/{m}", "allow": "!helpers" }
+        ] } } }
+    ]);
+    std::fs::write(
+        d.path().join(".oxcruiserc.json"),
+        serde_json::to_string(&config).unwrap(),
+    )
+    .unwrap();
+    let o = run_in(d.path(), &["-f", "json"]);
+    let v: serde_json::Value = serde_json::from_str(&o.stdout).unwrap();
+    let froms: Vec<&str> = v["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["from"].as_str().unwrap())
+        .collect();
+    assert!(
+        !froms.iter().any(|f| f.starts_with("src/pages/about")),
+        "{froms:?}"
+    );
+    // `utils` is allowed by the override's options, and the components are in no override
+    assert!(!froms.contains(&"src/modules/cart/utils"), "{froms:?}");
+    assert!(
+        froms.contains(&"src/components/Card/Card.test.tsx"),
+        "{froms:?}"
+    );
+}

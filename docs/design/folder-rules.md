@@ -154,7 +154,7 @@ rule's schema types them, so `defineConfig` can complete them.
     { "path": "src/components", "case": "pascal-case" },
     { "path": "src/components/{c}", "require": "{c}.tsx" },
     // companion files: a file match; the options apply to the folder of the file
-    { "path": "src/components/**/{c}.tsx", "require": ["{c}.test.tsx", "{c}.stories.tsx"] }
+    { "path": ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"], "require": ["{c}.test.tsx", "{c}.stories.tsx"] }
   ]},
   "visibility": { "level": "error", "folders": [
     { "path": "src/features/{f}", "public": "index.ts",
@@ -240,7 +240,7 @@ the config file.
 "folder-structure": { "folders": [
   { "path": "src/components", "case": "pascal-case" },
   { "path": "src/components/{c}", "require": "{c}.tsx" },
-  { "path": "src/components/**/{c}.tsx", "require": ["{c}.test.tsx", "{c}.stories.tsx"] }
+  { "path": ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"], "require": ["{c}.test.tsx", "{c}.stories.tsx"] }
 ]}
 ```
 

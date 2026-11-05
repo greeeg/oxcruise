@@ -47,7 +47,8 @@ napi run() ─┘   addon: configs, plugins and reporters run in the host Node
       │
 ConfigLoader ──▶ OxcruiseConfig ──▶ Engine::new (compiles + validates every rule, all errors at once)
       │
-Walk (ignore::WalkBuilder::build_parallel; exclude applied while walking)
+Walk (ignore::WalkBuilder::build_parallel; exclude applied while walking;
+      with a `folder-structure` rule it also records the non-source files, in the same walk)
       │
 Runtime: one graph thread owns the visited set; rayon workers do
          read → parse (per-thread arena, reset per file) → extract → resolve every dependency
@@ -55,7 +56,8 @@ Runtime: one graph thread owns the visited set; rayon workers do
       │  the arena is dropped right after extraction: facts are kept, ASTs are not
 Freeze: sort paths → ModuleId; CSR forward/reverse; leaf modules for package/builtin/unresolved
       │
-Analyses, only those some rule asked for: SCC (all edges / runtime-only), distinct dependents
+Analyses, only those some rule asked for: SCC (all edges / runtime-only), distinct dependents,
+      the frozen `FileTree` (files + folders, CSR children) for rules that check the tree
       │
 Rules: par_iter over modules and edges, per-task violation buffers (no locks)
        + plugin rules: ONE batched call with the serialised graph

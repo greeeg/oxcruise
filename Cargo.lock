@@ -1283,6 +1283,7 @@ name = "oxcruise_core"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "rustc-hash",
  "schemars",
  "serde",
  "serde_json",

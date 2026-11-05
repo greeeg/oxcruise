@@ -377,6 +377,7 @@ fn an_engine_keeps_nothing_from_one_run_to_the_next() {
             std::path::Path::new("/"),
             &[],
             &[],
+            None,
             false,
         );
         (r.violations.len(), r.warnings)

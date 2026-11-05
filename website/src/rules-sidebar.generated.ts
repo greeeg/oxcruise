@@ -75,6 +75,10 @@ export const rulesSidebar = [
     "collapsed": true,
     "items": [
       {
+        "text": "folder-structure",
+        "link": "/reference/rules/folder-structure"
+      },
+      {
         "text": "unused-exports",
         "link": "/reference/rules/unused-exports"
       },

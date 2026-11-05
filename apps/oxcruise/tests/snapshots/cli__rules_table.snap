@@ -24,8 +24,9 @@ restriction (default: off)
   visibility                           Restricts access to `internal` directories, as the Go language does.
 
 nursery (default: off)
+  folder-structure                     Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
   unused-exports                       Reports exports that no other module imports.
   unused-modules                       Reports source modules that no path from an entry point reaches.
   unused-packages                      Reports a package that a `package.json` declares and that none of its modules imports.
 
-16 rules
+17 rules

@@ -50,6 +50,13 @@ export type Relation =
  */
 export type JsPlugin = string | AliasedPlugin;
 /**
+ * The case of a name.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "Case".
+ */
+export type Case = "kebab-case" | "camel-case" | "pascal-case" | "snake-case";
+/**
  * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
  * via the `definition` "DepSectionName".
  */
@@ -293,6 +300,18 @@ export interface Rules {
         level?: Level;
       };
   /**
+   * Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names. The rule looks at all files in the entry folders, not only at modules.
+   */
+  "folder-structure"?:
+    | Level
+    | {
+        /**
+         * The folders to check. When several entries match one folder, all of them apply.
+         */
+        folders?: FolderStructureFolder[];
+        level?: Level;
+      };
+  /**
    * Enforces a layered architecture: a layer can import only the layers that `allow` lists for it. The rule checks dependencies on local modules. Packages and built-in modules have no layer.
    */
   layers?:
@@ -483,6 +502,39 @@ export interface Rules {
         marker?: string;
       };
   [k: string]: RuleEntry | undefined;
+}
+/**
+ * One entry of `folders`: the folders it matches and the checks for each of them.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "FolderStructureFolder".
+ */
+export interface FolderStructureFolder {
+  /**
+   * Globs of the names that the files and folders directly in the folder can have.
+   * A glob that starts with `!` forbids a name. A list of only such globs allows every other name.
+   */
+  allow?: OneOrMany | null;
+  /**
+   * The case that the names of the files and folders directly in the folder must have.
+   * The rule checks the name before its first `.`, so `Button.test.tsx` is checked as `Button`.
+   */
+  case?: Case | null;
+  /**
+   * Oxcruise shows this text instead of the generic message of the violations of this entry.
+   */
+  message?: string | null;
+  /**
+   * Globs of the folders to check. `{name}` captures a path segment, and `require` and `allow`
+   * can use the capture. A glob matches only the folder it names.
+   * A glob can also match a file. Then the checks apply to the folder of the file.
+   */
+  path: string | string[];
+  /**
+   * Globs of the files and folders that must be in the folder. A glob is relative to the
+   * folder and can contain `/`. Each glob needs a match.
+   */
+  require?: OneOrMany | null;
 }
 /**
  * How oxcruise resolves imports.
