@@ -1,0 +1,5 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"src/features/a/x.ts -> src/features/b/y.ts\",\n\"src/features/b/y.ts -> src/features/a/z.ts\",])"
+---
+error circular-dependencies src/features/a/x.ts:1:1: circular dependency between folders: src/features/a → src/features/b → src/features/a

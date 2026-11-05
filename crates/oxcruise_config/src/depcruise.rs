@@ -60,8 +60,9 @@ pub fn import(v: &Value) -> (OxcruiseConfig, Vec<String>) {
             "required" => {
                 if val.as_array().is_some_and(|a| !a.is_empty()) {
                     cx.warn(
-                        "`required` rules were dropped: oxcruise has no `require` rules. \
-                         Write a JS plugin rule if you need this check",
+                        "`required` rules were dropped: oxcruise does not convert them. \
+                         For a file that a folder must have, use the `require` option of `folder-structure`; \
+                         for anything else, write a JS plugin rule",
                     );
                 }
             }
@@ -149,7 +150,9 @@ impl Importer {
             .to_string();
         if r.get("scope").and_then(Value::as_str) == Some("folder") {
             self.warn(format!(
-                "rule `{name}` was dropped: folder-scope rules are not supported"
+                "rule `{name}` was dropped: folder-scope rules are not converted \
+                 (for cycles between folders, use `circular-dependencies` with `folders`; \
+                 for the visibility of a folder, use `visibility`)"
             ));
             return None;
         }

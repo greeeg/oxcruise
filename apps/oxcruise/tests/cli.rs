@@ -899,3 +899,86 @@ fn folder_structure_follows_overrides_by_path() {
         "{froms:?}"
     );
 }
+
+fn folder_dependencies_project() -> tempfile::TempDir {
+    project(&[
+        (
+            ".oxcruiserc.json",
+            r#"{
+              "entries": ["src"],
+              "categories": { "correctness": "off", "suspicious": "off" },
+              "rules": {
+                "visibility": { "level": "error", "folders": [
+                  { "path": "src/features/{f}", "public": "index.ts", "message": "Import a feature through its index.ts." },
+                  { "path": "**", "private": "internal" }
+                ] },
+                "circular-dependencies": { "level": "error", "folders": [{ "path": "src/features/{f}" }] }
+              }
+            }"#,
+        ),
+        // a deep dependency into a feature
+        (
+            "src/app.ts",
+            "import './features/cart/model';\nimport './features/cart';\nimport './lib/internal/secret';\n",
+        ),
+        ("src/features/cart/index.ts", "export {};\n"),
+        (
+            "src/features/cart/model.ts",
+            "import '../pay';\nexport {};\n",
+        ),
+        // an `internal/` folder of another folder, and a cycle between two features
+        ("src/lib/internal/secret.ts", "export {};\n"),
+        (
+            "src/features/pay/index.ts",
+            "import '../cart';\nexport {};\n",
+        ),
+    ])
+}
+
+#[test]
+fn visibility_and_folder_cycles_report_the_seeded_violations() {
+    let d = folder_dependencies_project();
+    let o = run_in(d.path(), &[]);
+    assert_eq!(o.result.code(), 1, "{}", report(&o));
+    insta::assert_snapshot!("folder_dependencies_text", report(&o));
+}
+
+#[test]
+fn folder_cycles_are_the_same_at_any_thread_count() {
+    let d = folder_dependencies_project();
+    let one = run_in(d.path(), &["-f", "json", "--threads", "1"]);
+    for n in ["2", "8"] {
+        let many = run_in(d.path(), &["-f", "json", "--threads", n]);
+        assert_eq!(one.stdout, many.stdout, "{n} threads");
+    }
+}
+
+#[test]
+fn an_override_that_switches_visibility_off_keeps_folder_structure() {
+    let d = folder_dependencies_project();
+    let mut config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(d.path().join(".oxcruiserc.json")).unwrap())
+            .unwrap();
+    config["rules"]["folder-structure"] = serde_json::json!({
+        "folders": [{ "path": "src/features/{f}", "require": "README.md" }]
+    });
+    config["overrides"] = serde_json::json!([
+        { "files": "src/**", "rules": { "visibility": "off" } }
+    ]);
+    std::fs::write(
+        d.path().join(".oxcruiserc.json"),
+        serde_json::to_string(&config).unwrap(),
+    )
+    .unwrap();
+    let o = run_in(d.path(), &["-f", "json"]);
+    let v: serde_json::Value = serde_json::from_str(&o.stdout).unwrap();
+    let rules: Vec<&str> = v["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["rule"].as_str().unwrap())
+        .collect();
+    assert!(!rules.contains(&"visibility"), "{rules:?}");
+    assert!(rules.contains(&"folder-structure"), "{rules:?}");
+    assert!(rules.contains(&"circular-dependencies"), "{rules:?}");
+}

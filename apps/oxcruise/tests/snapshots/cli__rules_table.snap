@@ -21,7 +21,7 @@ restriction (default: off)
   layers                               Enforces a layered architecture: a layer can import only the layers that `allow` lists for it.
   optional-dependencies                Reports use of optional dependencies.
   peer-dependencies                    Reports use of peer dependencies.
-  visibility                           Restricts access to `internal` directories, as the Go language does.
+  visibility                           Restricts what a folder shows to the code outside it.
 
 nursery (default: off)
   folder-structure                     Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.

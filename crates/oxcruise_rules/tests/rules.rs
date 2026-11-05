@@ -287,9 +287,14 @@ fn layers_reject_unknown_names() {
     assert!(err[0].contains("unknown layer `nope`"), "{err:?}");
 }
 
+fn visibility_folders(entries: Value) -> Tester {
+    Tester::rule("visibility", json!({ "folders": entries }))
+}
+
 #[test]
 fn visibility() {
-    let t = Tester::rule("visibility", none());
+    // the Go-style check: `internal/` is private to its parent folder
+    let t = visibility_folders(json!([{ "path": "**", "private": "internal" }]));
     t.pass(&[
         "src/a/x.ts -> src/a/internal/y.ts",
         "src/a/internal/y.ts -> src/a/internal/z.ts",
@@ -304,7 +309,128 @@ fn visibility() {
             "src/a2/x.ts -> src/a/internal/deep/y.ts"
         ])
     );
-    Tester::rule("visibility", json!({ "marker": "private" })).fail(&["b/x.ts -> a/private/y.ts"]);
+    visibility_folders(json!([{ "path": "**", "private": "private" }]))
+        .fail(&["b/x.ts -> a/private/y.ts"]);
+}
+
+#[test]
+fn visibility_without_folders_does_nothing() {
+    Tester::rule("visibility", none()).pass(&["src/b/x.ts -> src/a/internal/y.ts"]);
+    visibility_folders(json!([])).pass(&["src/b/x.ts -> src/a/internal/y.ts"]);
+}
+
+#[test]
+fn visibility_public() {
+    let t = visibility_folders(json!([
+        { "path": "src/features/{f}", "public": "index.ts", "message": "Import a feature through its index.ts." }
+    ]));
+    t.pass(&[
+        // from inside the folder: everything is visible
+        "src/features/cart/a.ts -> src/features/cart/deep/b.ts",
+        // from outside, through the public module
+        "src/app.ts -> src/features/cart/index.ts",
+        // not in a feature
+        "src/app.ts -> src/lib/deep/x.ts",
+        // another folder of the same feature layer: still through `index.ts`
+        "src/features/cart/a.ts -> src/features/cart/index.ts",
+    ]);
+    insta::assert_snapshot!(
+        "visibility_public",
+        t.fail(&[
+            "src/app.ts -> src/features/cart/deep/b.ts",
+            "src/features/pay/a.ts -> src/features/cart/model.ts",
+            "src/app.ts -> src/features/cart/index.ts",
+        ])
+    );
+    // without a custom message the generic one names the folder and the public globs
+    let generic = visibility_folders(
+        json!([{ "path": "src/features/{f}", "public": ["index.ts", "api/**"] }]),
+    )
+    .fail(&["src/app.ts -> src/features/cart/model.ts"]);
+    insta::assert_snapshot!("visibility_public_generic", generic);
+}
+
+#[test]
+fn visibility_private_wins_over_public() {
+    let t = visibility_folders(json!([{
+        "path": "packages/{p}",
+        "public": ["src/index.ts", "src/testing/**"],
+        "private": "src/testing/fixtures"
+    }]));
+    t.pass(&[
+        "app/x.ts -> packages/a/src/index.ts",
+        "app/x.ts -> packages/a/src/testing/helper.ts",
+        "packages/a/src/x.ts -> packages/a/src/testing/fixtures/f.ts",
+    ]);
+    insta::assert_snapshot!(
+        "visibility_private_wins",
+        t.fail(&[
+            "app/x.ts -> packages/a/src/testing/fixtures/f.ts",
+            "app/x.ts -> packages/a/src/other.ts",
+        ])
+    );
+}
+
+#[test]
+fn visibility_nested_folders_report_the_outermost() {
+    let t = visibility_folders(json!([
+        { "path": "src/features/{f}/{layer}", "private": "internal" },
+        { "path": "src/features/{f}", "public": "index.ts" }
+    ]));
+    // `cart` hides everything but its index; the inner `model` folder is never reached
+    let out = t.fail(&["src/app.ts -> src/features/cart/model/internal/x.ts"]);
+    assert!(
+        out.contains("not visible outside `src/features/cart`"),
+        "{out}"
+    );
+    assert_eq!(out.lines().count(), 1, "{out}");
+    // from inside the feature, the inner folder still hides its `internal/`
+    let out = t.fail(&["src/features/cart/ui/a.ts -> src/features/cart/model/internal/x.ts"]);
+    assert!(
+        out.contains("private to `src/features/cart/model`"),
+        "{out}"
+    );
+}
+
+#[test]
+fn visibility_public_can_use_captures() {
+    let t = visibility_folders(json!([{ "path": "src/features/{f}", "public": "{f}.api.ts" }]));
+    t.pass(&["src/app.ts -> src/features/cart/cart.api.ts"]);
+    t.fail(&["src/app.ts -> src/features/cart/pay.api.ts"]);
+}
+
+#[test]
+fn visibility_ignore_comment_silences_a_dependency() {
+    let t = visibility_folders(json!([{ "path": "**", "private": "internal" }]));
+    t.pass(&["src/b/x.ts -> src/a/internal/y.ts [ignore=visibility]"]);
+    t.fail(&["src/b/x.ts -> src/a/internal/y.ts [ignore=layers]"]);
+}
+
+#[test]
+fn visibility_bad_options_are_reported_together() {
+    let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+        "rules": { "visibility": { "folders": [
+            { "path": "a" },
+            { "path": [], "public": "x" },
+            { "path": "c", "public": [] }
+        ] } }
+    }))
+    .unwrap();
+    let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+    let text = err.join("\n");
+    for needle in ["folders[0]", "folders[1]", "folders[2]"] {
+        assert!(text.contains(needle), "{needle}: {text}");
+    }
+    // `marker` is gone, and the error shows the replacement
+    let cfg: oxcruise_config::OxcruiseConfig =
+        serde_json::from_value(json!({ "rules": { "visibility": { "marker": "private" } } }))
+            .unwrap();
+    let err = oxcruise_rules::Engine::new(&cfg, None).err().unwrap();
+    assert!(
+        err[0].contains("`marker` was removed")
+            && err[0].contains(r#"{ "path": "**", "private": "<marker>" }"#),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -669,4 +795,123 @@ fn folder_structure_ignore_file_silences_a_module_but_not_a_missing_file() {
     let out = folders(json!([{ "path": "src/ui/{u}", "allow": "*.ts" }]))
         .fail(&["src/ui/a/y.tsx [ignore-file=layers]"]);
     assert!(out.contains("y.tsx"), "{out}");
+}
+
+fn folder_cycles(extra: Value) -> Tester {
+    let mut options = json!({ "folders": [{ "path": "src/features/{f}" }] });
+    for (k, v) in extra.as_object().into_iter().flatten() {
+        options[k] = v.clone();
+    }
+    Tester::rule("circular-dependencies", options)
+}
+
+#[test]
+fn circular_dependencies_between_folders() {
+    let t = folder_cycles(json!({}));
+    // no cycle between the modules, and none between the folders
+    t.pass(&[
+        "src/features/a/x.ts -> src/features/b/y.ts",
+        "src/features/a/z.ts -> src/features/a/x.ts",
+        "src/features/b/y.ts -> src/lib/l.ts",
+        "src/lib/l.ts -> src/features/b/q.ts",
+    ]);
+    // the folders depend on each other, the modules do not
+    insta::assert_snapshot!(
+        "circular_dependencies_folders",
+        t.fail(&[
+            "src/features/a/x.ts -> src/features/b/y.ts",
+            "src/features/b/y.ts -> src/features/a/z.ts",
+        ])
+    );
+    // a longer cycle is reported once, however many dependencies close it
+    let out = t.fail(&[
+        "src/features/a/x.ts -> src/features/b/y.ts",
+        "src/features/a/w.ts -> src/features/b/y.ts",
+        "src/features/b/y.ts -> src/features/c/z.ts",
+        "src/features/c/z.ts -> src/features/a/x.ts",
+    ]);
+    insta::assert_snapshot!("circular_dependencies_folders_three", out);
+}
+
+#[test]
+fn circular_dependencies_between_folders_follows_type_only_and_ignore() {
+    let lines = [
+        "src/features/a/x.ts -> src/features/b/y.ts",
+        "src/features/b/y.ts -> src/features/a/z.ts [type-only]",
+    ];
+    folder_cycles(json!({})).pass(&lines);
+    folder_cycles(json!({ "includeTypeOnly": true })).fail(&lines);
+    let lines = [
+        "src/features/a/x.ts -> src/features/b/y.ts",
+        "src/features/b/y.ts -> src/features/a/z.ts",
+    ];
+    folder_cycles(json!({ "ignore": ["src/features/b/y.ts"] })).pass(&lines);
+}
+
+#[test]
+fn circular_dependencies_between_folders_can_be_silenced_on_one_dependency() {
+    let lines = |ignore: &str| {
+        [
+            "src/features/a/x.ts -> src/features/b/y.ts".to_string(),
+            format!("src/features/b/y.ts -> src/features/a/z.ts [{ignore}]"),
+        ]
+    };
+    let t = folder_cycles(json!({}));
+    let on = lines("ignore=circular-dependencies");
+    t.pass(&on.iter().map(String::as_str).collect::<Vec<_>>());
+    let off = lines("ignore=layers");
+    t.fail(&off.iter().map(String::as_str).collect::<Vec<_>>());
+}
+
+#[test]
+fn circular_dependencies_between_folders_keeps_the_module_cycles() {
+    let t = folder_cycles(json!({}));
+    let out = t.fail(&[
+        "src/features/a/x.ts -> src/features/b/y.ts",
+        "src/features/b/y.ts -> src/features/a/x.ts",
+    ]);
+    // one cycle between the modules (as before), and one between the folders
+    assert!(out.contains("circular dependency: "), "{out}");
+    assert!(
+        out.contains("circular dependency between folders: "),
+        "{out}"
+    );
+}
+
+#[test]
+fn circular_dependencies_folder_entries_are_checked() {
+    let errors = |folders: Value| {
+        let cfg: oxcruise_config::OxcruiseConfig = serde_json::from_value(json!({
+            "rules": { "circular-dependencies": { "folders": folders } }
+        }))
+        .unwrap();
+        oxcruise_rules::Engine::new(&cfg, None)
+            .err()
+            .unwrap()
+            .join("\n")
+    };
+    let e = errors(json!([{ "path": [] }, { "path": "" }]));
+    assert!(e.contains("folders[0]: `path` needs a glob"), "{e}");
+    assert!(e.contains("folders[1]: `path` needs a glob"), "{e}");
+    // a folder cycle comes from several entries' dependencies, so an entry has no `message`
+    let e = errors(json!([{ "path": "a", "message": "x" }]));
+    assert!(e.contains("unknown field `message`"), "{e}");
+}
+
+#[test]
+fn visibility_on_a_large_graph_checks_dependencies_in_parallel() {
+    // many dependencies share the folder table that the first check builds
+    let lines: Vec<String> = (0..300)
+        .flat_map(|f| {
+            (0..8).map(move |i| {
+                format!(
+                    "src/features/f{f}/a{i}.ts -> src/features/f{}/index.ts",
+                    (f + 1) % 300
+                )
+            })
+        })
+        .collect();
+    let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
+    let t = visibility_folders(json!([{ "path": "src/features/{f}", "public": "index.ts" }]));
+    t.pass(&lines);
 }

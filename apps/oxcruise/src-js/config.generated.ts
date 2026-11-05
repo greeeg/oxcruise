@@ -236,6 +236,12 @@ export interface Rules {
     | Level
     | {
         /**
+         * Entries for cycles between folders. Each entry has a `path`. A dependency from a module in
+         * one folder to a module in another folder of the same entry is a dependency between the
+         * folders. A cycle between two or more of them is a violation.
+         */
+        folders?: CircularFolder[];
+        /**
          * Globs of modules to leave out before looking for cycles, so no cycle goes through them.
          */
         ignore?: string[];
@@ -490,18 +496,31 @@ export interface Rules {
         test?: string[];
       };
   /**
-   * Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules.
+   * Restricts what a folder shows to the code outside it. A module inside a folder can import every module in that folder. A module outside it can import only the modules that the folder makes visible. The rule checks dependencies on local modules.
    */
   visibility?:
     | Level
     | {
-        level?: Level;
         /**
-         * Directory name that marks code as internal. Defaults to `internal`.
+         * The folders to check. The rule does nothing without them.
          */
-        marker?: string;
+        folders?: VisibilityFolder[];
+        level?: Level;
       };
   [k: string]: RuleEntry | undefined;
+}
+/**
+ * One entry of `folders`: the folders whose dependencies on each other the rule checks.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "CircularFolder".
+ */
+export interface CircularFolder {
+  /**
+   * Globs of the folders. `{name}` captures a path segment. A module below a matching folder
+   * belongs to it. A glob matches only the folder it names.
+   */
+  path: string | string[];
 }
 /**
  * One entry of `folders`: the folders it matches and the checks for each of them.
@@ -535,6 +554,33 @@ export interface FolderStructureFolder {
    * folder and can contain `/`. Each glob needs a match.
    */
   require?: OneOrMany | null;
+}
+/**
+ * One entry of `folders`: a folder and what it shows to the code outside it.
+ *
+ * This interface was referenced by `OxcruiseConfig`'s JSON-Schema
+ * via the `definition` "VisibilityFolder".
+ */
+export interface VisibilityFolder {
+  /**
+   * Oxcruise shows this text instead of the generic message.
+   */
+  message?: string | null;
+  /**
+   * Globs of the folders. `{name}` captures a path segment, and `public` and `private` can use
+   * the capture. A glob matches only the folder it names. `**` matches every folder.
+   */
+  path: string | string[];
+  /**
+   * Globs of the modules in the folder that code outside it cannot import. A glob is relative
+   * to the folder. `private` wins over `public`.
+   */
+  private?: OneOrMany | null;
+  /**
+   * Globs of the modules in the folder that code outside it can import. A glob is relative to
+   * the folder. Without `public`, every module is public.
+   */
+  public?: OneOrMany | null;
 }
 /**
  * How oxcruise resolves imports.

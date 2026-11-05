@@ -48,12 +48,13 @@ The conversion is conservative:
 | `to.reachable: true` | `to.reachable: true` | |
 | `severity` | `level`: `error`, `warn` or `off`. `info` becomes `warn`, with a warning. | |
 | `allowed[]`, `allowedSeverity` | Dropped. | The `layers` rule, or `forbid` rules. |
-| `required[]` | Dropped. | A JS plugin rule. |
+| `required[]` | Dropped. | The `require` option of `folder-structure` for a file that a folder must have. Otherwise a JS plugin rule. |
 | `from.orphan`, `to.orphan` | Dropped. | The `orphan-modules` rule. |
 | `numberOfDependents{Less,More}Than` | Dropped. | A JS plugin rule. |
 | `to.dependencyTypes`, `dependencyTypesNot`, `moreThanOneDependencyType` | Dropped. | `to.kind` and `to.typeOnly`. The rules `undeclared-packages`, `dev-dependencies-in-production`, `duplicate-packages`, `optional-dependencies`, `peer-dependencies` and `deprecated-dependencies`. |
 | `to.circular`, `via`, `viaOnly` | Dropped. | The `circular-dependencies` rule with `ignore` and `includeTypeOnly`. Use `overrides.files` to limit it. |
-| `to.exoticallyRequired`, `license`, `moreUnstable`, `ancestor`, `scope: "folder"` | Dropped. | A JS plugin rule. |
+| `to.exoticallyRequired`, `license`, `moreUnstable`, `ancestor` | Dropped. | A JS plugin rule. |
+| `scope: "folder"` | Dropped. | The `folders` option of `circular-dependencies` for cycles between folders. Otherwise a JS plugin rule. |
 | `options.doNotFollow` | `doNotFollow`. Files in `node_modules` are always leaves. | |
 | `options.exclude` | `ignorePatterns` | |
 | `options.includeOnly` | Dropped. | Start from the right `entries` and list the rest in `ignorePatterns`. |

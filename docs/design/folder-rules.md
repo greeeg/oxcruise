@@ -1,7 +1,7 @@
 # Folder rules
 
-Status: in progress. This document is the design for the rules that check the shape of the folder tree. It also
-covers two changes that the work needs: new rule names and a new form of the rule entry.
+Status: implemented in the four phases below. This document is the design for the rules that check the shape of the
+folder tree. It also covers two changes that the work needs: new rule names and a new form of the rule entry.
 
 The text uses the terms of [website/STYLE.md](../../website/STYLE.md): a *module* is a source file in the graph, a
 *dependency* is an import, a *violation* is one finding of a rule, and a *level* is `off`, `warn` or `error`.
@@ -274,6 +274,22 @@ Each phase is one change and ends green (`just ready`).
 2. Object rule entries, and one name `level` for `level` and `severity`.
 3. The file tree and `folder-structure`.
 4. `visibility` with `folders`, and `circular-dependencies` with `folders`.
+
+## Notes from the implementation
+
+- A violation about a path uses its own `Subject::Path`, not `Subject::File`. `Subject::File` keeps its meaning for a
+  `package.json`, which stays scoped by the module that anchors it. The JSON result shows both as `kind: "file"`, so
+  the shape does not change.
+- `require` is satisfied by a file or by a folder. A glob without `/` and `**` looks only at the children of the folder.
+- A `path` glob matches exactly the folder or file it names. The globs of `forbid` also match everything below a match.
+  `public`, `private`, `require` and `allow` keep the old rule where it makes sense: `private: "internal"` also hides
+  `internal/x.ts`.
+- A companion file entry excludes the companion files themselves with a negated glob in `path`:
+  `["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"]`. Otherwise `Button.test.tsx` would need a `Button.test.test.tsx`.
+- A cycle between folders is reported by every dependency that stands for a hop, so a comment on any one of them
+  silences the cycle. The violation has no `to` module.
+- The language server crate (`crates/oxcruise_language_server`) is not on this branch. A violation about a missing
+  file has no document there, so the server must publish diagnostics only for files that exist.
 
 ## Architecture specs in Vitest
 

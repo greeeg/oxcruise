@@ -805,7 +805,8 @@ fn is_cycle_violation(v: &Violation) -> bool {
 /// is suppressed when *any* of its edges is: annotate one import to accept the whole cycle.
 /// Returns the kept violations and how many cycles were suppressed.
 fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usize) {
-    let mut groups: BTreeMap<(String, Vec<u32>), Vec<Violation>> = BTreeMap::new();
+    // a cycle between folders (no `to`) is not the cycle between modules that has the same steps
+    let mut groups: BTreeMap<(String, bool, Vec<u32>), Vec<Violation>> = BTreeMap::new();
     for v in violations {
         let mut ids: Vec<u32> = v.path.iter().map(|s| s.module.0).collect();
         // module ids follow path order, so the minimum id is the alphabetically first module
@@ -815,7 +816,10 @@ fn dedupe_cycles(g: &Graph, violations: Vec<Violation>) -> (Vec<Violation>, usiz
             .min_by_key(|(_, id)| **id)
             .map_or(0, |(i, _)| i);
         ids.rotate_left(start);
-        groups.entry((v.rule.clone(), ids)).or_default().push(v);
+        groups
+            .entry((v.rule.clone(), v.to.is_none(), ids))
+            .or_default()
+            .push(v);
     }
     let (mut kept, mut suppressed) = (vec![], 0);
     for (_, group) in groups {

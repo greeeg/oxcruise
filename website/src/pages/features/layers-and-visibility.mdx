@@ -1,6 +1,6 @@
 ---
 title: "Layers and visibility"
-description: "Enforce a layered architecture and private folders with two built-in rules."
+description: "Enforce a layered architecture and the visibility of folders with built-in rules."
 ---
 
 # Layers and visibility
@@ -33,22 +33,66 @@ With this config, a module in `src/ui/` cannot import `src/db/`.
 
 ## Visibility
 
-The [`visibility`](/reference/rules/visibility) rule works like the `internal` directories of the Go language.
-Only code under `a/b/` can import a module under `a/b/internal/`.
+The [`visibility`](/reference/rules/visibility) rule says what a folder shows to the code outside it.
+A module inside a folder can import every module in that folder.
+A module outside it can import only the modules that the folder makes visible.
+
+The option `folders` is a list of entries. The rule does nothing without it.
+
+| Key | What it does |
+|---|---|
+| `path` | Globs of the folders. `{name}` captures a path segment. `**` matches every folder. |
+| `public` | Globs of the modules that code outside the folder can import. Without `public`, every module is public. |
+| `private` | Globs of the modules that code outside the folder cannot import. `private` wins over `public`. |
+| `message` | Text that replaces the generic message. |
+
+The globs of `public` and `private` are relative to the folder, and they can use the captures of `path`.
+
+### Show only an index module
 
 ```ts
 export default defineConfig({
-  rules: { "visibility": "error" },
+  rules: {
+    visibility: {
+      level: "error",
+      folders: [
+        { path: "src/features/{f}", public: "index.ts", message: "Import a feature through its index.ts." },
+      ],
+    },
+  },
 });
 ```
 
-To use another directory name, set the `marker` option:
+Now `src/app.ts` can import `src/features/cart/index.ts`, but not `src/features/cart/model.ts`.
+The modules in `src/features/cart/` can import each other.
+
+### Make a folder private to its parent
+
+The Go language has `internal` directories: only code under `a/b/` can import a module under `a/b/internal/`.
+To get the same check, match every folder and make the name `internal` private:
 
 ```ts
-export default defineConfig({
-  rules: { "visibility": ["error", { marker: "private" }] },
-});
+{ path: "**", private: "internal" }
 ```
+
+Use another name in `private` to use another convention. The rule has no default folder name.
+
+### Several entries
+
+When several folders hide the target of a dependency, the rule reports the outermost one.
+To silence one dependency, put `// oxcruise-ignore-next-line visibility -- reason` above it.
+
+## Cycles between folders
+
+The [`circular-dependencies`](/reference/rules/circular-dependencies) rule can check cycles between folders.
+Its option `folders` is a list of entries with a `path`. The rule groups the modules below each matching folder.
+A cycle between two or more folders of one entry is a violation.
+
+```ts
+{ "circular-dependencies": { level: "error", folders: [{ path: "src/features/{f}" }] } }
+```
+
+The rule also reports the cycles between modules, as before.
 
 ## When to use a forbid rule
 

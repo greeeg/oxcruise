@@ -1,0 +1,6 @@
+---
+source: crates/oxcruise_rules/tests/rules.rs
+expression: "t.fail(&[\"app/x.ts -> packages/a/src/testing/fixtures/f.ts\",\n\"app/x.ts -> packages/a/src/other.ts\",])"
+---
+error visibility app/x.ts:1:1 -> packages/a/src/testing/fixtures/f.ts: `packages/a/src/testing/fixtures/f.ts` is private to `packages/a` (`private: src/testing/fixtures`)
+error visibility app/x.ts:2:1 -> packages/a/src/other.ts: `packages/a/src/other.ts` is not visible outside `packages/a`: only `src/index.ts`, `src/testing/**` can be imported

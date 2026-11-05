@@ -1,0 +1,31 @@
+---
+source: apps/oxcruise/tests/cli.rs
+expression: report(&o)
+---
+exit: 1
+--- stdout
+error[visibility]: Import a feature through its index.ts.
+  --> src/app.ts:1:8
+   |
+ 1 | import './features/cart/model';
+   |        ^^^^^^^^^^^^^^^^^^^^^^^
+   = imports src/features/cart/model.ts
+
+error[visibility]: `src/lib/internal/secret.ts` is private to `src/lib` (`private: internal`)
+  --> src/app.ts:3:8
+   |
+ 3 | import './lib/internal/secret';
+   |        ^^^^^^^^^^^^^^^^^^^^^^^
+   = imports src/lib/internal/secret.ts
+
+error[circular-dependencies]: circular dependency between folders: src/features/cart → src/features/pay → src/features/cart
+  --> src/features/cart/model.ts:1:8
+   |
+ 1 | import '../pay';
+   |        ^^^^^^^^
+   = cycle:
+     ╭─▶ src/features/cart/model.ts
+     ╰── src/features/pay/index.ts
+
+✖ 3 problems (3 errors, 0 warnings) in 5 modules, 5 dependencies
+--- stderr

@@ -1,14 +1,26 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::OnceLock;
 
-use oxcruise_core::{Edge, EdgeId, Graph, ModuleId};
-use oxcruise_graph::analyses::{BitSet, Scc, shortest_cycle, strongly_connected};
+use oxcruise_config::Paths;
+use oxcruise_core::{CycleStep, Edge, EdgeId, Graph, ModuleId, ModuleKind, Violation, parent_path};
+use oxcruise_graph::analyses::{BitSet, Scc, components_csr, shortest_cycle, strongly_connected};
 use oxcruise_macros::declare_rule;
+use rustc_hash::FxHashMap;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use crate::folders::FolderPath;
 use crate::meta::{Analyses, Hooks, Rule, RuleCtx, RuleMeta, parse_options};
 use crate::pattern::{Captures, PathPatterns, Role};
+
+/// One entry of `folders`: the folders whose dependencies on each other the rule checks.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CircularFolder {
+    /// Globs of the folders. `{name}` captures a path segment. A module below a matching folder
+    /// belongs to it. A glob matches only the folder it names.
+    pub path: Paths,
+}
 
 #[derive(Debug, Default, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
@@ -21,6 +33,10 @@ pub struct CircularDependenciesConfig {
     /// How many dependencies of one strongly connected component are searched for their shortest
     /// cycle (default 100); `0` removes the limit. Several of them can share one cycle.
     pub max_cycles_per_component: Option<u32>,
+    /// Entries for cycles between folders. Each entry has a `path`. A dependency from a module in
+    /// one folder to a module in another folder of the same entry is a dependency between the
+    /// folders. A cycle between two or more of them is a violation.
+    pub folders: Vec<CircularFolder>,
 }
 
 const DEFAULT_MAX_CYCLES_PER_COMPONENT: u32 = 100;
@@ -51,6 +67,19 @@ declare_rule! {
     /// The rule searches only the first dependencies of a group, in graph order.
     /// It then reports one extra violation on the first module of the group.
     /// That violation gives the number of dependencies that the rule did not search.
+    ///
+    /// ### Cycles between folders
+    ///
+    /// * `folders`: a list of entries, each with a `path`. `{name}` in the `path` captures a path segment.
+    ///   The rule groups the modules below each matching folder.
+    ///   A dependency between modules in two folders of one entry is a dependency between the folders.
+    ///   A cycle between two or more folders of one entry is a violation.
+    ///   The rule honours `includeTypeOnly` and `ignore`. It also reports the cycles between modules, as before.
+    ///   To silence a folder cycle, put an `oxcruise-ignore-next-line circular-dependencies` comment above one dependency of the cycle.
+    ///
+    /// ```json
+    /// { "includeTypeOnly": true, "folders": [{ "path": "src/features/{f}" }] }
+    /// ```
     CircularDependencies, category = correctness, version = "0.1.0", config = CircularDependenciesConfig
 }
 
@@ -69,6 +98,7 @@ struct Plan {
 
 #[derive(Debug, Default)]
 pub struct CircularDependencies {
+    folders: Vec<FolderPath>,
     include_type_only: bool,
     ignore: Option<PathPatterns>,
     max_per_component: u32,
@@ -137,11 +167,27 @@ impl CircularDependencies {
 }
 
 impl Rule for CircularDependencies {
-    const HOOKS: Hooks = Hooks::MODULE.union(Hooks::EDGE);
+    const HOOKS: Hooks = Hooks::MODULE.union(Hooks::EDGE).union(Hooks::GRAPH);
 
     fn from_configuration(value: serde_json::Value) -> Result<Self, String> {
         let c: CircularDependenciesConfig = parse_options(Self::NAME, value)?;
+        let mut folders = vec![];
+        let mut errors = vec![];
+        for (i, f) in c.folders.iter().enumerate() {
+            match FolderPath::new(&f.path, &format!("folders[{i}]")) {
+                Ok(p) => folders.push(p),
+                Err(e) => errors.push(e),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(format!(
+                "invalid options for `{}`: {}",
+                Self::NAME,
+                errors.join("; ")
+            ));
+        }
         Ok(Self {
+            folders,
             include_type_only: c.include_type_only,
             ignore: (!c.ignore.is_empty())
                 .then(|| PathPatterns::new(&c.ignore, Role::Referencing))
@@ -201,4 +247,222 @@ impl Rule for CircularDependencies {
             cycle,
         );
     }
+
+    fn check_graph(&self, cx: &RuleCtx<'_>) {
+        if self.folders.is_empty() {
+            return;
+        }
+        let removed = self.plan(cx).pruned.as_ref().map(|(_, removed)| removed);
+        for folder in &self.folders {
+            self.folder_cycles(cx, folder, removed);
+        }
+    }
+}
+
+/// The folders of one `folders` entry that hold modules, numbered in the order of the modules.
+struct FolderMap<'g> {
+    path: &'g FolderPath,
+    ids: FxHashMap<&'g str, u32>,
+    names: Vec<&'g str>,
+    /// The folder of a directory (the outermost matching directory above it, or itself).
+    memo: FxHashMap<&'g str, Option<u32>>,
+}
+
+impl<'g> FolderMap<'g> {
+    fn folder_of_dir(&mut self, dir: &'g str) -> Option<u32> {
+        if dir.is_empty() {
+            return None;
+        }
+        if let Some(&known) = self.memo.get(dir) {
+            return known;
+        }
+        let found = self.folder_of_dir(parent_path(dir)).or_else(|| {
+            (dir.starts_with(self.path.prefix()) && self.path.capture(dir).is_some()).then(|| {
+                let next = self.names.len() as u32;
+                let id = *self.ids.entry(dir).or_insert(next);
+                if id == next {
+                    self.names.push(dir);
+                }
+                id
+            })
+        });
+        self.memo.insert(dir, found);
+        found
+    }
+}
+
+/// The distinct dependencies between folders, in CSR form, with the first dependency between
+/// modules that stands for each.
+struct FolderGraph {
+    offsets: Vec<u32>,
+    targets: Vec<u32>,
+    via: Vec<EdgeId>,
+}
+
+impl FolderGraph {
+    fn edges_of(&self, f: u32) -> std::ops::Range<usize> {
+        self.offsets[f as usize] as usize..self.offsets[f as usize + 1] as usize
+    }
+
+    fn via(&self, from: u32, to: u32) -> EdgeId {
+        let range = self.edges_of(from);
+        let at = self.targets[range.clone()]
+            .binary_search(&to)
+            .expect("a hop of a cycle is a dependency");
+        self.via[range.start + at]
+    }
+}
+
+impl CircularDependencies {
+    fn folder_cycles(&self, cx: &RuleCtx<'_>, folder: &FolderPath, removed: Option<&BitSet>) {
+        let g = cx.graph();
+        let mut map = FolderMap {
+            path: folder,
+            ids: FxHashMap::default(),
+            names: vec![],
+            memo: FxHashMap::default(),
+        };
+        let folder_of: Vec<Option<u32>> = g
+            .modules()
+            .iter()
+            .map(|m| {
+                (m.kind == ModuleKind::Local)
+                    .then(|| map.folder_of_dir(parent_path(&m.path)))
+                    .flatten()
+            })
+            .collect();
+        let n = map.names.len();
+
+        let mut hops: Vec<(u32, u32, EdgeId)> = vec![];
+        for id in (0..g.edge_count() as u32).map(EdgeId) {
+            let e = g.edge(id);
+            if !self.keeps(e, removed) {
+                continue;
+            }
+            if let (Some(a), Some(b)) = (folder_of[e.from.idx()], folder_of[e.to.idx()])
+                && a != b
+            {
+                hops.push((a, b, id));
+            }
+        }
+        // the first dependency between modules (the smallest edge) stands for a pair of folders
+        hops.sort_unstable();
+        hops.dedup_by_key(|h| (h.0, h.1));
+        let mut offsets = vec![0u32; n + 1];
+        for h in &hops {
+            offsets[h.0 as usize + 1] += 1;
+        }
+        for i in 0..n {
+            offsets[i + 1] += offsets[i];
+        }
+        let graph = FolderGraph {
+            offsets,
+            targets: hops.iter().map(|h| h.1).collect(),
+            via: hops.iter().map(|h| h.2).collect(),
+        };
+        let components = components_csr(&graph.offsets, &graph.targets);
+
+        // One search per dependency inside a component, for its shortest cycle. The cycles are
+        // kept as the folders in order, starting at the smallest, so one cycle is found once.
+        let mut cycles: BTreeSet<Vec<u32>> = BTreeSet::new();
+        let mut searched: HashMap<u32, u32> = HashMap::new();
+        let mut left_out = 0u32;
+        for from in 0..n as u32 {
+            let c = components.comp[from as usize];
+            if components.sizes[c as usize] < 2 {
+                continue;
+            }
+            for i in graph.edges_of(from) {
+                let to = graph.targets[i];
+                if components.comp[to as usize] != c {
+                    continue;
+                }
+                let done = searched.entry(c).or_default();
+                if self.max_per_component != 0 && *done >= self.max_per_component {
+                    left_out += 1;
+                    continue;
+                }
+                *done += 1;
+                if let Some(mut cycle) = shortest_folder_path(&graph, &components.comp, to, from) {
+                    // `to .. from` closes with the dependency `from -> to`
+                    let last = cycle.len() - 1;
+                    cycle.rotate_left(last);
+                    let start = (0..cycle.len()).min_by_key(|&k| cycle[k]).unwrap_or(0);
+                    cycle.rotate_left(start);
+                    cycles.insert(cycle);
+                }
+            }
+        }
+        if left_out > 0 {
+            cx.warn(format!(
+                "circular dependencies: {left_out} more dependencies between folders were not searched                  for their cycle (maxCyclesPerComponent: {}); fix the cycles reported first, or raise the limit",
+                self.max_per_component
+            ));
+        }
+
+        for cycle in cycles {
+            let vias: Vec<EdgeId> = (0..cycle.len())
+                .map(|k| graph.via(cycle[k], cycle[(k + 1) % cycle.len()]))
+                .collect();
+            let path: Vec<CycleStep> = vias
+                .iter()
+                .map(|&e| CycleStep {
+                    module: g.edge(e).from,
+                    edge: Some(e),
+                })
+                .collect();
+            let mut names: Vec<&str> = cycle.iter().map(|&f| map.names[f as usize]).collect();
+            names.push(names[0]);
+            let message = format!("circular dependency between folders: {}", names.join(" → "));
+            // Every dependency of the cycle reports it, as for modules, so a comment on any one
+            // of them silences the whole cycle. `to` is empty: a pair of folders has no one target.
+            for &e in &vias {
+                let edge = g.edge(e);
+                cx.push(Violation {
+                    rule: cx.rule.to_string(),
+                    level: cx.level,
+                    from: edge.from,
+                    to: None,
+                    edge: Some(e),
+                    message: message.clone(),
+                    loc: edge.loc,
+                    path: path.clone(),
+                    subject: oxcruise_core::Subject::Module,
+                    fix: None,
+                });
+            }
+        }
+    }
+}
+
+/// The shortest path of folders from `start` to `goal` inside one component, both included.
+fn shortest_folder_path(
+    graph: &FolderGraph,
+    comp: &[u32],
+    start: u32,
+    goal: u32,
+) -> Option<Vec<u32>> {
+    let mut prev: HashMap<u32, u32> = HashMap::new();
+    let mut queue = VecDeque::from([start]);
+    prev.insert(start, start);
+    while let Some(v) = queue.pop_front() {
+        if v == goal {
+            let mut path = vec![goal];
+            let mut at = goal;
+            while at != start {
+                at = prev[&at];
+                path.push(at);
+            }
+            path.reverse();
+            return Some(path);
+        }
+        for i in graph.edges_of(v) {
+            let w = graph.targets[i];
+            if comp[w as usize] == comp[start as usize] && !prev.contains_key(&w) {
+                prev.insert(w, v);
+                queue.push_back(w);
+            }
+        }
+    }
+    None
 }

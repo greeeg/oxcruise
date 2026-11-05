@@ -43,6 +43,20 @@
         }
       ]
     },
+    "CircularFolder": {
+      "additionalProperties": false,
+      "description": "One entry of `folders`: the folders whose dependencies on each other the rule checks.",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/OneOrMany",
+          "description": "Globs of the folders. `{name}` captures a path segment. A module below a matching folder\nbelongs to it. A glob matches only the folder it names."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
     "ConventionFilter": {
       "anyOf": [
         {
@@ -368,6 +382,13 @@
             {
               "additionalProperties": false,
               "properties": {
+                "folders": {
+                  "description": "Entries for cycles between folders. Each entry has a `path`. A dependency from a module in\none folder to a module in another folder of the same entry is a dependency between the\nfolders. A cycle between two or more of them is a violation.",
+                  "items": {
+                    "$ref": "#/$defs/CircularFolder"
+                  },
+                  "type": "array"
+                },
                 "ignore": {
                   "default": [],
                   "description": "Globs of modules to leave out before looking for cycles, so no cycle goes through them.",
@@ -839,19 +860,21 @@
             {
               "additionalProperties": false,
               "properties": {
+                "folders": {
+                  "description": "The folders to check. The rule does nothing without them.",
+                  "items": {
+                    "$ref": "#/$defs/VisibilityFolder"
+                  },
+                  "type": "array"
+                },
                 "level": {
                   "$ref": "#/$defs/Level"
-                },
-                "marker": {
-                  "default": "internal",
-                  "description": "Directory name that marks code as internal. Defaults to `internal`.",
-                  "type": "string"
                 }
               },
               "type": "object"
             }
           ],
-          "description": "Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules."
+          "description": "Restricts what a folder shows to the code outside it. A module inside a folder can import every module in that folder. A module outside it can import only the modules that the folder makes visible. The rule checks dependencies on local modules."
         }
       },
       "type": "object"
@@ -934,6 +957,49 @@
           "description": "An object with conditions on the dependency and its target."
         }
       ]
+    },
+    "VisibilityFolder": {
+      "additionalProperties": false,
+      "description": "One entry of `folders`: a folder and what it shows to the code outside it.",
+      "properties": {
+        "message": {
+          "description": "Oxcruise shows this text instead of the generic message.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/OneOrMany",
+          "description": "Globs of the folders. `{name}` captures a path segment, and `public` and `private` can use\nthe capture. A glob matches only the folder it names. `**` matches every folder."
+        },
+        "private": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Globs of the modules in the folder that code outside it cannot import. A glob is relative\nto the folder. `private` wins over `public`."
+        },
+        "public": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OneOrMany"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Globs of the modules in the folder that code outside it can import. A glob is relative to\nthe folder. Without `public`, every module is public."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

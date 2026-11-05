@@ -112,6 +112,14 @@ The case of a name.
 | `"pascal-case"` | `MyFile` |
 | `"snake-case"` | `my_file` |
 
+### CircularFolder
+
+One entry of `folders`: the folders whose dependencies on each other the rule checks.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `path` (required) | `string` or a list |  | Globs of the folders. `{name}` captures a path segment. A module below a matching folder belongs to it. A glob matches only the folder it names. |
+
 ### ConventionFilter
 
 Which conventions a rule takes into account: `true` (all, the default), `false` (none) or the names of the ones to use.
@@ -238,7 +246,7 @@ The built-in and plugin rules, by name. A rule listed here wins over its categor
 | `unused-exports` | [`Level`](#level) or `object` |  | Reports exports that no other module imports. The rule also reports: |
 | `unused-modules` | [`Level`](#level) or `object` |  | Reports source modules that no path from an entry point reaches. |
 | `unused-packages` | [`Level`](#level) or `object` |  | Reports a package that a `package.json` declares and that none of its modules imports. |
-| `visibility` | [`Level`](#level) or `object` |  | Restricts access to `internal` directories, as the Go language does. Only code under `a/b/` can import a module under `a/b/internal/`. The rule checks dependencies on local modules. |
+| `visibility` | [`Level`](#level) or `object` |  | Restricts what a folder shows to the code outside it. A module inside a folder can import every module in that folder. A module outside it can import only the modules that the folder makes visible. The rule checks dependencies on local modules. |
 
 ### ToCondition
 
@@ -259,4 +267,15 @@ One of:
 
 * `string` or a list: Globs the dependency's target must match.
 * [`ToCondition`](#tocondition): An object with conditions on the dependency and its target.
+
+### VisibilityFolder
+
+One entry of `folders`: a folder and what it shows to the code outside it.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `message` | `string` |  | Oxcruise shows this text instead of the generic message. |
+| `path` (required) | `string` or a list |  | Globs of the folders. `{name}` captures a path segment, and `public` and `private` can use the capture. A glob matches only the folder it names. `**` matches every folder. |
+| `private` | `string` or a list |  | Globs of the modules in the folder that code outside it cannot import. A glob is relative to the folder. `private` wins over `public`. |
+| `public` | `string` or a list |  | Globs of the modules in the folder that code outside it can import. A glob is relative to the folder. Without `public`, every module is public. |
 

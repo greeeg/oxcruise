@@ -33,7 +33,7 @@ dependencies, and orphan modules. When you need more, you add layers, `forbid` r
 - **Monorepo-aware.** The nearest `tsconfig.json` per file, workspace packages and `#imports`.
 - **Good defaults, few knobs.** Like oxlint, rules come in categories (`correctness` is on as `error`, `suspicious` as
   `warn`), globs are the only pattern language, and cycles that exist only through `import type` are not reported.
-- **Rules that say what you mean.** Layers, `internal/` folders, `{name}` captures and `!` negation in globs.
+- **Rules that say what you mean.** Layers, folder visibility, folder structure, `{name}` captures and `!` negation in globs.
 - **Plugins in TypeScript** that see the finished graph, plugin reporters, and a programmatic API for architecture tests.
 - **Unused code.** Unused exports, dependencies and files, modelled on [Knip](https://knip.dev).
 - **A migration path.** `oxcruise --migrate` converts your `.dependency-cruiser.*` file and says what it could not carry over.

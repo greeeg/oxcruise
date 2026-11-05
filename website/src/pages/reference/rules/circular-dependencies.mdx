@@ -35,6 +35,19 @@ The rule searches only the first dependencies of a group, in graph order.
 It then reports one extra violation on the first module of the group.
 That violation gives the number of dependencies that the rule did not search.
 
+## Cycles between folders
+
+* `folders`: a list of entries, each with a `path`. `{name}` in the `path` captures a path segment.
+  The rule groups the modules below each matching folder.
+  A dependency between modules in two folders of one entry is a dependency between the folders.
+  A cycle between two or more folders of one entry is a violation.
+  The rule honours `includeTypeOnly` and `ignore`. It also reports the cycles between modules, as before.
+  To silence a folder cycle, put an `oxcruise-ignore-next-line circular-dependencies` comment above one dependency of the cycle.
+
+```json
+{ "includeTypeOnly": true, "folders": [{ "path": "src/features/{f}" }] }
+```
+
 ## Configure the rule
 
 ```json
