@@ -1,6 +1,6 @@
 {
   "name": "oxcruise",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Validate and visualise JS/TS dependency graphs. A fast, parallel dependency-cruiser alternative built on oxc.",
   "license": "MIT",
   "repository": {
