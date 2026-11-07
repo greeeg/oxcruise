@@ -62,7 +62,7 @@ pub struct Cli {
         conflicts_with_all = CHECK_ONLY
     )]
     pub migrate: Option<Option<PathBuf>>,
-    /// Write an interactive architecture site (treemap, dependency graph, violations) to DIR. The default is `oxcruise-report`
+    /// Write an interactive architecture site (graph and violations) to DIR. The default is `oxcruise-report`
     #[arg(
         long,
         value_name = "DIR",

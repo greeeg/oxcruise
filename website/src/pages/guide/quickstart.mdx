@@ -33,11 +33,11 @@ npx oxcruise src
 
 The command exits with one of these codes:
 
-| Code | Meaning |
-|---|---|
-| `0` | The run found no errors. |
-| `1` | The run found errors. Warnings also give `1` when you use `--deny-warnings`, or `--max-warnings` and there are too many. |
-| `2` | The invocation or the config file is bad. |
+| Code | Meaning                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ |
+| `0`  | The run found no errors.                                                                                                 |
+| `1`  | The run found errors. Warnings also give `1` when you use `--deny-warnings`, or `--max-warnings` and there are too many. |
+| `2`  | The invocation or the config file is bad.                                                                                |
 
 ## Write a config file
 
@@ -52,7 +52,13 @@ import { defineConfig } from "oxcruise";
 
 export default defineConfig({
   entries: ["src"],
-  categories: { correctness: "error", suspicious: "warn" },
+  categories: {
+    correctness: "error",
+    suspicious: "warn",
+    style: "off",
+    restriction: "off",
+  },
+  forbid: [],
 });
 ```
 
@@ -78,8 +84,8 @@ Run Oxcruise in CI to fail a build when a change breaks a rule.
 
 By default, warnings do not change the exit code. Two flags change this:
 
-* `--deny-warnings` makes any warning an error.
-* `--max-warnings <N>` makes the run fail when there are more than `N` warnings.
+- `--deny-warnings` makes any warning an error.
+- `--max-warnings <N>` makes the run fail when there are more than `N` warnings.
 
 `--quiet` hides warnings from the output. They still count for the two limits.
 
@@ -149,19 +155,19 @@ Add text like this to the instructions of the agent, for example `AGENTS.md`:
 
 The `json` format has these top-level keys:
 
-| Key | Content |
-|---|---|
-| `version` | The version of the format. |
-| `modules` | Each module, with its dependencies and dependents. |
-| `violations` | Each violation, with `rule`, `level`, `from`, `to`, `line`, `col` and `message`. |
-| `summary` | The counts of errors, warnings, suppressed violations, modules and dependencies. |
-| `warnings` | An empty list. Warnings about the config go to stderr. |
+| Key          | Content                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| `version`    | The version of the format.                                                               |
+| `modules`    | Each module, with its dependencies and dependents.                                       |
+| `violations` | Each violation, with `rule`, `level`, `kind`, `from`, `to`, `line`, `col` and `message`. |
+| `summary`    | The counts of errors, warnings, suppressed violations, modules and dependencies.         |
+| `warnings`   | An empty list. Warnings about the config go to stderr.                                   |
 
 The `long` format adds the documentation of each rule to the default output.
 An agent can also write an architecture test. See [Programmatic API](/features/programmatic-api).
 
 ## Next steps
 
-* [Configuration](/guide/configuration) explains every part of the config file.
-* [Rules and categories](/features/rules-and-categories) explains how to switch rules on and off.
-* [Monorepos and nested configs](/guide/monorepos) explains how to use more than one config file.
+- [Configuration](/guide/configuration) explains every part of the config file.
+- [Rules and categories](/features/rules-and-categories) explains how to switch rules on and off.
+- [Monorepos and nested configs](/guide/monorepos) explains how to use more than one config file.

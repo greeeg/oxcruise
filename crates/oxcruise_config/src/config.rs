@@ -153,6 +153,7 @@ pub enum Category {
     Correctness,
     /// Probably wrong or useless.
     Suspicious,
+    /// Checks the shape of the project, such as its file tree; opt-in.
     Style,
     /// Forbids a feature or pattern; opt-in.
     Restriction,
