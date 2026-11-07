@@ -64,7 +64,7 @@ declare_rule! {
     /// * `entries`: globs of more entry points.
     /// * `ignore`: globs of modules to skip. These globs add to dotfiles, declaration files and `*.config.*`.
     /// * `conventions`: `false`, or a list of names, to use only some tool conventions.
-    UnusedModules, category = nursery, version = "0.1.0", config = UnusedModulesConfig
+    UnusedModules, category = suspicious, version = "0.1.0", config = UnusedModulesConfig
 }
 
 #[derive(Debug, Default)]

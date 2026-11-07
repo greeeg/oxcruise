@@ -286,7 +286,7 @@ just new-rule my_rule
 
 The recipe prints the steps: add `crates/oxcruise_rules/src/rules/my_rule.rs` with `declare_rule!` and `impl Rule`, export it
 from `rules/mod.rs`, register it in `registry.rs`, and add pass and fail cases to `crates/oxcruise_rules/tests/rules.rs`.
-The rule name comes from the struct (`MyRule` becomes `my-rule`). Pick a category (`correctness`, `suspicious`, `style`, `restriction` or `nursery`), declare `requirements()` and the hooks the rule needs, and run `just website-gen` to create its
+The rule name comes from the struct (`MyRule` becomes `my-rule`). Pick a category (`correctness`, `suspicious`, `style` or `restriction`), declare `requirements()` and the hooks the rule needs, and run `just website-gen` to create its
 documentation page. The doc comment is the user documentation. Write it to [website/STYLE.md](website/STYLE.md).
 
 ### Add or change a config key

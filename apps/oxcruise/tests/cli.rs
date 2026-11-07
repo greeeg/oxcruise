@@ -244,6 +244,7 @@ fn dependency_cruiser_config_is_not_discovered() {
     let d = project(&[
         ("src/a.ts", "import './b';\n"),
         ("src/b.ts", "export {};\n"),
+        ("package.json", r#"{ "main": "src/a.ts" }"#),
         (
             ".dependency-cruiser.json",
             r#"{ "forbidden": [{ "name": "no-b", "severity": "error", "from": {}, "to": { "path": "b" } }] }"#,
@@ -448,7 +449,7 @@ fn print_config_fills_categories() {
         v["categories"],
         serde_json::json!({
             "correctness": "error", "suspicious": "warn", "style": "warn",
-            "restriction": "off", "nursery": "off"
+            "restriction": "off"
         })
     );
 }

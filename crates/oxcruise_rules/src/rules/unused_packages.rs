@@ -105,7 +105,7 @@ declare_rule! {
     /// ### Fix
     ///
     /// This rule is fixable. `oxcruise --fix` removes the entry from the `package.json`.
-    UnusedPackages, category = nursery, version = "0.1.0", config = UnusedPackagesConfig
+    UnusedPackages, category = suspicious, version = "0.1.0", config = UnusedPackagesConfig
 }
 
 #[derive(Debug, Default)]

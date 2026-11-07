@@ -45,6 +45,28 @@ export const rulesSidebar = [
       {
         "text": "orphan-modules",
         "link": "/reference/rules/orphan-modules"
+      },
+      {
+        "text": "unused-exports",
+        "link": "/reference/rules/unused-exports"
+      },
+      {
+        "text": "unused-modules",
+        "link": "/reference/rules/unused-modules"
+      },
+      {
+        "text": "unused-packages",
+        "link": "/reference/rules/unused-packages"
+      }
+    ]
+  },
+  {
+    "text": "Style",
+    "collapsed": true,
+    "items": [
+      {
+        "text": "folder-structure",
+        "link": "/reference/rules/folder-structure"
       }
     ]
   },
@@ -67,28 +89,6 @@ export const rulesSidebar = [
       {
         "text": "visibility",
         "link": "/reference/rules/visibility"
-      }
-    ]
-  },
-  {
-    "text": "Nursery",
-    "collapsed": true,
-    "items": [
-      {
-        "text": "folder-structure",
-        "link": "/reference/rules/folder-structure"
-      },
-      {
-        "text": "unused-exports",
-        "link": "/reference/rules/unused-exports"
-      },
-      {
-        "text": "unused-modules",
-        "link": "/reference/rules/unused-modules"
-      },
-      {
-        "text": "unused-packages",
-        "link": "/reference/rules/unused-packages"
       }
     ]
   }

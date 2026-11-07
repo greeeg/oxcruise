@@ -14,4 +14,7 @@ exit: 1
 ::warning file=packages/app/src/index.ts,line=8,col=21,title=deprecated-dependencies::`left-pad` is deprecated by its maintainers
 ::warning file=packages/app/src/index.ts,line=10,col=17,title=deprecated-dependencies::`sys` is a deprecated Node.js module
 ::warning file=packages/app/src/orphan.ts,title=orphan-modules::this module is not imported by any module and imports nothing
+::warning file=packages/app/src/orphan.ts,title=unused-modules::this module cannot be reached from any entry point
+::warning file=packages/app/src/suppressed.ts,title=unused-modules::this module cannot be reached from any entry point
+::warning file=packages/app/src/uses-test.ts,title=unused-modules::this module cannot be reached from any entry point
 --- stderr

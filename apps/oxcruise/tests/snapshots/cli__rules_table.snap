@@ -14,19 +14,17 @@ suspicious (default: warn)
   deprecated-dependencies              Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
   duplicate-packages                   Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`.
   orphan-modules                       Reports modules that no other module imports and that import no module.
+  unused-exports                       Reports exports that no other module imports.
+  unused-modules                       Reports source modules that no path from an entry point reaches.
+  unused-packages                      Reports a package that a `package.json` declares and that none of its modules imports.
 
 style (default: off)
+  folder-structure                     Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
 
 restriction (default: off)
   layers                               Enforces a layered architecture: a layer can import only the layers that `allow` lists for it.
   optional-dependencies                Reports use of optional dependencies.
   peer-dependencies                    Reports use of peer dependencies.
   visibility                           Restricts what a folder shows to the code outside it.
-
-nursery (default: off)
-  folder-structure                     Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
-  unused-exports                       Reports exports that no other module imports.
-  unused-modules                       Reports source modules that no path from an entry point reaches.
-  unused-packages                      Reports a package that a `package.json` declares and that none of its modules imports.
 
 17 rules

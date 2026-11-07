@@ -9,8 +9,7 @@ export default defineConfig({
     "correctness": "error",
     "suspicious": "warn",
     "style": "off",
-    "restriction": "off",
-    "nursery": "off"
+    "restriction": "off"
   },
   "forbid": []
 });

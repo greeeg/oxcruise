@@ -113,11 +113,11 @@ Run `npx oxcruise --rules` for the list on your version.
 | Category      | Default | Rules                                                                                                                         |
 | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `correctness` | error   | `circular-dependencies`, `unresolved-dependencies`, `undeclared-packages`, `dev-dependencies-in-production`, `dependencies-on-tests`, `cross-package-relative-dependencies` |
-| `suspicious`  | warn    | `orphan-modules`, `duplicate-packages`, `deprecated-dependencies`                                                                            |
+| `suspicious`  | warn    | `orphan-modules`, `duplicate-packages`, `deprecated-dependencies`, `unused-exports`, `unused-packages`, `unused-modules`                                                                            |
+| `style`       | off     | `folder-structure`                                                                                                            |
 | `restriction` | off     | `layers`, `visibility`, `optional-dependencies`, `peer-dependencies`                                                              |
-| `nursery`     | off     | `folder-structure`, `unused-exports`, `unused-packages`, `unused-modules`                                                  |
 
-The unused-code rules need exports, so they cost an extra walk. Enable them in `rules`, add `--production` to leave
+The unused-code rules need exports, so they cost an extra walk. They are on by default. Set them to `off` in `rules` to skip it, add `--production` to leave
 tests out, and `--fix` to apply the automatic repairs.
 See [Rules and categories](website/src/pages/features/rules-and-categories.mdx) and the [rule reference](website/src/pages/reference/rules/index.mdx).
 

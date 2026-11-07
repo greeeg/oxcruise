@@ -779,5 +779,7 @@ expression: "rendered(\"json\", &plain())"
     "totalModules": 21,
     "totalDependencies": 24
   },
-  "warnings": []
+  "warnings": [
+    "unused-modules: no entry point found (package.json entries, conventions, `entries` option); nothing is reported"
+  ]
 }

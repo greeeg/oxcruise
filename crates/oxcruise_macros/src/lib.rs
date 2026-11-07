@@ -73,13 +73,7 @@ impl Parse for Declaration {
         }
         let category =
             category.ok_or_else(|| syn::Error::new(name.span(), "missing `category = ...`"))?;
-        let valid = [
-            "correctness",
-            "suspicious",
-            "style",
-            "restriction",
-            "nursery",
-        ];
+        let valid = ["correctness", "suspicious", "style", "restriction"];
         if !valid.contains(&category.to_string().as_str()) {
             return Err(syn::Error::new(
                 category.span(),

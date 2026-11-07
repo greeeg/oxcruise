@@ -1028,7 +1028,7 @@
         "$ref": "#/$defs/Level"
       },
       "default": {},
-      "description": "The level of each category of built-in rules. The categories are `correctness`, `suspicious`,\n`style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.",
+      "description": "The level of each category of built-in rules. The categories are `correctness`, `suspicious`,\n`style` and `restriction`. The default is `correctness: error, suspicious: warn`.",
       "type": "object"
     },
     "doNotFollow": {

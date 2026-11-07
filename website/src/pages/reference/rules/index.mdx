@@ -18,16 +18,16 @@ A category switches all its rules on or off together. See [Rules and categories]
 | [`deprecated-dependencies`](/reference/rules/deprecated-dependencies) | suspicious | warn |
 | [`dev-dependencies-in-production`](/reference/rules/dev-dependencies-in-production) | correctness | error |
 | [`duplicate-packages`](/reference/rules/duplicate-packages) | suspicious | warn |
-| [`folder-structure`](/reference/rules/folder-structure) | nursery | off |
+| [`folder-structure`](/reference/rules/folder-structure) | style | off |
 | [`layers`](/reference/rules/layers) | restriction | off |
 | [`optional-dependencies`](/reference/rules/optional-dependencies) | restriction | off |
 | [`orphan-modules`](/reference/rules/orphan-modules) | suspicious | warn |
 | [`peer-dependencies`](/reference/rules/peer-dependencies) | restriction | off |
 | [`undeclared-packages`](/reference/rules/undeclared-packages) | correctness | error |
 | [`unresolved-dependencies`](/reference/rules/unresolved-dependencies) | correctness | error |
-| [`unused-exports`](/reference/rules/unused-exports) | nursery | off |
-| [`unused-modules`](/reference/rules/unused-modules) | nursery | off |
-| [`unused-packages`](/reference/rules/unused-packages) | nursery | off |
+| [`unused-exports`](/reference/rules/unused-exports) | suspicious | warn |
+| [`unused-modules`](/reference/rules/unused-modules) | suspicious | warn |
+| [`unused-packages`](/reference/rules/unused-packages) | suspicious | warn |
 | [`visibility`](/reference/rules/visibility) | restriction | off |
 
 ## Correctness
@@ -48,6 +48,15 @@ Default level: `warn`.
 * [`deprecated-dependencies`](/reference/rules/deprecated-dependencies): Reports imports of deprecated Node.js built-in modules and deprecated npm packages.
 * [`duplicate-packages`](/reference/rules/duplicate-packages): Reports a package that more than one `package.json` section declares, for example both `dependencies` and `devDependencies`.
 * [`orphan-modules`](/reference/rules/orphan-modules): Reports modules that no other module imports and that import no module.
+* [`unused-exports`](/reference/rules/unused-exports): Reports exports that no other module imports.
+* [`unused-modules`](/reference/rules/unused-modules): Reports source modules that no path from an entry point reaches.
+* [`unused-packages`](/reference/rules/unused-packages): Reports a package that a `package.json` declares and that none of its modules imports.
+
+## Style
+
+Default level: `off`.
+
+* [`folder-structure`](/reference/rules/folder-structure): Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
 
 ## Restriction
 
@@ -57,15 +66,6 @@ Default level: `off`.
 * [`optional-dependencies`](/reference/rules/optional-dependencies): Reports use of optional dependencies.
 * [`peer-dependencies`](/reference/rules/peer-dependencies): Reports use of peer dependencies.
 * [`visibility`](/reference/rules/visibility): Restricts what a folder shows to the code outside it.
-
-## Nursery
-
-Default level: `off`.
-
-* [`folder-structure`](/reference/rules/folder-structure): Checks the shape of the file tree: the files that a folder must have, the names that it can have, and the case of its names.
-* [`unused-exports`](/reference/rules/unused-exports): Reports exports that no other module imports.
-* [`unused-modules`](/reference/rules/unused-modules): Reports source modules that no path from an entry point reaches.
-* [`unused-packages`](/reference/rules/unused-packages): Reports a package that a `package.json` declares and that none of its modules imports.
 
 ## Conventions
 
