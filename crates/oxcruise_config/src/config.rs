@@ -153,19 +153,18 @@ pub enum Category {
     Correctness,
     /// Probably wrong or useless.
     Suspicious,
+    /// Checks the shape of the project, such as its file tree; opt-in.
     Style,
     /// Forbids a feature or pattern; opt-in.
     Restriction,
-    Nursery,
 }
 
 impl Category {
-    pub const ALL: [Category; 5] = [
+    pub const ALL: [Category; 4] = [
         Category::Correctness,
         Category::Suspicious,
         Category::Style,
         Category::Restriction,
-        Category::Nursery,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -174,7 +173,6 @@ impl Category {
             Category::Suspicious => "suspicious",
             Category::Style => "style",
             Category::Restriction => "restriction",
-            Category::Nursery => "nursery",
         }
     }
 
@@ -183,7 +181,7 @@ impl Category {
         match self {
             Category::Correctness => Level::Error,
             Category::Suspicious => Level::Warn,
-            Category::Style | Category::Restriction | Category::Nursery => Level::Off,
+            Category::Style | Category::Restriction => Level::Off,
         }
     }
 }
@@ -354,7 +352,7 @@ pub struct OxcruiseConfig {
     #[schemars(with = "Paths")]
     pub do_not_follow: Vec<String>,
     /// The level of each category of built-in rules. The categories are `correctness`, `suspicious`,
-    /// `style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.
+    /// `style` and `restriction`. The default is `correctness: error, suspicious: warn`.
     pub categories: BTreeMap<Category, Level>,
     /// The built-in and plugin rules, by name. A rule listed here wins over its category.
     pub rules: BTreeMap<String, RuleEntry>,

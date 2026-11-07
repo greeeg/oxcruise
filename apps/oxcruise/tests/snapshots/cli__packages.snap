@@ -72,6 +72,15 @@ warn[deprecated-dependencies]: `sys` is a deprecated Node.js module
 warn[orphan-modules]: this module is not imported by any module and imports nothing
   --> packages/app/src/orphan.ts
 
-✖ 10 problems (7 errors, 3 warnings) in 21 modules, 24 dependencies
+warn[unused-modules]: this module cannot be reached from any entry point
+  --> packages/app/src/orphan.ts
+
+warn[unused-modules]: this module cannot be reached from any entry point
+  --> packages/app/src/suppressed.ts
+
+warn[unused-modules]: this module cannot be reached from any entry point
+  --> packages/app/src/uses-test.ts
+
+✖ 13 problems (7 errors, 6 warnings) in 21 modules, 24 dependencies
   1 suppressed by comments
 --- stderr

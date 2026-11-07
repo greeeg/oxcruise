@@ -1,13 +1,71 @@
 ---
-title: "Inline ignore comments"
-description: "Suppress violations with comments in the source code."
+title: "Ignore code"
+description: "Leave modules out of the graph, and suppress violations with comments."
 ---
 
-# Inline ignore comments
+# Ignore code
+
+Oxcruise has two kinds of ignore. Config options and flags control which modules are in the graph.
+Comments in the source code suppress violations.
+
+## Ignore modules
+
+Oxcruise has four ways to control which modules are in the graph.
+
+| Way | Effect |
+|---|---|
+| `.gitignore` | Oxcruise uses the rules of `.gitignore` files when it looks for modules. A module that another module imports stays in the graph, also when `.gitignore` lists it. |
+| `ignorePatterns` | Modules that match the globs are not part of the graph. |
+| `doNotFollow` | Modules that match the globs stay in the graph. Oxcruise does not parse their imports. |
+| `--max-depth` | Oxcruise follows dependencies at most N hops from the entries. |
+
+### ignorePatterns
+
+```ts
+export default defineConfig({
+  ignorePatterns: ["src/generated/**", "**/*.stories.tsx"],
+});
+```
+
+Use `--ignore-pattern <GLOB>` to add globs for one run. Repeat the flag for more globs.
+
+```sh
+npx oxcruise --ignore-pattern "**/*.test.ts" --ignore-pattern "src/legacy/**"
+```
+
+A module that Oxcruise leaves out is not in the graph. No rule and no output sees it.
+
+### doNotFollow
+
+Use `doNotFollow` for a module that you want to see in the graph, but whose imports do not matter.
+
+```ts
+export default defineConfig({
+  doNotFollow: ["**/*.spec.ts"],
+});
+```
+
+Files in `node_modules` always behave in this way: they are in the graph as leaves.
+
+### --max-depth
+
+```sh
+npx oxcruise --max-depth 2
+```
+
+Oxcruise measures the depth of a module as the smallest number of hops from an entry.
+A module that a long path reaches first is still explored when a shorter path appears.
+Modules deeper than the limit are not in the graph, so no output or rule sees them.
+
+### Globs
+
+All of these keys use globs with `*`, `**`, `?`, `[ab]` and `{a,b}`. A leading `!` negates a glob.
+
+## Ignore violations
 
 A comment in the source code can suppress violations. The summary of a run counts them as suppressed.
 
-## Comment forms
+### Comment forms
 
 | Comment | Effect |
 |---|---|
@@ -26,35 +84,35 @@ import { plugins } from "./plugins";
 import legacy from "./legacy"; // oxcruise-ignore-line deprecated-dependencies
 ```
 
-## Violations of a module
+### Violations of a module
 
 Some violations belong to a module, not to a dependency. For example, `orphan-modules` reports a module that nothing imports.
 Only `// oxcruise-ignore-file` suppresses these violations. The `ignore-line` and `ignore-next-line` comments do not.
 
-## Violations of a folder or file
+### Violations of a folder or file
 
 The `folder-structure` rule reports violations about files and folders.
 A `// oxcruise-ignore-file` comment suppresses a violation about the module that has the comment.
 A violation about a missing file, a folder or a file that is not a module has no place for a comment.
-Change the config file for these. See [Folder structure](/features/folder-structure#make-an-exception).
+Change the config file for these. See the [`folder-structure` rule](/reference/rules/folder-structure).
 
-## Cycles
+### Cycles
 
 A cycle counts as suppressed when any one of its imports has the comment.
 
-## Merged dependencies
+### Merged dependencies
 
 Oxcruise merges imports that have the same specifier, the same module system and the same type-only state.
 For example, `import type` and a value import of one module stay separate, and so do `./a` and `./a.ts`.
 A rule stays suppressed on a merged dependency only when every import suppresses it.
 
-## Unused code
+### Unused code
 
 * To keep a module and the modules that it imports, put `// oxcruise-ignore-file` at the top.
   The `unused-modules` rule and the `unused-exports` rule then treat the module as an entry point.
 * To suppress one unused export, put `// oxcruise-ignore-next-line unused-exports` above it.
 * A violation of `unused-packages` is in a `package.json`. A comment cannot suppress it. Use the `ignore` option.
 
-## Plugin rules
+### Plugin rules
 
 The comments also apply to the rules of plugins. Use the full rule name, for example `acme/max-fan-out`.

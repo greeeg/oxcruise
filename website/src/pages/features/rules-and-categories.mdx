@@ -14,9 +14,8 @@ A category switches all its rules on or off together.
 |---|---|---|
 | `correctness` | Rules that find code that is almost certainly wrong. | `error` |
 | `suspicious` | Rules that find code that is probably wrong or useless. | `warn` |
-| `style` | Rules about code style. | `off` |
+| `style` | Rules about the shape of the project, such as its file tree. They are opt-in. | `off` |
 | `restriction` | Rules that forbid a feature or a pattern. They are opt-in. | `off` |
-| `nursery` | New rules. Their behavior can still change. | `off` |
 
 Use the `categories` key to change the level of a category:
 
@@ -62,11 +61,11 @@ The [rules reference](/reference/rules) has one page for each rule.
 
 ## Other kinds of rules
 
-* [Forbid rules](/features/forbid-rules) are your own rules for dependencies that the project does not allow.
-* [Layers and visibility](/features/layers-and-visibility) are two built-in rules for architecture.
-* [Folder structure](/features/folder-structure) is a built-in rule for the shape of the file tree.
+* [`forbid`](/reference/config#forbid) holds your own rules for dependencies that the project does not allow.
+* [`layers`](/reference/rules/layers) and [`visibility`](/reference/rules/visibility) are two built-in rules for architecture.
+* [`folder-structure`](/reference/rules/folder-structure) is a built-in rule for the shape of the file tree.
 * A [JS plugin](/features/js-plugins) can add rules that you write in TypeScript.
 
 ## Cycles and suppression
 
-Oxcruise reports a cycle once, and not once for each dependency in it. A cycle counts as suppressed when one of its dependencies has an [ignore comment](/features/inline-ignore-comments).
+Oxcruise reports a cycle once, and not once for each dependency in it. A cycle counts as suppressed when one of its dependencies has an [ignore comment](/features/ignore#ignore-violations).

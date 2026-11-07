@@ -21,7 +21,7 @@ Oxcruise searches only the working directory, not the folders above it. If both 
 Use `--config <FILE>` to read another file. Use `--cwd <DIR>` to run as if the command started in another folder.
 Without a config file, Oxcruise uses the defaults.
 
-Oxcruise does not read `.dependency-cruiser.*` files in a check. Use [`--migrate`](/migration/dependency-cruiser) to convert one.
+Oxcruise does not read `.dependency-cruiser.*` files in a check. Use [`--migrate`](/guide/migrate-from-dependency-cruiser) to convert one.
 
 :::note
 Oxcruise runs a TypeScript config file with the native type stripping of Node.js. This needs Node.js 22.18 or later.
@@ -69,16 +69,16 @@ export default defineConfig({
 |---|---|
 | `extends` | Paths to base config files. See [Monorepos](/guide/monorepos#share-a-config-with-extends). |
 | `entries` | Files, directories or globs where the graph starts. The default is the current folder. |
-| `ignorePatterns` | Globs of modules to leave out of the graph. See [Ignore files](/features/ignore-files). |
+| `ignorePatterns` | Globs of modules to leave out of the graph. See [Ignore code](/features/ignore#ignore-modules). |
 | `doNotFollow` | Globs of modules that stay in the graph. Oxcruise does not parse their imports. |
 | `categories` | The level of each category of built-in rules. See [Rules and categories](/features/rules-and-categories). |
 | `rules` | The level and options of single rules. A rule here wins over its category. |
-| `forbid` | Your own rules for forbidden dependencies. See [Forbid rules](/features/forbid-rules). |
+| `forbid` | Your own rules for forbidden dependencies. See the [`forbid` reference](/reference/config#forbid). |
 | `overrides` | Changes to rules for some modules. See [Monorepos](/guide/monorepos). |
 | `resolve` | How Oxcruise resolves imports: the `tsconfig`, export conditions and aliases. |
 | `calls` | Names of functions whose first string argument is a dependency, such as `jest.mock`. |
 | `jsPlugins` | Plugins that add rules and reporters. See [JS plugins](/features/js-plugins). |
-| `symbols` | Extract exports and the names that each import uses. See [Unused code](/features/unused-code). |
+| `symbols` | Extract exports and the names that each import uses. See the [`symbols` reference](/reference/config#symbols). |
 
 Every key that takes globs accepts one string or a list of strings.
 A `!` at the start of a glob negates it.

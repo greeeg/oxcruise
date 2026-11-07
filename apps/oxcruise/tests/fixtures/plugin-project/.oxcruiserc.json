@@ -4,6 +4,8 @@
   "rules": {
     "acme/max-fan-out": { "level": "warn", "max": 3 },
     "acme/no-direct-db": "error",
-    "orphan-modules": "off"
+    "orphan-modules": "off",
+    "unused-modules": "off",
+    "unused-exports": "off"
   }
 }

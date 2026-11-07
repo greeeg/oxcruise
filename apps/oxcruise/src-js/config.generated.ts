@@ -96,7 +96,7 @@ export interface OxcruiseConfig {
   calls?: string[];
   /**
    * The level of each category of built-in rules. The categories are `correctness`, `suspicious`,
-   * `style`, `restriction` and `nursery`. The default is `correctness: error, suspicious: warn`.
+   * `style` and `restriction`. The default is `correctness: error, suspicious: warn`.
    */
   categories?: {
     [k: string]: Level;

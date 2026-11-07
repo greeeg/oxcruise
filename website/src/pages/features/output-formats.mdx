@@ -14,7 +14,7 @@ Use `-f <FORMAT>` or `--format <FORMAT>` to choose the output format.
 | `json` | The whole graph and all violations, for programs. |
 | `github` | Annotations for GitHub Actions. |
 | `text` | One line for each dependency. |
-| `plugin/reporter` | A reporter from a [JS plugin](/features/writing-js-plugins). |
+| `plugin/reporter` | A reporter from a [JS plugin](/features/js-plugins). |
 
 Color follows the terminal. `NO_COLOR` and `FORCE_COLOR` change it.
 
@@ -45,11 +45,24 @@ The `json` format is the complete result of a run. Its keys are in camelCase.
 |---|---|
 | `version` | The version of the format. The current version is `3`. |
 | `modules` | Each module with its `path`, `kind`, `dependencies` and `dependents`. |
-| `violations` | Each violation. |
+| `violations` | Each violation. See below. |
 | `summary` | `error`, `warn`, `suppressed`, `totalModules` and `totalDependencies`. |
 | `warnings` | Always an empty list. Oxcruise writes warnings about the config to stderr, as `warning: ...`. |
 
 A module `kind` is `local`, `package` or `builtin`. A dependency on a module that Oxcruise cannot resolve has the `toKind` `unresolved`, and the list has no entry for that module.
+
+Each violation has these keys:
+
+| Key | Content |
+|---|---|
+| `rule`, `level` | The name of the rule and the level `error` or `warn`. |
+| `kind` | What the violation is about. See below. |
+| `from`, `to` | The path of the module, and the path of the target. `to` is absent when the violation has no target. |
+| `line`, `col` | The position. Absent when the violation has no position. |
+| `message` | The text of the violation. |
+| `cycle` | For a cycle, the list of `module` and `kinds`. |
+| `specifierLen` | The length of the specifier as written, with its quotes. Reporters use it to underline the specifier. |
+
 A violation `kind` is `dependency`, `module`, `cycle`, `reachability`, `export` or `file`.
 For an `export` violation, `from` is the module. For a `file` violation, `from` is the path of a `package.json`, or the path of a file or folder that the `folder-structure` rule checks. That path can be one that does not exist, such as a required file.
 
@@ -63,7 +76,7 @@ Each module in `modules` has these keys:
 | `orphan` | `true` when no module imports the module and it imports nothing. |
 | `parseError` | The error message, when Oxcruise could not parse the module. |
 | `dependencies`, `dependents` | The dependencies of the module, and the paths of the modules that import it. |
-| `exports` | The exports of the module, with `name`, `kind`, `line`, `col` and `used`. Present with `--symbols`. |
+| `exports` | The exports of the module. Present with `--symbols`. Each export has `name`, `kind`, `isType`, `line`, `col`, `from`, `imported` and `used`. |
 
 Each dependency has these keys:
 
@@ -72,7 +85,7 @@ Each dependency has these keys:
 | `to`, `toKind` | The path and the kind of the target. |
 | `specifier` | The text of the import. |
 | `kinds` | The [dependency kinds](/features/languages#dependency-kinds). |
-| `moduleSystem` | `es6`, `cjs` or `amd`. |
+| `moduleSystem` | `es6`, `cjs`, `amd` or `tsd` (a triple-slash directive). |
 | `line`, `col` | The position of the import. |
 | `circular` | See below. |
 | `cycle` | The cycle that a rule reported, as a list of `module` and `kinds`. |
@@ -82,7 +95,7 @@ Each dependency has these keys:
 A dependency has `circular: true` when it is on an import cycle of the whole graph, including type-only imports. This is true whether or not a rule reports it.
 Its `cycle` and `rules` keys show what the rules reported.
 
-Exports and the names that each import uses are in the output only when Oxcruise extracts [symbols](/features/unused-code#exports-and-symbols).
+Exports and the names that each import uses are in the output only when Oxcruise extracts [symbols](/reference/config#symbols).
 
 ## github
 
@@ -105,7 +118,7 @@ packages/app/src/index.ts -> packages/app/src/lazy.ts [dynamic-import]
 
 ## Plugin reporters
 
-A [plugin](/features/writing-js-plugins) can add a reporter. Select it with `-f plugin/reporter`:
+A [plugin](/features/js-plugins) can add a reporter. Select it with `-f plugin/reporter`:
 
 ```sh
 npx oxcruise -f acme/json-lines

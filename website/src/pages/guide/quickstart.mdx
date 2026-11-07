@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Install Oxcruise, write a config file and run your first check."
+description: "Install Oxcruise, write a config file, run your first check, and use Oxcruise in CI and with coding agents."
 ---
 
 # Quickstart
@@ -31,8 +31,13 @@ To start at other paths, name them:
 npx oxcruise src
 ```
 
-The command exits with code `0` when there are no errors, and with code `1` when there are errors.
-A bad flag or a bad config file gives exit code `2`.
+The command exits with one of these codes:
+
+| Code | Meaning                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ |
+| `0`  | The run found no errors.                                                                                                 |
+| `1`  | The run found errors. Warnings also give `1` when you use `--deny-warnings`, or `--max-warnings` and there are too many. |
+| `2`  | The invocation or the config file is bad.                                                                                |
 
 ## Write a config file
 
@@ -47,7 +52,13 @@ import { defineConfig } from "oxcruise";
 
 export default defineConfig({
   entries: ["src"],
-  categories: { correctness: "error", suspicious: "warn" },
+  categories: {
+    correctness: "error",
+    suspicious: "warn",
+    style: "off",
+    restriction: "off",
+  },
+  forbid: [],
 });
 ```
 
@@ -65,8 +76,98 @@ npx oxcruise --print-config                       # the config after Oxcruise me
 
 See [Output formats](/features/output-formats) for all formats.
 
+## Using Oxcruise in CI
+
+Run Oxcruise in CI to fail a build when a change breaks a rule.
+
+### Handle warnings
+
+By default, warnings do not change the exit code. Two flags change this:
+
+- `--deny-warnings` makes any warning an error.
+- `--max-warnings <N>` makes the run fail when there are more than `N` warnings.
+
+`--quiet` hides warnings from the output. They still count for the two limits.
+
+### GitHub Actions
+
+Use the `github` format. GitHub shows each violation as an annotation on the changed file.
+
+```yaml
+name: oxcruise
+on: [push, pull_request]
+
+jobs:
+  oxcruise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx oxcruise -f github
+```
+
+### A Git hook
+
+A check reads the whole graph, so run it for the project and not for single files.
+This `lefthook.yml` runs Oxcruise before each push:
+
+```yaml
+pre-push:
+  commands:
+    oxcruise:
+      run: npx oxcruise --deny-warnings
+```
+
+### Save the graph as a site
+
+The `--visualize` mode writes a static site with the graph. It does not fail when there are violations. Save the folder as a CI artifact, so reviewers can open it. See [Visualize the graph](/features/visualize).
+
+```sh
+npx oxcruise --visualize=oxcruise-report
+```
+
+### Machine-readable output
+
+The `json` format has the whole graph and all violations. See [Output formats](/features/output-formats).
+
+```sh
+npx oxcruise -f json > oxcruise.json
+```
+
+## Using Oxcruise with coding agents
+
+A coding agent can use Oxcruise to check that its changes keep the architecture of your project.
+Add text like this to the instructions of the agent, for example `AGENTS.md`:
+
+```md
+## Module graph checks
+
+- Run `npx oxcruise` after you change imports or move files.
+- Fix every error. Do not add `oxcruise-ignore` comments unless the user asks.
+- For a machine-readable result, run `npx oxcruise -f json`.
+  Read `violations` for the findings and `summary` for the counts.
+- To see why a rule exists, run `npx oxcruise -f long`.
+- Never edit `oxcruise.config.ts` to hide a violation. Ask the user first.
+```
+
+The `json` format has these top-level keys:
+
+| Key          | Content                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| `version`    | The version of the format.                                                               |
+| `modules`    | Each module, with its dependencies and dependents.                                       |
+| `violations` | Each violation, with `rule`, `level`, `kind`, `from`, `to`, `line`, `col` and `message`. |
+| `summary`    | The counts of errors, warnings, suppressed violations, modules and dependencies.         |
+| `warnings`   | An empty list. Warnings about the config go to stderr.                                   |
+
+The `long` format adds the documentation of each rule to the default output.
+An agent can also write an architecture test. See [Programmatic API](/features/programmatic-api).
+
 ## Next steps
 
-* [Configuration](/guide/configuration) explains every part of the config file.
-* [Rules and categories](/features/rules-and-categories) explains how to switch rules on and off.
-* [CI and other setup](/guide/ci) shows how to run Oxcruise in CI.
+- [Configuration](/guide/configuration) explains every part of the config file.
+- [Rules and categories](/features/rules-and-categories) explains how to switch rules on and off.
+- [Monorepos and nested configs](/guide/monorepos) explains how to use more than one config file.

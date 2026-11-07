@@ -148,7 +148,7 @@ declare_rule! {
     ///   { "path": ["src/components/**/{c}.tsx", "!**/*.{test,stories}.tsx"], "require": "{c}.test.tsx" }
     /// ] }
     /// ```
-    FolderStructure, category = nursery, version = "0.1.0", config = FolderStructureConfig
+    FolderStructure, category = style, version = "0.1.0", config = FolderStructureConfig
 }
 
 /// One glob of `require`.

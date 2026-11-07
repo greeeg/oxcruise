@@ -198,6 +198,7 @@ describe("plugin reporters", () => {
 describe("configs evaluated by the host Node", () => {
   test("a TypeScript config using defineConfig", async () => {
     const dir = project({
+      "package.json": '{ "main": "src/a.ts" }',
       "src/a.ts": "import './b';\n",
       "src/b.ts": "import './a';\n",
       "oxcruise.config.ts": `import { defineConfig } from ${JSON.stringify(defineUrl)};\n\nexport default defineConfig({\n  entries: ["src"],\n  rules: { "circular-dependencies": "warn" },\n});\n`,
@@ -229,6 +230,7 @@ describe("configs evaluated by the host Node", () => {
 
   test("a dependency-cruiser config is only read by `migrate`", async () => {
     const dir = project({
+      "package.json": '{ "main": "src/a.ts" }',
       "src/a.ts": "export {};\n",
       ".dependency-cruiser.cjs":
         "module.exports = { forbidden: [{ name: 'no-lib', severity: 'error', from: { path: '^src' }, to: { path: '^lib' } }] };\n",
@@ -327,7 +329,7 @@ describe("cruise() with symbols", () => {
       "src/repo/db.ts":
         "export const helper = () => 1;\nexport const dead = 2;\nexport enum Color { Red, Green }\n",
       "src/repo/other.ts": 'import * as db from "./db";\nconsole.log(db.helper);\n',
-      ".oxcruiserc.json": '{ "entries": ["src"] }',
+      ".oxcruiserc.json": '{ "entries": ["src"], "rules": { "unused-exports": "off" } }',
     });
 
   test("exports, usage and importers", async () => {

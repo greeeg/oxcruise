@@ -11,7 +11,7 @@ const out = process.argv[2];
 if (!out) throw new Error("usage: rules-md.mjs <website/src>");
 const rules = JSON.parse(readFileSync(0, "utf8"));
 const byCategory = Map.groupBy(rules, (r) => r.category);
-const order = ["correctness", "suspicious", "style", "restriction", "nursery"];
+const order = ["correctness", "suspicious", "style", "restriction"];
 const categories = order.filter((c) => byCategory.has(c));
 // what a category does when the config does not mention it
 const defaults = { correctness: "error", suspicious: "warn" };

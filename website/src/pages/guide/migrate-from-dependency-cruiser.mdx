@@ -1,6 +1,6 @@
 ---
 title: "Migrate from dependency-cruiser"
-description: "Convert a dependency-cruiser config with oxcruise --migrate and learn what changes."
+description: "Convert a dependency-cruiser config with oxcruise --migrate, and see what changes and how Oxcruise compares."
 ---
 
 # Migrate from dependency-cruiser
@@ -107,10 +107,10 @@ Two of the rules are `off` by default: `optional-dependencies` and `peer-depende
 
 * **Globs, not regexes.** The `regex` crate matches rules in linear time, so Oxcruise needs no guard for unsafe regexes. Globs have `*`, `**`, `?`, `[ab]`, `{a,b}` and `{name}` captures.
 * **One report for each cycle.** Oxcruise reports a cycle once and, by default, only when it exists at runtime. A compiler erases `import type`.
-* **Ignore comments exist.** See [Inline ignore comments](/features/inline-ignore-comments).
+* **Ignore comments exist.** See [Ignore violations](/features/ignore#ignore-violations).
 * **Exit codes.** Errors give `1`. `--deny-warnings` with warnings, and `--max-warnings N` when exceeded, also give `1`. A bad config gives `2`. There is no `--compat`.
 * **Output formats.** They are `default`, `long`, `json`, `github`, `text` and plugin reporters. The `--visualize` mode replaces `dot`, `mermaid` and `archi`: it writes an interactive site (see [Visualize the graph](/features/visualize)). The `json` format of Oxcruise has a different shape from the `json` format of dependency-cruiser. A tool that reads the old output must read the new format. See [Output formats](/features/output-formats).
-* **Dual packages.** Oxcruise resolves them by import syntax, as Node.js does. See [Differences](/migration/differences).
+* **Dual packages.** Oxcruise resolves them by import syntax, as Node.js does. See [Conformance with dependency-cruiser](#conformance-with-dependency-cruiser).
 * **Merged syntax kinds.** A file that both imports and re-exports one module has both kinds on that dependency.
 * **No TypeScript install.** Oxcruise parses TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro itself.
 * **Always extracted.** They are JSDoc imports, triple-slash directives, and `new URL("./x", import.meta.url)` and `new Worker(new URL(...))`.
@@ -126,4 +126,74 @@ npx oxcruise src -f json > after.json
 ```
 
 Compare the modules and the dependencies in the two files.
-The `tasks/conformance` folder of the repository does this against dependency-cruiser 18.7. See [Differences](/migration/differences).
+The `tasks/conformance` folder of the repository does this against dependency-cruiser 18.7. See [Conformance with dependency-cruiser](#conformance-with-dependency-cruiser).
+
+## Conformance with dependency-cruiser
+
+The repository has a conformance task that compares Oxcruise with dependency-cruiser 18.7.
+This section explains what the task checks, the current result and the differences that are on purpose.
+
+### What the task does
+
+Run `just conformance` (`tasks/conformance/run.ts`). For each target, the task:
+
+1. Generates a dependency-cruiser config and runs dependency-cruiser 18.7.0 with it.
+2. Runs `oxcruise --migrate` on that config, to a `.json` file, and then runs `oxcruise -f json` with the migrated config. A script maps the output to the shape of dependency-cruiser. This tests the migration too. For `depcruise-src` and `depcruise-tools`, the script then replaces `ignorePatterns` by hand, because the `exclude` regexes of these targets do not convert to globs. The migration of these two targets is not fully tested.
+
+Then it compares:
+
+* the set of modules
+* the set of dependencies (`from → resolved (specifier)`)
+* the classification types of each dependency (`local`, `npm-dev`, `aliased-*`, `type-only` and others)
+* the syntax types of each dependency (`import`, `require`, `dynamic-import` and others)
+* the module system of each dependency
+
+The task does **not** compare violations. The rule language of Oxcruise is much smaller.
+`migrate` drops the rules that use conditions such as `circular`, `orphan` and `dependencyTypes`, with a warning.
+The own tests of Oxcruise cover the behavior of the rules.
+
+A difference that is not in `tasks/conformance/deviations.json`, with its reason, fails the run.
+
+The targets are the test fixtures `es6`, `cjs`, `amd`, `exotic-require`, `donotfollow` and `maxDepth` of dependency-cruiser.
+They also include its own `src/` and `tools/` with `bin/` as real code.
+
+### Current result
+
+All targets are conformant, with the documented differences below.
+
+```text
+ok   es6              modules 5/5  edges 3/3
+ok   cjs              modules 36/36  edges 34/34
+ok   amd              modules 24/25  edges 29/29  (+3 documented)
+ok   exotic-require   modules 2/2  edges 1/1  (+1 documented)
+ok   donotfollow / max-depth-1
+ok   depcruise-src    modules 229/271  edges 516/673  (+231 documented)
+ok   depcruise-tools  modules 253/301  edges 592/727  (+215 documented)
+```
+
+### Intentional differences
+
+1. **Dual ESM and CJS packages** resolve by import syntax. The dependency exists in both tools. Only the file inside `node_modules` differs, for example `acorn.mjs` and `acorn.js`.
+2. **Merged syntax kinds.** `import` and `export … from` of the same module give `[export, import]`. dependency-cruiser keeps `[import]`.
+3. **AMD ids without `./`** do not resolve against a requirejs `baseUrl` and `paths` config. Oxcruise does not resolve the id `sub/local-module-in-drag`, but dependency-cruiser does.
+4. **`new URL(…, import.meta.url)` dependencies** are an addition of Oxcruise. Oxcruise always extracts them. The report lists them, and the modules that only they reach, as `url-dependency-only-in-oxcruise`.
+5. **JSDoc imports** are always extracted. dependency-cruiser detects them only with `detectJSDocImports` and an installed `typescript`. The conformance run has no `typescript`, so they show as `jsdoc-import-only-in-oxcruise`.
+   An import that is also a JSDoc import gets the extra kinds `jsdoc` and `type-only`.
+6. **`exoticRequireStrings`** is part of `calls`, with one kind: `call`. Oxcruise counts a function in `calls` as an ES import. The exception is a name that starts with `require`.
+   dependency-cruiser treats every exotic require string as a CommonJS require. The report shows `module-system-differs`.
+
+### Found by the conformance run
+
+The run found these problems. Each one now has a regression test.
+
+* AMD `require([…])` is `amd-define`, and not `amd-require`.
+* Oxcruise reported a cycle once for each dependency. It now reports a cycle once.
+* A dependency in `dependencies` whose `@types/*` package was in `devDependencies` was `npm` and `npm-dev`. This caused a false `duplicate-packages` violation.
+* A package without `main` resolved to `index.d.ts` and not to `index.js`.
+* `new URL(".", import.meta.url)` was a dependency on a directory.
+
+### Not covered
+
+* The task skips the `ts`, `ts-types` and `vue` fixtures. dependency-cruiser needs `typescript` and `@vue/compiler-sfc` to parse them, and the task does not install them.
+* Large real repositories, such as typescript-eslint and date-fns, were not run. This needs a clone and an install of third-party repositories.
+* The task did not compare the migrated own config of dependency-cruiser (`.dependency-cruiser.mjs`) with its own run. Most of its rules use conditions that Oxcruise drops on purpose.

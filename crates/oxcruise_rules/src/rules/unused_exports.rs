@@ -98,7 +98,7 @@ declare_rule! {
     /// ### Fix
     ///
     /// This rule is fixable. `oxcruise --fix` removes the `export` keyword, or removes the name from an export list.
-    UnusedExports, category = nursery, version = "0.1.0", config = UnusedExportsConfig
+    UnusedExports, category = suspicious, version = "0.1.0", config = UnusedExportsConfig
 }
 
 #[derive(Debug, Default)]
