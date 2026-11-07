@@ -108,7 +108,7 @@ try {
   write("src/c.ts", "export {};\n");
   write(
     "oxcruise.config.ts",
-    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "circular-dependencies": "warn", "smoke/where": "warn" },\n});\n`,
+    `import { defineConfig } from "oxcruise";\n(globalThis as any).__configPid = process.pid;\n\nexport default defineConfig({\n  entries: ["src"],\n  jsPlugins: ["./plugin.ts"],\n  rules: { "circular-dependencies": "warn", "smoke/where": "warn", "unused-packages": "off" },\n});\n`,
   );
   write(
     "plugin.ts",

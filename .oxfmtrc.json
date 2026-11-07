@@ -3,6 +3,7 @@
   "ignorePatterns": [
     "**/fixtures/**",
     "**/*.generated.ts",
+    "website/src/pages.gen.ts",
     "apps/oxcruise/src-js/bindings.js",
     "apps/oxcruise/src-js/bindings.d.ts",
     "tasks/conformance/.cache/**",
