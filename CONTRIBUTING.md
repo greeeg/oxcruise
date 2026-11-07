@@ -325,6 +325,24 @@ identical (it must not depend on the thread count).
 CI (`.github/workflows/ci.yml`) runs on Linux, macOS and Windows for the Rust checks, and on Linux for the Node, generated-file,
 website and visualizer checks.
 
+## Releases
+
+A release is a GitHub release. Publishing it runs `.github/workflows/publish.yml`, which builds the binding for each platform
+and publishes the npm packages. The tag is the version with no prefix (`0.2.0`), and the workflow fails if any
+`npm/*/package.json` has a different version.
+
+1. Set the new version in the root `Cargo.toml` and in every `npm/*/package.json`. Run `cargo check` to update `Cargo.lock`.
+2. Run `just ready`. Commit the change with the version as the message (`0.3.0`), and merge it into `master`.
+3. Copy [.github/RELEASE_TEMPLATE.md](.github/RELEASE_TEMPLATE.md) to `release-notes.md` and fill it in. Use
+   `git log PREVIOUS..HEAD` for the changes, and delete the sections and comments that do not apply.
+4. Create the release. This creates the tag and starts the publish workflow:
+
+   ```sh
+   gh release create 0.3.0 --target master --title 0.3.0 --notes-file release-notes.md
+   ```
+
+5. Approve the `publish` environment in GitHub Actions when the build jobs finish.
+
 ## Reporting bugs
 
 Open an issue with the bug report template: the command you ran, the config, the output, and `oxcruise --version`. A small
