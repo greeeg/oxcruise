@@ -10,7 +10,7 @@ Follow website/STYLE.md. Back every speed claim with numbers.
 
 ### Features
 
-<!-- Bullet points per feature. If it's a breaking change, should be prefixed by [Breaking] -->
+<!-- Bullet points per feature. If it's a breaking change, should be in a sub-section **Breaking changes** -->
 
 ### Bug fixes
 
