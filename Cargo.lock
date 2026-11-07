@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "insta",
@@ -1266,7 +1266,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_config"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "insta",
  "oxcruise_core",
@@ -1280,7 +1280,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags",
  "rustc-hash",
@@ -1291,7 +1291,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_extract"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "insta",
@@ -1309,7 +1309,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_graph"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "globset",
@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_macros"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1336,7 +1336,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_report"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "insta",
  "oxcruise_config",
@@ -1350,7 +1350,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_resolve"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "globset",
  "ignore",
@@ -1364,7 +1364,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_rules"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags",
  "criterion",
@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "oxcruise_visualize"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "insta",
  "oxcruise_config",
