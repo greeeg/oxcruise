@@ -5,12 +5,13 @@ description: "Add rules and reporters that you write in JavaScript or TypeScript
 
 # JS plugins
 
-A plugin is a JS or TS module that adds rules or reporters. This page shows how to use a plugin.
-To write one, see [Write a JS plugin](/features/writing-js-plugins).
+A plugin is a JS or TS module that adds rules or reporters. This page shows how to use a plugin and how to write one.
 
 A plugin sees the finished graph. Oxcruise makes one batched call for each run, and not one call for each file.
 
-## Load a plugin
+## Use a plugin
+
+### Load a plugin
 
 List the plugin in `jsPlugins`:
 
@@ -30,7 +31,7 @@ export default defineConfig({
 });
 ```
 
-## Configure the rules
+### Configure the rules
 
 The name of a plugin rule is `plugin/rule`. Configure it as you configure a built-in rule:
 
@@ -49,7 +50,7 @@ An `overrides` entry cannot change a plugin rule. Oxcruise stops the run with an
 If a rule declares a `meta.schema`, Oxcruise checks the options like it checks a built-in rule.
 An option that is not in the schema, or that has the wrong type, stops the run. The message names the rule and the option.
 
-## Use a reporter
+### Use a reporter
 
 Select a reporter of a plugin with `-f plugin/reporter`:
 
@@ -57,9 +58,120 @@ Select a reporter of a plugin with `-f plugin/reporter`:
 npx oxcruise -f acme/json-lines
 ```
 
+## Write a plugin
+
+A plugin exports the result of `definePlugin`. It can have rules, reporters and entry points.
+
+
+```ts
+// tools/acme-plugin.ts
+import { definePlugin } from "oxcruise/plugin";
+
+export default definePlugin({
+  meta: { name: "acme" },
+  rules: {
+    "max-fan-out": {
+      meta: { docs: "Limit local fan-out", schema: { max: { type: "number", default: 15 } } },
+      create(ctx) {
+        return {
+          module(m) {
+            const n = m.dependencies.filter((d) => d.is("local")).length;
+            if (n > ctx.options.max) ctx.report({ module: m, message: `fan-out ${n} > ${ctx.options.max}` });
+          },
+        };
+      },
+    },
+  },
+  reporters: {
+    "json-lines": (result) => result.violations.map((v) => JSON.stringify(v)).join("\n") + "\n",
+  },
+});
+```
+
+Load the plugin with [`jsPlugins`](#load-a-plugin).
+
+### Write a rule
+
+A rule has a `create` function. It receives a context and returns visitors.
+
+| Visitor | Called |
+|---|---|
+| `before(graph)` | Once, before the other visitors. |
+| `module(m)` | For each module. |
+| `dependency(d)` | For each dependency. |
+| `graph(g)` | Once, with the whole graph. |
+| `after(graph)` | Once, after the other visitors. |
+
+The context has these members:
+
+| Member | Meaning |
+|---|---|
+| `ctx.options` | The options of the rule, with the defaults of `meta.schema` applied. |
+| `ctx.graph` | The graph. |
+| `ctx.ruleName` | The full name of the rule, such as `acme/max-fan-out`. |
+| `ctx.level` | The level of the rule: `error` or `warn`. |
+| `ctx.report({ … })` | Reports a violation on a `module`, a `dependency` or an `export`, with a `message`. |
+
+### The graph
+
+| Type | Members |
+|---|---|
+| `Graph` | `modules`, `edges`, `module(path)`, `cycles()`, `reach(from)`, `packages`, `folders` |
+| `Module` | `path`, `kind`, `package`, `dependencies`, `dependents`, `dependentCount`, `exports`, `is(kind)` |
+| `Dependency` | `from`, `to`, `specifier`, `kinds`, `is(kind)`, `loc`, `typeOnly`, `circular`, `cycle`, `unresolved`, `names` |
+
+Oxcruise sorts `Module.dependencies` by target path, and then by specifier.
+
+### Symbols
+
+To read exports, declare that the plugin needs symbols:
+
+```ts
+export default definePlugin({
+  meta: { name: "acme" },
+  needs: ["symbols"],
+  rules: { /* … */ },
+});
+```
+
+Then `Module.exports`, `Dependency.names` and `graph.importersOf(module, name)` have data.
+Check `graph.symbols` to see whether Oxcruise extracted them.
+An export has `used`, which Oxcruise computes over the shared entry points. It does not depend on the options of a rule.
+
+### Entry points
+
+A plugin can declare globs of modules that a tool loads without an import:
+
+```ts
+export default definePlugin({
+  meta: { name: "acme" },
+  entries: ["**/*.stories.tsx"],
+});
+```
+
+`Export.used`, `unused-exports` and `unused-modules` treat these modules as entry points.
+
+### The plugin name
+
+A plugin must have a `meta.name`. It must start with a lowercase letter or a digit, and it can contain lowercase letters, digits, `.`, `_` and `-`.
+The name is the prefix of the rules and reporters of the plugin, for example `acme/max-fan-out`.
+When two plugins have the same name, Oxcruise stops with an error. Give one plugin an alias in `jsPlugins` to solve this.
+
+Name a rule after what it reports, as the built-in rules do, for example `max-fan-out` and `unused-exports`. Do not start the name with `no-`.
+
+### Options schema
+
+`meta.schema` lists the options of a rule with their `type` and `default`. The `type` is the result of `typeof`, or `array` for a list.
+A schema cannot list `level`. The config reserves this name for the level of the rule, and `ctx.options` does not contain it.
+
+### Write a reporter
+
+A reporter is a function. It receives the `json` result of a run and returns a string. Select it with `-f acme/json-lines`.
+
 ## Limits
+
 
 * The standalone binary has no JS runtime. With `jsPlugins` it stops with a message to use the npm package.
 * Oxcruise runs TypeScript plugins and configs with the native type stripping of Node.js. This needs Node.js 22.18 or later.
 * A plugin that throws, or that reports a malformed result, stops the run with exit code `2`.
-* [Ignore comments](/features/inline-ignore-comments) apply to plugin rules.
+* [Ignore comments](/features/ignore#ignore-violations) apply to plugin rules.

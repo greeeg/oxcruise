@@ -7,7 +7,7 @@ Simplified Technical English rules in [STYLE.md](STYLE.md).
 
 ```
 vocs.config.ts            title, sidebar (the five groups of the Oxlint docs), top navigation
-src/pages/                the pages (MDX): index, guide/, features/, migration/, reference/
+src/pages/                the pages (MDX): index, guide/, features/, reference/
 src/rules-sidebar.generated.ts   the sidebar entries of the rule pages (generated)
 public/                   logo and icon
 ```

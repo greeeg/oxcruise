@@ -156,9 +156,8 @@ See [JS plugins](https://github.com/greeeg/oxcruise/blob/master/website/src/page
 ## Coming from dependency-cruiser
 
 Run `npx oxcruise --migrate`. It reads your `.dependency-cruiser.*` file, writes `oxcruise.config.ts`, and lists what it could
-not convert. [Migrate from dependency-cruiser](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/migration/dependency-cruiser.mdx) explains the mapping, and
-[Differences](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/migration/differences.mdx) lists where Oxcruise behaves differently (it is tested against
-dependency-cruiser 18.7).
+not convert. [Migrate from dependency-cruiser](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/migrate-from-dependency-cruiser.mdx) explains the mapping and lists
+where Oxcruise behaves differently (it is tested against dependency-cruiser 18.7).
 
 ## Documentation
 
@@ -166,12 +165,9 @@ The documentation site is in [`website/`](https://github.com/greeeg/oxcruise/tre
 on GitHub:
 
 - Guide: [Quickstart](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/quickstart.mdx), [Configuration](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/configuration.mdx),
-  [Monorepos](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/monorepos.mdx), [CI](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/ci.mdx),
-  [Coding agents](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/coding-agents.mdx)
-- Features: [Forbid rules](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/forbid-rules.mdx),
-  [Layers and visibility](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/layers-and-visibility.mdx),
-  [Unused code](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/unused-code.mdx), [Output formats](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/output-formats.mdx),
-  [Inline ignore comments](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/inline-ignore-comments.mdx)
+  [Monorepos](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/guide/monorepos.mdx)
+- Features: [Output formats](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/output-formats.mdx),
+  [Ignore code](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/features/ignore.mdx)
 - Reference: [CLI](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/reference/cli.mdx), [config](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/reference/config.mdx),
   [rules](https://github.com/greeeg/oxcruise/blob/master/website/src/pages/reference/rules/index.mdx)
 

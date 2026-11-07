@@ -1,6 +1,6 @@
 # Conformance
 
-Diffs oxcruise against dependency-cruiser 18.7.0. See [the Differences page](../../website/src/pages/migration/differences.mdx) for what is
+Diffs oxcruise against dependency-cruiser 18.7.0. See [the migration guide](../../website/src/pages/guide/migrate-from-dependency-cruiser.mdx#conformance-with-dependency-cruiser) for what is
 compared, the current result and the documented deviations.
 
 ```sh

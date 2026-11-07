@@ -14,6 +14,8 @@ npx oxcruise --visualize
 Oxcruise writes the site to `oxcruise-report` in the working directory. To choose another folder, write `--visualize=DIR`.
 Open `index.html` in a browser. The site needs no server and no network.
 
+To see an output before you run the mode, open the [example site](https://cal-diy-visualizer.oxcruise.dev/). It shows the architecture of [Cal.com](https://github.com/calcom/cal.com).
+
 The mode accepts the same input flags as a check: paths, `-c`, `--ignore-pattern`, `--max-depth`, `--production`, `--symbols` and `--threads`.
 It refuses the flags that change the report or the exit code: `-f`, `--fix`, `--quiet`, `--max-warnings` and `--deny-warnings`.
 The mode shows the graph, so it exits with `0` when the project has violations.

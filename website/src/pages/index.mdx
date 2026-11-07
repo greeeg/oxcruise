@@ -5,18 +5,14 @@ description: "Oxcruise checks and draws the module graph of a JS or TS project."
 
 # Oxcruise
 
-Oxcruise checks the module graph of a JavaScript or TypeScript project and draws it.
-It is an alternative to [dependency-cruiser](https://github.com/sverweij/dependency-cruiser).
-It uses the [oxc](https://oxc.rs) toolchain.
-
-Run it in your project:
+Oxcruise validates and visualises your JS/TS module graph. A [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) alternative built on the [oxc](https://oxc.rs) toolchain.
 
 ```sh
+# Requires Node.js 22.18 or later
 npx oxcruise src
 ```
 
 When a rule finds a violation, Oxcruise shows the source line, the dependency and the rule.
-This output is from the `tests/fixtures/monorepo` fixture of the repository:
 
 ```text
 error[circular-dependencies]: circular dependency: packages/app/src/cycle-a.ts → packages/app/src/cycle-b.ts → packages/app/src/cycle-a.ts
@@ -32,22 +28,33 @@ error[circular-dependencies]: circular dependency: packages/app/src/cycle-a.ts �
   1 suppressed by comments
 ```
 
+## See your architecture
+
+The `--visualize` mode writes an interactive site with a map of your modules, a dependency graph and a list of violations.
+
+```sh
+npx oxcruise --visualize
+```
+
+[Try an example output](https://cal-diy-visualizer.oxcruise.dev/). It shows the architecture of [Cal.com](https://github.com/calcom/cal.com).
+
 ## Why use Oxcruise
 
-* **Fast.** Oxcruise reads, parses, extracts and resolves files in parallel on every core. It searches for cycles in each group of modules that import each other.
-* **One parser.** It supports TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro. It knows exactly which imports are type-only. You do not install `typescript`.
-* **Monorepo aware.** Each module uses its nearest `tsconfig.json`. Oxcruise finds workspace packages and `#imports`.
-* **Good defaults.** Rules are in categories. The `correctness` category is on as `error`, and the `suspicious` category is on as `warn`.
-* **A small config.** A glob is the only pattern language. A `forbid` rule says what you mean, with `{name}` captures and `!` negation.
-* **Plugins in TypeScript.** A plugin sees the finished graph. A plugin can also add a reporter.
-* **Unused code.** Rules find unused exports, dependencies and files, as [Knip](https://knip.dev) does.
-* **A migration path.** The `oxcruise --migrate` command converts a dependency-cruiser config file.
+- **Fast.** Oxcruise reads, parses, extracts and resolves files in parallel on every core. It searches for cycles in each group of modules that import each other.
+- **One parser.** It supports TS, TSX, MTS, CTS, JSX, Vue, Svelte and Astro. It knows exactly which imports are type-only. You do not install `typescript`.
+- **Monorepo aware.** Each module uses its nearest `tsconfig.json`. Oxcruise finds workspace packages and `#imports`.
+- **Good defaults.** Rules are in categories. The `correctness` category is on as `error`, and the `suspicious` category is on as `warn`.
+- **A small config.** A glob is the only pattern language. A `forbid` rule says what you mean, with `{name}` captures and `!` negation.
+- **Plugins in TypeScript.** A plugin sees the finished graph. A plugin can also add a reporter.
+- **Unused code.** Rules find unused exports, dependencies and files, as [Knip](https://knip.dev) does.
+- **A map of your code.** The `--visualize` mode writes a static site that you can open in a browser. It needs no server.
+- **A migration path.** The `oxcruise --migrate` command converts a dependency-cruiser config file.
 
 ## Where to go next
 
-* New to Oxcruise? Start with the [Quickstart](/guide/quickstart).
-* To change the rules, read [Configuration](/guide/configuration) and [Rules and categories](/features/rules-and-categories).
-* To run Oxcruise in CI, read [CI and other setup](/guide/ci).
-* To move from dependency-cruiser, read [Migrate from dependency-cruiser](/migration/dependency-cruiser).
-* For every flag, key and rule, see the [CLI](/reference/cli), [config](/reference/config) and [rules](/reference/rules) references.
-
+- New to Oxcruise? Start with the [Quickstart](/guide/quickstart).
+- To change the rules, read [Configuration](/guide/configuration) and [Rules and categories](/features/rules-and-categories).
+- To draw the graph, read [Visualize the graph](/features/visualize).
+- To run Oxcruise in CI, read [Using Oxcruise in CI](/guide/quickstart#using-oxcruise-in-ci).
+- To move from dependency-cruiser, read [Migrate from dependency-cruiser](/guide/migrate-from-dependency-cruiser).
+- For every flag, key and rule, see the [CLI](/reference/cli), [config](/reference/config) and [rules](/reference/rules) references.

@@ -134,7 +134,7 @@ export, and instead of 200+ plugins evaluating tool configs there is one small J
 
 * Two `oxc_resolver` instances share config: ESM (`import`, `node`, `default`) and CJS (`require`, ...). A
   dependency written with `require()`/`import =` uses the CJS one, everything else the ESM one, like Node. This is
-  a deliberate difference from dependency-cruiser, which merges the conditions (see [Differences](website/src/pages/migration/differences.mdx)).
+  a deliberate difference from dependency-cruiser, which merges the conditions (see [Migrate from dependency-cruiser](website/src/pages/guide/migrate-from-dependency-cruiser.mdx#what-behaves-differently)).
 * Extensions are explicit and ordered source-first, declaration files last, so a package with no `main` resolves to
   `index.js`, not `index.d.ts`. They are never inferred from installed tooling (#988).
 * `resolve.conditions: ["source"]` puts the `source` condition first so workspace packages resolve to source, not `dist`.
@@ -146,8 +146,7 @@ export, and instead of 200+ plugins evaluating tool configs there is one small J
 ### Configuration
 
 One file, found in the working directory: `oxcruise.config.ts` or `.oxcruiserc.json`. The user guide is in the
-website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos](website/src/pages/guide/monorepos.mdx),
-[Forbid rules](website/src/pages/features/forbid-rules.mdx) and the generated
+website: [Configuration](website/src/pages/guide/configuration.mdx), [Monorepos](website/src/pages/guide/monorepos.mdx) and the generated
 [config reference](website/src/pages/reference/config.mdx). Design notes:
 
 * **Schema.** `OxcruiseConfig` (serde + schemars, `deny_unknown_fields`) is the source of truth. The schema
@@ -191,9 +190,8 @@ its edges carries the suppression comment.
 
 ### JS plugins
 
-Plugins see the **finished graph**, so there is one batched call per run, not one per file. The user documentation is in
-[JS plugins](website/src/pages/features/js-plugins.mdx) and
-[Write a JS plugin](website/src/pages/features/writing-js-plugins.mdx); the types are in
+Plugins see the **finished graph**, so there is one batched call per run, not one per file. The user documentation, including how to write a plugin, is in
+[JS plugins](website/src/pages/features/js-plugins.mdx); the types are in
 `apps/oxcruise/src-js/plugins/types.ts`.
 
 * A rule that declares `meta.schema` gets the same checking as a built-in rule.

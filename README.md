@@ -156,9 +156,8 @@ See [JS plugins](website/src/pages/features/js-plugins.mdx) and the [programmati
 ## Coming from dependency-cruiser
 
 Run `npx oxcruise --migrate`. It reads your `.dependency-cruiser.*` file, writes `oxcruise.config.ts`, and lists what it could
-not convert. [Migrate from dependency-cruiser](website/src/pages/migration/dependency-cruiser.mdx) explains the mapping, and
-[Differences](website/src/pages/migration/differences.mdx) lists where Oxcruise behaves differently (it is tested against
-dependency-cruiser 18.7).
+not convert. [Migrate from dependency-cruiser](website/src/pages/guide/migrate-from-dependency-cruiser.mdx) explains the mapping and lists
+where Oxcruise behaves differently (it is tested against dependency-cruiser 18.7).
 
 ## Documentation
 
@@ -166,12 +165,9 @@ The documentation site is in [`website/`](website) and is built with [Vocs](http
 on GitHub:
 
 - Guide: [Quickstart](website/src/pages/guide/quickstart.mdx), [Configuration](website/src/pages/guide/configuration.mdx),
-  [Monorepos](website/src/pages/guide/monorepos.mdx), [CI](website/src/pages/guide/ci.mdx),
-  [Coding agents](website/src/pages/guide/coding-agents.mdx)
-- Features: [Forbid rules](website/src/pages/features/forbid-rules.mdx),
-  [Layers and visibility](website/src/pages/features/layers-and-visibility.mdx),
-  [Unused code](website/src/pages/features/unused-code.mdx), [Output formats](website/src/pages/features/output-formats.mdx),
-  [Inline ignore comments](website/src/pages/features/inline-ignore-comments.mdx)
+  [Monorepos](website/src/pages/guide/monorepos.mdx)
+- Features: [Output formats](website/src/pages/features/output-formats.mdx),
+  [Ignore code](website/src/pages/features/ignore.mdx)
 - Reference: [CLI](website/src/pages/reference/cli.mdx), [config](website/src/pages/reference/config.mdx),
   [rules](website/src/pages/reference/rules/index.mdx)
 
